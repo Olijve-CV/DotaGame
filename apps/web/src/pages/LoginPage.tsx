@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import type { Language, UserProfile } from "@dotagame/contracts";
-import { login, register } from "../lib/api";
+import type { HeroAvatarOption, Language, UserProfile } from "@dotagame/contracts";
+import { HeroAvatarPicker } from "../components/HeroAvatarPicker";
+import { fetchHeroAvatars, login, register } from "../lib/api";
 
 type AuthMode = "login" | "register";
 type FieldName = "email" | "password" | "name";
@@ -23,8 +24,8 @@ const labels = {
         body: "注册后会自动生成个人资料，后续扩展历史记录也更顺。"
       },
       {
-        title: "中英双语",
-        body: "在双语内容流里切换，不需要重复配置你的账号。"
+        title: "英雄头像",
+        body: "头像可以从全英雄里挑，也可以交给系统随机分配。"
       }
     ],
     loginTab: "登录",
@@ -42,7 +43,11 @@ const labels = {
     nameLabel: "显示名称",
     namePlaceholder: "你希望别人怎么称呼你",
     nameHintPrefix: "不填写时默认使用",
-    nameHintFallback: "邮箱前缀",
+    nameHintFallback: "你的邮箱",
+    avatarTitle: "选择你的英雄头像",
+    avatarDescription: "现在就能自定义，不选则由系统随机分配。",
+    avatarRandomPreview: "随机分配",
+    avatarLoading: "正在载入英雄头像...",
     submitLogin: "立即登录",
     submitRegister: "创建并进入",
     pendingLogin: "正在登录...",
@@ -58,6 +63,7 @@ const labels = {
       INVALID_PAYLOAD: "提交信息不完整，请检查输入内容。",
       INVALID_CREDENTIALS: "邮箱或密码不正确。",
       EMAIL_EXISTS: "这个邮箱已经注册过了。",
+      INVALID_AVATAR: "这个头像不可用，请重新选择。",
       LOGIN_FAILED: "登录失败，请稍后再试。",
       REGISTER_FAILED: "注册失败，请稍后再试。",
       REQUEST_FAILED: "请求失败，请检查网络后重试。"
@@ -77,8 +83,8 @@ const labels = {
         body: "Your profile is ready as soon as you sign up, so future history features can build on it."
       },
       {
-        title: "Bilingual ready",
-        body: "Switch between Chinese and English content without reconfiguring your account."
+        title: "Hero avatars",
+        body: "Choose from the full hero roster, or let the system assign one for you."
       }
     ],
     loginTab: "Login",
@@ -97,6 +103,10 @@ const labels = {
     namePlaceholder: "How should we call you?",
     nameHintPrefix: "Leave it blank and we will use",
     nameHintFallback: "your email address",
+    avatarTitle: "Choose your hero avatar",
+    avatarDescription: "Customize it now, or let the system assign a random hero for you.",
+    avatarRandomPreview: "Random pick",
+    avatarLoading: "Loading hero avatars...",
     submitLogin: "Sign in",
     submitRegister: "Create account",
     pendingLogin: "Signing in...",
@@ -112,6 +122,7 @@ const labels = {
       INVALID_PAYLOAD: "Your form is incomplete. Please review the fields.",
       INVALID_CREDENTIALS: "Email or password is incorrect.",
       EMAIL_EXISTS: "This email is already registered.",
+      INVALID_AVATAR: "This avatar is unavailable. Please choose another one.",
       LOGIN_FAILED: "Unable to sign in right now. Please try again.",
       REGISTER_FAILED: "Unable to create the account right now. Please try again.",
       REQUEST_FAILED: "Request failed. Check your connection and retry."
@@ -148,10 +159,7 @@ function validateForm(
   return errors;
 }
 
-function resolveRequestError(
-  requestError: unknown,
-  text: (typeof labels)["en-US"]
-) {
+function resolveRequestError(requestError: unknown, text: (typeof labels)["en-US"]) {
   const code = requestError instanceof Error ? requestError.message : "REQUEST_FAILED";
   return text.errors[code as keyof typeof text.errors] ?? text.errors.REQUEST_FAILED;
 }
@@ -167,14 +175,50 @@ export function LoginPage(props: {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [selectedAvatarId, setSelectedAvatarId] = useState<number | null>(null);
+  const [avatarOptions, setAvatarOptions] = useState<HeroAvatarOption[]>([]);
+  const [isLoadingAvatars, setIsLoadingAvatars] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const suggestedName = useMemo(() => {
-    const prefix = email.split("@")[0]?.trim();
-    return prefix || text.nameHintFallback;
+    const normalizedEmail = email.trim().toLowerCase();
+    return normalizedEmail || text.nameHintFallback;
   }, [email, text.nameHintFallback]);
+  const selectedAvatar = useMemo(
+    () => avatarOptions.find((item) => item.id === selectedAvatarId) ?? null,
+    [avatarOptions, selectedAvatarId]
+  );
+
+  useEffect(() => {
+    if (mode !== "register" || avatarOptions.length > 0 || isLoadingAvatars) {
+      return;
+    }
+
+    let active = true;
+    setIsLoadingAvatars(true);
+    fetchHeroAvatars()
+      .then((items) => {
+        if (active) {
+          setAvatarOptions(items);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setError(text.errors.REQUEST_FAILED);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setIsLoadingAvatars(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [avatarOptions.length, isLoadingAvatars, mode, text.errors.REQUEST_FAILED]);
 
   if (props.token) {
     return <Navigate to="/profile" replace />;
@@ -225,7 +269,8 @@ export function LoginPage(props: {
         const result = await register({
           email: normalizedEmail,
           password: password.trim(),
-          name: name.trim() || normalizedEmail
+          name: name.trim() || normalizedEmail,
+          avatarHeroId: selectedAvatarId ?? undefined
         });
         props.onAuth(result.token, result.user);
         navigate("/profile", { replace: true });
@@ -318,20 +363,55 @@ export function LoginPage(props: {
           </label>
 
           {mode === "register" && (
-            <label className="auth-field">
-              <span className="auth-label">{text.nameLabel}</span>
-              <input
-                aria-invalid={Boolean(fieldErrors.name)}
-                autoComplete="nickname"
-                placeholder={text.namePlaceholder}
-                value={name}
-                onChange={(event) => handleFieldChange("name", event.target.value)}
-              />
-              <span className="auth-note">
-                {text.nameHintPrefix} <strong>{suggestedName}</strong>
-              </span>
-              {fieldErrors.name && <span className="field-error">{fieldErrors.name}</span>}
-            </label>
+            <>
+              <label className="auth-field">
+                <span className="auth-label">{text.nameLabel}</span>
+                <input
+                  aria-invalid={Boolean(fieldErrors.name)}
+                  autoComplete="nickname"
+                  placeholder={text.namePlaceholder}
+                  value={name}
+                  onChange={(event) => handleFieldChange("name", event.target.value)}
+                />
+                <span className="auth-note">
+                  {text.nameHintPrefix} <strong>{suggestedName}</strong>
+                </span>
+                {fieldErrors.name && <span className="field-error">{fieldErrors.name}</span>}
+              </label>
+
+              <section className="auth-avatar-section">
+                <div className="auth-avatar-header">
+                  <div>
+                    <span className="auth-label">{text.avatarTitle}</span>
+                    <p className="auth-note">{text.avatarDescription}</p>
+                  </div>
+                  <div className="avatar-preview-card">
+                    {selectedAvatar ? (
+                      <>
+                        <img alt={selectedAvatar.name} src={selectedAvatar.image} />
+                        <strong>{selectedAvatar.name}</strong>
+                      </>
+                    ) : (
+                      <>
+                        <span className="avatar-random-badge large">?</span>
+                        <strong>{text.avatarRandomPreview}</strong>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {isLoadingAvatars ? (
+                  <p className="muted">{text.avatarLoading}</p>
+                ) : (
+                  <HeroAvatarPicker
+                    locale={props.locale}
+                    options={avatarOptions}
+                    selectedAvatarId={selectedAvatarId}
+                    onSelect={setSelectedAvatarId}
+                  />
+                )}
+              </section>
+            </>
           )}
 
           {error && <p className="auth-status danger">{error}</p>}

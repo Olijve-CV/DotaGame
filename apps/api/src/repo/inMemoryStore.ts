@@ -5,6 +5,7 @@ import type {
   UserProfile
 } from "@dotagame/contracts";
 import { randomUUID, createHash } from "node:crypto";
+import { resolveHeroAvatarById } from "../services/heroAvatarService.js";
 
 interface UserEntity extends UserProfile {
   passwordHash: string;
@@ -19,11 +20,21 @@ function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
 }
 
-export function createUser(email: string, password: string, name: string): UserProfile {
+export async function createUser(
+  email: string,
+  password: string,
+  name: string,
+  avatarHeroId?: number
+): Promise<UserProfile> {
   const normalizedEmail = email.trim().toLowerCase();
   const existing = [...users.values()].find((user) => user.email === normalizedEmail);
   if (existing) {
     throw new Error("EMAIL_EXISTS");
+  }
+
+  const avatar = await resolveHeroAvatarById(avatarHeroId ?? null);
+  if (!avatar) {
+    throw new Error("INVALID_AVATAR");
   }
 
   const id = randomUUID();
@@ -31,6 +42,7 @@ export function createUser(email: string, password: string, name: string): UserP
     id,
     email: normalizedEmail,
     name,
+    avatar,
     createdAt: new Date().toISOString(),
     passwordHash: hashPassword(password)
   };
@@ -60,6 +72,25 @@ export function getUserByToken(token: string): UserProfile | null {
   }
   const user = users.get(userId);
   return user ? toUserProfile(user) : null;
+}
+
+export async function updateUserAvatar(
+  userId: string,
+  avatarHeroId: number | null
+): Promise<UserProfile> {
+  const entity = users.get(userId);
+  if (!entity) {
+    throw new Error("USER_NOT_FOUND");
+  }
+
+  const avatar = await resolveHeroAvatarById(avatarHeroId);
+  if (!avatar) {
+    throw new Error("INVALID_AVATAR");
+  }
+
+  entity.avatar = avatar;
+  users.set(userId, entity);
+  return toUserProfile(entity);
 }
 
 export function getFavorites(userId: string): FavoriteRecord[] {

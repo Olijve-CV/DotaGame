@@ -145,7 +145,15 @@ export function App() {
                 onClick={() => setIsAccountMenuOpen((current) => !current)}
                 type="button"
               >
-                <span className="account-avatar">{accountInitial}</span>
+                {user?.avatar ? (
+                  <img
+                    alt={user.avatar.name}
+                    className="account-avatar account-avatar-image"
+                    src={user.avatar.image}
+                  />
+                ) : (
+                  <span className="account-avatar">{accountInitial}</span>
+                )}
                 <span className="account-meta">
                   <span className="account-label">{copy.profile}</span>
                   <strong>{accountName}</strong>
@@ -155,6 +163,12 @@ export function App() {
 
               {isAccountMenuOpen && (
                 <div className="account-dropdown">
+                  {user?.avatar && (
+                    <div className="account-dropdown-hero">
+                      <img alt={user.avatar.name} src={user.avatar.image} />
+                      <strong>{user.avatar.name}</strong>
+                    </div>
+                  )}
                   <p className="account-email">{user?.email ?? accountName}</p>
                   <Link
                     className="account-dropdown-link"

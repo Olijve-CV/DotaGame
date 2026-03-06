@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { listHeroAvatars } from "../services/heroAvatarService.js";
 import { listArticles, listPatchNotes, listTournaments } from "../services/contentService.js";
 
 const querySchema = z.object({
@@ -44,6 +45,14 @@ contentRouter.get("/tournaments", async (req, res) => {
   const parsedLanguage = language === "zh-CN" || language === "en-US" ? language : undefined;
   try {
     res.json({ items: await listTournaments(parsedLanguage) });
+  } catch {
+    res.status(502).json({ message: "CONTENT_SOURCE_ERROR" });
+  }
+});
+
+contentRouter.get("/hero-avatars", async (_req, res) => {
+  try {
+    res.json({ items: await listHeroAvatars() });
   } catch {
     res.status(502).json({ message: "CONTENT_SOURCE_ERROR" });
   }

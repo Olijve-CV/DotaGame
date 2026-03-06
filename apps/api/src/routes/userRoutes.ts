@@ -1,11 +1,20 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/auth.js";
-import { addFavorite, getChatSessions, getFavorites, removeFavorite } from "../repo/inMemoryStore.js";
+import {
+  addFavorite,
+  getChatSessions,
+  getFavorites,
+  removeFavorite,
+  updateUserAvatar
+} from "../repo/inMemoryStore.js";
 
 const favoriteSchema = z.object({
   contentType: z.enum(["article", "patch", "tournament"]),
   contentId: z.string().min(1)
+});
+const avatarSchema = z.object({
+  avatarHeroId: z.number().int().positive().nullable().optional()
 });
 
 export const userRouter = Router();
@@ -13,6 +22,26 @@ userRouter.use(requireAuth);
 
 userRouter.get("/me", (req: AuthenticatedRequest, res) => {
   res.json({ user: req.user });
+});
+
+userRouter.patch("/me/avatar", async (req: AuthenticatedRequest, res) => {
+  const parsed = avatarSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "INVALID_PAYLOAD" });
+    return;
+  }
+
+  try {
+    const user = await updateUserAvatar(req.user!.id, parsed.data.avatarHeroId ?? null);
+    req.user = user;
+    res.json({ user });
+  } catch (error) {
+    if (error instanceof Error && error.message === "INVALID_AVATAR") {
+      res.status(400).json({ message: "INVALID_AVATAR" });
+      return;
+    }
+    res.status(500).json({ message: "PROFILE_UPDATE_FAILED" });
+  }
 });
 
 userRouter.get("/me/favorites", (req: AuthenticatedRequest, res) => {

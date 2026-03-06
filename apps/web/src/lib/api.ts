@@ -3,6 +3,7 @@ import type {
   ChatRequest,
   ChatResponse,
   FavoriteRecord,
+  HeroAvatarOption,
   Language,
   PatchNote,
   Tournament,
@@ -55,10 +56,16 @@ export async function fetchTournaments(language: Language): Promise<Tournament[]
   return data.items;
 }
 
+export async function fetchHeroAvatars(): Promise<HeroAvatarOption[]> {
+  const data = await http<{ items: HeroAvatarOption[] }>("/hero-avatars");
+  return data.items;
+}
+
 export async function register(input: {
   email: string;
   password: string;
   name: string;
+  avatarHeroId?: number;
 }): Promise<{ token: string; user: UserProfile }> {
   return http("/auth/register", {
     method: "POST",
@@ -79,6 +86,18 @@ export async function login(input: {
 export async function fetchMe(token: string): Promise<UserProfile> {
   const result = await http<{ user: UserProfile }>("/users/me", {
     headers: { Authorization: `Bearer ${token}` }
+  });
+  return result.user;
+}
+
+export async function updateMyAvatar(
+  token: string,
+  avatarHeroId: number | null
+): Promise<UserProfile> {
+  const result = await http<{ user: UserProfile }>("/users/me/avatar", {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ avatarHeroId })
   });
   return result.user;
 }

@@ -18,3 +18,5 @@
 - Rebuilt `apps/web/src/pages/LoginPage.tsx` into a responsive split auth screen with inline validation, submit pending states, and post-auth redirect behavior.
 - Updated `apps/web/src/App.tsx` to pass the current token into the login route so authenticated users are redirected away from the auth page.
 - Extended `apps/web/src/styles.css` with auth-specific layout and interaction styles, then verified with `npm run build --workspace @dotagame/web` and root `npm run build`.
+- Added hero avatar support across contracts, API, and web UI, including roster lookup, random defaults, a reusable avatar picker, and a profile avatar update endpoint.
+- Verified the avatar flow with `npm test --workspace @dotagame/api` and `npm run build`.

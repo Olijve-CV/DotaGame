@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Article, Language, PatchNote, Tournament } from "@dotagame/contracts";
-import { addFavorite, fetchArticles, fetchMe, fetchPatchNotes, fetchTournaments } from "../lib/api";
+import type { Article, Language, PatchNote, Tournament, UserProfile } from "@dotagame/contracts";
+import { addFavorite, fetchArticles, fetchPatchNotes, fetchTournaments } from "../lib/api";
 
 const labels = {
   "zh-CN": {
@@ -30,7 +30,7 @@ const labels = {
 export function HomePage(props: {
   locale: Language;
   token: string | null;
-  onUserLoaded: (user: { id: string; email: string; name: string; createdAt: string } | null) => void;
+  onUserLoaded: (user: UserProfile | null) => void;
 }) {
   const [category, setCategory] = useState<"news" | "guide" | "tournament" | undefined>(undefined);
   const [query, setQuery] = useState("");
@@ -66,14 +66,6 @@ export function HomePage(props: {
       active = false;
     };
   }, [props.locale, category, query]);
-
-  useEffect(() => {
-    if (!props.token) {
-      props.onUserLoaded(null);
-      return;
-    }
-    fetchMe(props.token).then(props.onUserLoaded).catch(() => props.onUserLoaded(null));
-  }, [props.token]);
 
   async function handleFavorite(contentType: "article" | "patch" | "tournament", contentId: string) {
     if (!props.token) {

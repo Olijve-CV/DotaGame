@@ -1,13 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
+import type { UserProfile } from "@dotagame/contracts";
 import { getUserByToken } from "../repo/inMemoryStore.js";
 
 export interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    name: string;
-    createdAt: string;
-  };
+  user?: UserProfile;
 }
 
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
