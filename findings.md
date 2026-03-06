@@ -23,3 +23,5 @@
 - The chosen approach kept login and registration in one page to minimize routing churn while still improving UX through a split layout, form semantics, inline validation, translated error mapping, and an automatic redirect to `/profile` after successful auth.
 - Hero avatars now use a shared `avatar` object on `UserProfile` instead of an implicit initial. The API fetches hero choices from OpenDota constants, normalizes them to Valve CDN portrait URLs, and falls back to a small local hero set if the live catalog is unavailable.
 - Registration accepts an optional `avatarHeroId`; when it is omitted, the backend assigns a random hero avatar. Profile updates can also pass `null` to re-randomize the avatar.
+- The home page can accept non-API editorial modules cleanly; a self-contained React component with locale-scoped copy was enough to add a substantial Dota2 knowledge section without touching contracts or backend routes.
+- The new Dota2 introduction module is best placed directly under the content filters on `HomePage`, where it works as an onboarding explainer before users browse news, patch notes, and tournaments.

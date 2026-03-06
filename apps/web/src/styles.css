@@ -224,6 +224,14 @@ h1 {
   padding: 1rem;
 }
 
+.section-kicker {
+  margin: 0 0 0.45rem;
+  color: var(--accent);
+  font-family: "Bebas Neue", sans-serif;
+  letter-spacing: 0.12em;
+  font-size: 0.95rem;
+}
+
 .narrow {
   max-width: 420px;
 }
@@ -335,6 +343,133 @@ button.active {
   gap: 0.8rem;
   border-top: 1px solid var(--line);
   padding: 0.8rem 0 0.2rem;
+}
+
+.dota-intro {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top right, rgba(193, 70, 47, 0.12), transparent 28%),
+    radial-gradient(circle at bottom left, rgba(10, 123, 122, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(255, 251, 244, 0.98), rgba(255, 253, 247, 0.94));
+}
+
+.dota-intro-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.95fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.dota-intro-summary {
+  max-width: 72ch;
+  margin: 0.9rem 0 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.dota-intro-facts {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.dota-fact-card,
+.dota-timeline-card,
+.dota-role-card,
+.dota-skill-card,
+.dota-hero-card {
+  border: 1px solid rgba(216, 205, 184, 0.92);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: 0 14px 32px rgba(89, 57, 26, 0.08);
+}
+
+.dota-fact-card {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.95rem 1rem;
+}
+
+.dota-fact-card span,
+.dota-timeline-card span,
+.dota-role-card span,
+.dota-hero-card-head span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.dota-fact-card strong {
+  font-size: 1.02rem;
+  line-height: 1.45;
+}
+
+.dota-intro-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.dota-intro-grid.lower {
+  align-items: stretch;
+}
+
+.dota-intro-block {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.dota-timeline,
+.dota-role-list,
+.dota-skill-list,
+.dota-hero-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.dota-timeline-card,
+.dota-role-card,
+.dota-skill-card,
+.dota-hero-card {
+  padding: 0.95rem 1rem;
+}
+
+.dota-timeline-card p,
+.dota-role-card p,
+.dota-skill-card p,
+.dota-hero-card p {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.dota-role-card h4,
+.dota-hero-card h4 {
+  font-size: 1.04rem;
+}
+
+.dota-role-card span {
+  display: inline-block;
+  margin-top: 0.55rem;
+}
+
+.dota-skill-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dota-skill-card strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.dota-hero-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dota-hero-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6rem;
 }
 
 .chat-controls {
@@ -661,7 +796,11 @@ button.active {
   }
 
   .two-col,
-  .chat-controls {
+  .chat-controls,
+  .dota-intro-grid,
+  .dota-skill-list,
+  .dota-hero-grid,
+  .dota-intro-hero {
     grid-template-columns: 1fr;
   }
 
@@ -693,5 +832,10 @@ button.active {
   .auth-mode-toggle {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dota-hero-card-head {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

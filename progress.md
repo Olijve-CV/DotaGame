@@ -20,3 +20,5 @@
 - Extended `apps/web/src/styles.css` with auth-specific layout and interaction styles, then verified with `npm run build --workspace @dotagame/web` and root `npm run build`.
 - Added hero avatar support across contracts, API, and web UI, including roster lookup, random defaults, a reusable avatar picker, and a profile avatar update endpoint.
 - Verified the avatar flow with `npm test --workspace @dotagame/api` and `npm run build`.
+- Added a new bilingual Dota2 introduction module on the web home page, covering gameplay flow, hero roles, skill systems, and example heroes with signature abilities.
+- Created `apps/web/src/components/DotaIntroSection.tsx`, integrated it into `HomePage`, extended `styles.css`, and verified the change with `npm run build --workspace @dotagame/web`.
