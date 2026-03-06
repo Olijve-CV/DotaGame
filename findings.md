@@ -1,0 +1,10 @@
+# Findings
+
+## 2026-03-06
+- Repository initially contained only README.md.
+- User approved plan: dual-core MVP (news + chat), bilingual, separated frontend/backend, RN-ready API contracts.
+- Required skills loaded: brainstorming (already used), planning-with-files, frontend-design.
+- Implemented monorepo with `apps/web`, `apps/api`, and `packages/contracts`.
+- API implemented with v1 endpoints for content, auth, user personalization, and chat response with citations.
+- Web implemented with bilingual pages: Home, Agent Chat, Login/Register, Profile.
+- API tests pass and full workspace build passes after tsconfig fixes.
