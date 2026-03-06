@@ -8,3 +8,7 @@
 - API implemented with v1 endpoints for content, auth, user personalization, and chat response with citations.
 - Web implemented with bilingual pages: Home, Agent Chat, Login/Register, Profile.
 - API tests pass and full workspace build passes after tsconfig fixes.
+- Added live source adapters with cache:
+  - Steam News API for official announcements and patch notes.
+  - OpenDota Pro Matches API for recent tournament aggregation.
+- Added `USE_LIVE_SOURCES=false` switch for deterministic local fallback mode.

@@ -21,3 +21,18 @@ npm run dev
 ```
 
 The API runs on `http://localhost:4000` and web runs on `http://localhost:5173`.
+
+## Live Data Sources
+
+API `v1` now loads live data (with 5-minute cache) from:
+
+- Steam News API (official Dota2 announcements and patch notes)
+- OpenDota Pro Matches API (recent tournament activity aggregation)
+
+To disable live sources and use local fallback data only:
+
+```bash
+# PowerShell
+$env:USE_LIVE_SOURCES="false"
+npm run dev
+```

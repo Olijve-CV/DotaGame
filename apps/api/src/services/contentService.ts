@@ -1,6 +1,8 @@
 import type { Article, Language, PatchNote, Tournament } from "@dotagame/contracts";
 import { articles, patchNotes, tournaments } from "../data/content.js";
 import { heroGuides } from "../data/guides.js";
+import { fetchOpenDotaTournaments } from "./sources/openDotaSource.js";
+import { fetchSteamArticles, fetchSteamPatchNotes } from "./sources/steamSource.js";
 
 function sortByPublishedAtDesc<T extends { publishedAt: string }>(items: T[]): T[] {
   return [...items].sort(
@@ -8,13 +10,28 @@ function sortByPublishedAtDesc<T extends { publishedAt: string }>(items: T[]): T
   );
 }
 
-export function listArticles(params: {
+function dedupeById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const item of items) {
+    if (seen.has(item.id)) {
+      continue;
+    }
+    seen.add(item.id);
+    result.push(item);
+  }
+  return result;
+}
+
+export async function listArticles(params: {
   language?: Language;
   category?: Article["category"];
   query?: string;
-}): Article[] {
+}): Promise<Article[]> {
   const query = params.query?.trim().toLowerCase();
-  const merged = [...articles, ...heroGuides];
+  const language = params.language ?? "en-US";
+  const liveItems = await fetchSteamArticles(language).catch(() => []);
+  const merged = dedupeById([...liveItems, ...articles, ...heroGuides]);
 
   const filtered = merged.filter((item) => {
     if (params.language && item.language !== params.language) {
@@ -36,18 +53,20 @@ export function listArticles(params: {
   return sortByPublishedAtDesc(filtered);
 }
 
-export function listPatchNotes(language?: Language): PatchNote[] {
-  return sortByPublishedAtDesc(
-    patchNotes.filter((item) => !language || item.language === language)
-  );
+export async function listPatchNotes(language?: Language): Promise<PatchNote[]> {
+  const currentLanguage = language ?? "en-US";
+  const liveItems = await fetchSteamPatchNotes(currentLanguage).catch(() => []);
+  const merged = dedupeById([...liveItems, ...patchNotes]);
+  return sortByPublishedAtDesc(merged.filter((item) => !language || item.language === language));
 }
 
-export function listTournaments(language?: Language): Tournament[] {
-  return sortByPublishedAtDesc(
-    tournaments.filter((item) => !language || item.language === language)
-  );
+export async function listTournaments(language?: Language): Promise<Tournament[]> {
+  const currentLanguage = language ?? "en-US";
+  const liveItems = await fetchOpenDotaTournaments(currentLanguage).catch(() => []);
+  const merged = dedupeById([...liveItems, ...tournaments]);
+  return sortByPublishedAtDesc(merged.filter((item) => !language || item.language === language));
 }
 
-export function listKnowledgeDocuments(language?: Language): Article[] {
+export async function listKnowledgeDocuments(language?: Language): Promise<Article[]> {
   return listArticles({ language });
 }

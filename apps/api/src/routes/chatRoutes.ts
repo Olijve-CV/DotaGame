@@ -18,14 +18,14 @@ const chatBodySchema = z.object({
 
 export const chatRouter = Router();
 
-chatRouter.post("/", (req, res) => {
+chatRouter.post("/", async (req, res) => {
   const parsed = chatBodySchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: "INVALID_PAYLOAD" });
     return;
   }
 
-  const response = answerChat(parsed.data);
+  const response = await answerChat(parsed.data);
 
   const header = req.header("authorization");
   if (header?.startsWith("Bearer ")) {
