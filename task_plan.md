@@ -12,7 +12,7 @@ Implement a full MVP for Dota2 news + Agent Chat platform with separated web and
 | 4. Validate with tests and docs | complete | Build + test passed at workspace level |
 | 5. Refine auth UX (login/register interactions) | complete | Added client-side validation, loading feedback, redirect flow, and a dedicated responsive auth layout |
 | 6. Add hero avatar selection flow | complete | Added roster-based avatars, random default assignment, profile avatar updates, and shared avatar rendering |
-| 7. Add Dota2 introduction module | complete | Added a bilingual home-page module covering gameplay flow, hero roles, skill systems, and signature hero examples |
+| 7. Add Dota2 introduction module | complete | Added a bilingual home-page module with gameplay flow, hero roles, skill systems, and a paginated API-backed hero atlas with full skill breakdowns |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |

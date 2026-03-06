@@ -25,3 +25,8 @@
 - Registration accepts an optional `avatarHeroId`; when it is omitted, the backend assigns a random hero avatar. Profile updates can also pass `null` to re-randomize the avatar.
 - The home page can accept non-API editorial modules cleanly; a self-contained React component with locale-scoped copy was enough to add a substantial Dota2 knowledge section without touching contracts or backend routes.
 - The new Dota2 introduction module is best placed directly under the content filters on `HomePage`, where it works as an onboarding explainer before users browse news, patch notes, and tournaments.
+- The existing `/hero-avatars` API is reusable beyond account setup. It can provide reliable hero portraits for editorial UI modules on the home page, with local CDN fallback URLs covering curated hero cards if the fetch fails.
+- A curated six-hero atlas is a better fit than a full roster on the home page: it keeps the page readable while still giving users concrete examples of carry, mid, offlane, and support archetypes.
+- Splitting the Dota introduction content into `DotaIntroSection.tsx` and `DotaIntroData.ts` is a better maintenance boundary now that the atlas contains a larger bilingual hero data set.
+- Paginating the curated roster at six heroes per page keeps the home page dense but still readable, while role filters naturally collapse many views to a single page without extra UI complexity.
+- The Dota2 introduction module works better as its own route than as an embedded home-page section. It now fits the product IA more cleanly alongside news and chat as a peer-level navigation item.

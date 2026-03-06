@@ -1,213 +1,91 @@
-import type { Language } from "@dotagame/contracts";
-
-type IntroCopy = {
-  kicker: string;
-  title: string;
-  summary: string;
-  facts: Array<{ label: string; value: string }>;
-  gameplayTitle: string;
-  gameplaySteps: Array<{ phase: string; detail: string }>;
-  rolesTitle: string;
-  roles: Array<{ name: string; detail: string; heroes: string }>;
-  skillsTitle: string;
-  skills: Array<{ name: string; detail: string }>;
-  heroesTitle: string;
-  heroCards: Array<{ name: string; role: string; skills: string }>;
-};
-
-const copyMap: Record<Language, IntroCopy> = {
-  "zh-CN": {
-    kicker: "DOTA2 深度介绍",
-    title: "从推塔目标到英雄技能，快速看懂一场 Dota2",
-    summary:
-      "Dota2 是一款 5v5 团队竞技游戏。双方分别守护远古遗迹，通过补刀发育、争夺地图资源、购买装备、组织团战，最终摧毁敌方基地核心获胜。它的核心魅力在于高信息量、高博弈深度，以及每一局都能因为阵容和决策不同而产生完全不同的节奏。",
-    facts: [
-      { label: "胜利条件", value: "摧毁敌方远古遗迹 Ancient" },
-      { label: "地图结构", value: "三路兵线 + 野区 + 河道 + Roshan 区域" },
-      { label: "关键资源", value: "金钱、经验、视野、符点与中立资源" }
-    ],
-    gameplayTitle: "玩法与对局节奏",
-    gameplaySteps: [
-      {
-        phase: "对线期",
-        detail:
-          "前 8 到 12 分钟重点是补刀、反补、控线和换血。优势路要扩大经济，劣势路要保证经验不崩。辅助则负责拉野、做视野、保核心。"
-      },
-      {
-        phase: "中期推进",
-        detail:
-          "拿到关键小件后，队伍会开始围绕防御塔、肉山和地图视野做文章。此时抓人、开雾、抢节奏是扩大优势的核心。"
-      },
-      {
-        phase: "后期决胜",
-        detail:
-          "核心英雄装备成型后，买活、站位、先手与技能链决定胜负。一次高地团或 Roshan 团往往就能直接改写比赛结果。"
-      }
-    ],
-    rolesTitle: "英雄定位",
-    roles: [
-      {
-        name: "1 号位 核心 Carry",
-        detail: "前期偏发育，后期承担持续输出与终结比赛的责任。",
-        heroes: "常见英雄：Juggernaut、Phantom Assassin、Medusa"
-      },
-      {
-        name: "2 号位 中单 Mid",
-        detail: "负责节奏、爆发和地图联动，通常拥有更快的等级成长。",
-        heroes: "常见英雄：Invoker、Storm Spirit、Queen of Pain"
-      },
-      {
-        name: "3 号位 劣单 Offlane",
-        detail: "承担开团、前排和压制敌方核心的任务，是中期推进关键点。",
-        heroes: "常见英雄：Mars、Centaur Warrunner、Underlord"
-      },
-      {
-        name: "4/5 号位 辅助 Support",
-        detail: "提供控制、视野、保人和开团工具，让团队体系真正运转起来。",
-        heroes: "常见英雄：Crystal Maiden、Lion、Shadow Shaman"
-      }
-    ],
-    skillsTitle: "技能系统",
-    skills: [
-      {
-        name: "主动技能",
-        detail: "需要手动施放，通常消耗魔法并有冷却时间，用于伤害、控制、位移或保命。"
-      },
-      {
-        name: "被动技能",
-        detail: "不需要主动按键，会持续提供属性、机制强化或特殊触发效果。"
-      },
-      {
-        name: "终极技能",
-        detail: "大多数英雄 6 级解锁的大招，往往是团战和节奏转换的关键按钮。"
-      },
-      {
-        name: "天赋与神杖体系",
-        detail: "10/15/20/25 级可选天赋，阿哈利姆神杖和魔晶还能直接改变技能机制与玩法。"
-      }
-    ],
-    heroesTitle: "代表英雄与技能示例",
-    heroCards: [
-      {
-        name: "Juggernaut",
-        role: "典型后期核心",
-        skills: "剑刃风暴保证前期对线与保命，治疗守卫增强续航，大招无敌斩适合追击与收割。"
-      },
-      {
-        name: "Invoker",
-        role: "高上限法系中单",
-        skills: "通过冰雷火三元素组合施法，龙卷风、超震声波、阳炎冲击让他拥有极强的节奏与团战上限。"
-      },
-      {
-        name: "Crystal Maiden",
-        role: "团队型辅助",
-        skills: "水晶新星和冰封禁制提供控制与减速，被动奥术光环为全队回蓝，大招冰川风暴具备很强团战压制力。"
-      },
-      {
-        name: "Pudge",
-        role: "游走抓人代表",
-        skills: "肉钩是最具辨识度的先手技能，腐烂持续压血，肢解则能稳定锁定目标制造击杀。"
-      }
-    ]
-  },
-  "en-US": {
-    kicker: "DOTA2 Deep Dive",
-    title: "Understand Dota2 through objectives, roles, heroes, and skills",
-    summary:
-      "Dota2 is a 5v5 competitive strategy game. Each team protects its Ancient while farming lanes, contesting map resources, buying items, and coordinating fights to eventually destroy the enemy base. Its depth comes from macro decision-making, mechanical execution, and how every draft creates a different match rhythm.",
-    facts: [
-      { label: "Win Condition", value: "Destroy the enemy Ancient" },
-      { label: "Map Layout", value: "Three lanes, jungle camps, river, Roshan area" },
-      { label: "Key Resources", value: "Gold, experience, vision, runes, neutral objectives" }
-    ],
-    gameplayTitle: "How Matches Flow",
-    gameplaySteps: [
-      {
-        phase: "Laning Stage",
-        detail:
-          "The first 8 to 12 minutes revolve around last hits, denies, lane control, trading, pulls, and experience management. Supports stabilize lanes while cores secure farm."
-      },
-      {
-        phase: "Mid Game Pressure",
-        detail:
-          "Once core items come online, teams fight for towers, smoke ganks, Roshan, and ward control. This is where tempo lineups try to snowball the map."
-      },
-      {
-        phase: "Late Game Execution",
-        detail:
-          "Full teamfights become decisive. Buyback status, initiation order, positioning, and spell layering can decide the entire game in one fight."
-      }
-    ],
-    rolesTitle: "Hero Roles",
-    roles: [
-      {
-        name: "Position 1 Carry",
-        detail: "Usually farms early and becomes the primary sustained damage source later.",
-        heroes: "Common picks: Juggernaut, Phantom Assassin, Medusa"
-      },
-      {
-        name: "Position 2 Mid",
-        detail: "Controls tempo, levels quickly, and often provides burst damage or playmaking.",
-        heroes: "Common picks: Invoker, Storm Spirit, Queen of Pain"
-      },
-      {
-        name: "Position 3 Offlane",
-        detail: "Brings initiation, frontline durability, and pressure against enemy cores.",
-        heroes: "Common picks: Mars, Centaur Warrunner, Underlord"
-      },
-      {
-        name: "Position 4/5 Support",
-        detail: "Enables the lineup with disables, saves, vision, and lane utility.",
-        heroes: "Common picks: Crystal Maiden, Lion, Shadow Shaman"
-      }
-    ],
-    skillsTitle: "Skill System",
-    skills: [
-      {
-        name: "Active Abilities",
-        detail: "Manually cast spells with mana costs and cooldowns for damage, control, mobility, or utility."
-      },
-      {
-        name: "Passive Abilities",
-        detail: "Always-on effects that improve stats, modify attacks, or trigger special mechanics."
-      },
-      {
-        name: "Ultimate Abilities",
-        detail: "Usually unlocked at level 6 and designed to swing fights or create major timing windows."
-      },
-      {
-        name: "Talents, Shard, and Scepter",
-        detail: "Level talents and Aghanim upgrades reshape spell behavior and can redefine a hero's role."
-      }
-    ],
-    heroesTitle: "Signature Heroes and Skill Examples",
-    heroCards: [
-      {
-        name: "Juggernaut",
-        role: "Classic hard carry",
-        skills: "Blade Fury offers early lane presence and survivability, Healing Ward sustains pushes, and Omnislash punishes isolated targets."
-      },
-      {
-        name: "Invoker",
-        role: "High-ceiling spellcaster mid",
-        skills: "Quas, Wex, and Exort combine into a deep spell kit. Tornado, EMP, Sun Strike, and Cataclysm create massive playmaking potential."
-      },
-      {
-        name: "Crystal Maiden",
-        role: "Team-oriented support",
-        skills: "Crystal Nova and Frostbite control fights, Arcane Aura fuels allies, and Freezing Field threatens huge area damage."
-      },
-      {
-        name: "Pudge",
-        role: "Roaming pickoff specialist",
-        skills: "Meat Hook is one of the most iconic initiation tools in the game, while Rot and Dismember secure pickoffs."
-      }
-    ]
-  }
-};
+import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
+import type { HeroAvatarOption, Language } from "@dotagame/contracts";
+import { fetchHeroAvatars } from "../lib/api";
+import { copyMap, HEROES_PER_PAGE, HERO_IMAGE_FALLBACKS, type RoleKey } from "./DotaIntroData";
 
 export function DotaIntroSection(props: { locale: Language }) {
   const copy = copyMap[props.locale];
+  const [avatars, setAvatars] = useState<HeroAvatarOption[]>([]);
+  const [isLoadingAvatars, setIsLoadingAvatars] = useState(true);
+  const [activeRole, setActiveRole] = useState<RoleKey>("all");
+  const [currentPage, setCurrentPage] = useState(0);
+  const [selectedHeroName, setSelectedHeroName] = useState(copy.heroSpotlights[0]?.name ?? "");
+
+  useEffect(() => {
+    let active = true;
+    setIsLoadingAvatars(true);
+    fetchHeroAvatars()
+      .then((items) => {
+        if (active) {
+          setAvatars(items);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setAvatars([]);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setIsLoadingAvatars(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const filteredHeroes = useMemo(() => {
+    if (activeRole === "all") {
+      return copy.heroSpotlights;
+    }
+
+    return copy.heroSpotlights.filter((hero) => hero.role === activeRole);
+  }, [activeRole, copy.heroSpotlights]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredHeroes.length / HEROES_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages - 1);
+
+  const pagedHeroes = useMemo(() => {
+    const start = safePage * HEROES_PER_PAGE;
+    return filteredHeroes.slice(start, start + HEROES_PER_PAGE);
+  }, [filteredHeroes, safePage]);
+
+  const avatarMap = useMemo(
+    () => new Map(avatars.map((item) => [item.name, item.image])),
+    [avatars]
+  );
+
+  useEffect(() => {
+    if (currentPage !== safePage) {
+      setCurrentPage(safePage);
+    }
+  }, [currentPage, safePage]);
+
+  useEffect(() => {
+    if (pagedHeroes.some((hero) => hero.name === selectedHeroName)) {
+      return;
+    }
+
+    setSelectedHeroName(pagedHeroes[0]?.name ?? copy.heroSpotlights[0]?.name ?? "");
+  }, [copy.heroSpotlights, pagedHeroes, selectedHeroName]);
+
+  const selectedHero =
+    pagedHeroes.find((hero) => hero.name === selectedHeroName) ??
+    pagedHeroes[0] ??
+    filteredHeroes[0] ??
+    copy.heroSpotlights[0];
+
+  const selectedHeroImage = selectedHero
+    ? avatarMap.get(selectedHero.name) ?? HERO_IMAGE_FALLBACKS[selectedHero.name]
+    : undefined;
+
+  function handleRoleFilter(role: RoleKey) {
+    setActiveRole(role);
+    setCurrentPage(0);
+  }
 
   return (
     <section className="dota-intro panel">
@@ -269,17 +147,132 @@ export function DotaIntroSection(props: { locale: Language }) {
         </section>
 
         <section className="dota-intro-block">
-          <h3>{copy.heroesTitle}</h3>
-          <div className="dota-hero-grid">
-            {copy.heroCards.map((hero) => (
-              <article className="dota-hero-card" key={hero.name}>
-                <div className="dota-hero-card-head">
-                  <h4>{hero.name}</h4>
-                  <span>{hero.role}</span>
-                </div>
-                <p>{hero.skills}</p>
-              </article>
+          <h3>{copy.atlasTitle}</h3>
+          <p className="dota-intro-summary compact">{copy.atlasSubtitle}</p>
+
+          <div className="chip-row dota-role-filters">
+            {copy.roleFilters.map((filter) => (
+              <button
+                className={activeRole === filter.key ? "active" : ""}
+                key={filter.key}
+                onClick={() => handleRoleFilter(filter.key)}
+                type="button"
+              >
+                {filter.label}
+              </button>
             ))}
+          </div>
+
+          <div className="dota-atlas-toolbar">
+            <p className="dota-atlas-meta">
+              {copy.atlasHeroesLabel}: {filteredHeroes.length}
+            </p>
+            {totalPages > 1 && (
+              <div className="dota-atlas-pagination">
+                <button disabled={safePage === 0} onClick={() => setCurrentPage((page) => page - 1)} type="button">
+                  {copy.atlasPrevLabel}
+                </button>
+                <span>
+                  {copy.atlasPageLabel} {safePage + 1} / {totalPages}
+                </span>
+                <button
+                  disabled={safePage >= totalPages - 1}
+                  onClick={() => setCurrentPage((page) => page + 1)}
+                  type="button"
+                >
+                  {copy.atlasNextLabel}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {isLoadingAvatars && <p className="muted">{copy.atlasLoading}</p>}
+
+          {selectedHero && (
+            <div
+              className="dota-spotlight"
+              style={{ "--hero-accent": selectedHero.accent } as CSSProperties}
+            >
+              <article className="dota-spotlight-poster">
+                <div className="dota-spotlight-overlay" />
+                <div className="dota-spotlight-poster-head">
+                  <span>{selectedHero.roleLabel}</span>
+                  <h4>{selectedHero.name}</h4>
+                </div>
+
+                {selectedHeroImage ? (
+                  <img
+                    alt={selectedHero.name}
+                    className="dota-spotlight-image"
+                    src={selectedHeroImage}
+                  />
+                ) : (
+                  <div className="dota-spotlight-placeholder">{selectedHero.name.slice(0, 2)}</div>
+                )}
+
+                <div className="dota-spotlight-stats">
+                  <article>
+                    <span>{copy.laneLabel}</span>
+                    <strong>{selectedHero.lane}</strong>
+                  </article>
+                  <article>
+                    <span>{copy.difficultyLabel}</span>
+                    <strong>{selectedHero.difficulty}</strong>
+                  </article>
+                  <article>
+                    <span>{copy.specialtyLabel}</span>
+                    <strong>{selectedHero.specialty}</strong>
+                  </article>
+                  <article>
+                    <span>{copy.timingLabel}</span>
+                    <strong>{selectedHero.timing}</strong>
+                  </article>
+                </div>
+              </article>
+
+              <article className="dota-spotlight-details">
+                <div className="dota-spotlight-section">
+                  <span className="dota-spotlight-label">{copy.overviewLabel}</span>
+                  <p>{selectedHero.overview}</p>
+                </div>
+
+                <div className="dota-spotlight-section">
+                  <span className="dota-spotlight-label">{copy.skillsLabel}</span>
+                  <div className="dota-skill-detail-list">
+                    {selectedHero.skills.map((skill) => (
+                      <article className="dota-skill-detail-card" key={`${selectedHero.name}-${skill.name}`}>
+                        <strong>{skill.name}</strong>
+                        <p>{skill.detail}</p>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              </article>
+            </div>
+          )}
+
+          <div className="dota-gallery-grid">
+            {pagedHeroes.map((hero) => {
+              const heroImage = avatarMap.get(hero.name) ?? HERO_IMAGE_FALLBACKS[hero.name];
+              const isSelected = hero.name === selectedHero?.name;
+
+              return (
+                <button
+                  className={`dota-gallery-card${isSelected ? " selected" : ""}`}
+                  key={hero.name}
+                  onClick={() => setSelectedHeroName(hero.name)}
+                  type="button"
+                >
+                  {heroImage ? (
+                    <img alt={hero.name} className="dota-gallery-card-image" src={heroImage} />
+                  ) : (
+                    <span className="dota-gallery-card-placeholder">{hero.name.slice(0, 2)}</span>
+                  )}
+                  <span className="dota-gallery-card-name">{hero.name}</span>
+                  <span className="dota-gallery-card-role">{hero.roleLabel}</span>
+                </button>
+              );
+            })}
           </div>
         </section>
       </div>

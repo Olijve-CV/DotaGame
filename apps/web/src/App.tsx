@@ -1,6 +1,7 @@
-import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, Navigate, Route, Routes } from "react-router-dom";
 import type { Language, UserProfile } from "@dotagame/contracts";
+import { fetchMe } from "./lib/api";
 import {
   clearStoredUser,
   clearToken,
@@ -11,14 +12,15 @@ import {
   setStoredUser,
   setToken
 } from "./lib/storage";
-import { fetchMe } from "./lib/api";
 import { ChatPage } from "./pages/ChatPage";
+import { DotaIntroPage } from "./pages/DotaIntroPage";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { ProfilePage } from "./pages/ProfilePage";
 
 interface Copy {
   home: string;
+  intro: string;
   chat: string;
   profile: string;
   account: string;
@@ -30,21 +32,23 @@ interface Copy {
 const copyMap: Record<Language, Copy> = {
   "zh-CN": {
     home: "资讯",
-    chat: "Agent Chat",
+    intro: "Dota2 介绍",
+    chat: "智能咨询",
     profile: "个人中心",
     account: "用户",
     login: "登录",
-    logout: "退出",
-    subtitle: "赛事 · 版本 · 教学，一站式 Dota2 情报站"
+    logout: "退出登录",
+    subtitle: "赛事、补丁、攻略与 Dota2 详细介绍分区展示"
   },
   "en-US": {
     home: "News",
+    intro: "Dota2 Intro",
     chat: "Agent Chat",
     profile: "Profile",
     account: "User",
     login: "Login",
     logout: "Logout",
-    subtitle: "Tournaments, patches, and guides in one Dota2 hub"
+    subtitle: "News, coaching, and a standalone Dota2 introduction section"
   }
 };
 
@@ -182,7 +186,7 @@ export function App() {
                   <strong>{accountName}</strong>
                   <span className="account-label">{copy.account}</span>
                 </span>
-                <span className={`account-caret${isAccountMenuOpen ? " open" : ""}`}>▾</span>
+                <span className={`account-caret${isAccountMenuOpen ? " open" : ""}`}>v</span>
               </button>
 
               {isAccountMenuOpen && (
@@ -217,6 +221,7 @@ export function App() {
 
       <nav className="nav">
         <Link to="/">{copy.home}</Link>
+        <Link to="/intro">{copy.intro}</Link>
         <Link to="/chat">{copy.chat}</Link>
       </nav>
 
@@ -226,6 +231,7 @@ export function App() {
             path="/"
             element={<HomePage locale={locale} token={token} onUserLoaded={setUser} />}
           />
+          <Route path="/intro" element={<DotaIntroPage locale={locale} />} />
           <Route path="/chat" element={<ChatPage locale={locale} token={token} />} />
           <Route
             path="/profile"

@@ -22,3 +22,8 @@
 - Verified the avatar flow with `npm test --workspace @dotagame/api` and `npm run build`.
 - Added a new bilingual Dota2 introduction module on the web home page, covering gameplay flow, hero roles, skill systems, and example heroes with signature abilities.
 - Created `apps/web/src/components/DotaIntroSection.tsx`, integrated it into `HomePage`, extended `styles.css`, and verified the change with `npm run build --workspace @dotagame/web`.
+- Expanded the Dota2 introduction module into a curated hero atlas with role filters, selected-hero spotlight content, API-backed hero portraits, and richer bilingual hero/skill descriptions.
+- Rebuilt `apps/web/src/components/DotaIntroSection.tsx` around interactive state and refreshed the associated CSS, then re-verified with `npm run build --workspace @dotagame/web`.
+- Expanded the atlas again to a 12-hero paginated roster, split bilingual data into `apps/web/src/components/DotaIntroData.ts`, and upgraded every spotlight to show four hero skills instead of a partial spell list.
+- Added atlas pagination UI and updated responsive layout styles, then re-ran `npm run build --workspace @dotagame/web` successfully.
+- Moved the Dota2 introduction out of `HomePage` into a standalone `/intro` route with its own page component and top-level navigation entry.

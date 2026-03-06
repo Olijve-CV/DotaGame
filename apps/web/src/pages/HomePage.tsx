@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Article, Language, PatchNote, Tournament, UserProfile } from "@dotagame/contracts";
 import { addFavorite, fetchArticles, fetchPatchNotes, fetchTournaments } from "../lib/api";
-import { DotaIntroSection } from "../components/DotaIntroSection";
 
 const labels = {
   "zh-CN": {
@@ -102,8 +101,6 @@ export function HomePage(props: {
           </button>
         </div>
       </div>
-
-      <DotaIntroSection locale={props.locale} />
 
       {loading && <p className="muted">Loading...</p>}
 
