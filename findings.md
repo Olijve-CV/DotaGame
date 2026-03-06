@@ -12,3 +12,9 @@
   - Steam News API for official announcements and patch notes.
   - OpenDota Pro Matches API for recent tournament aggregation.
 - Added `USE_LIVE_SOURCES=false` switch for deterministic local fallback mode.
+- Upgraded chat to pluggable RAG architecture:
+  - Embedding provider: OpenAI with deterministic fallback.
+  - Vector store provider: Qdrant or in-memory.
+  - LLM answer provider: OpenAI JSON output with fallback template generator.
+- Added index lifecycle with TTL refresh and language-scoped retrieval.
+- Added provider base URL compatibility via `OPENAI_BASE_URL` for both embedding and chat endpoints.

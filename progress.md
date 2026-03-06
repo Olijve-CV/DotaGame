@@ -11,3 +11,6 @@
 - Ran `npm run test` successfully (API test suite passed).
 - Integrated live external sources into API content layer with cache + fallback.
 - Verified builds/tests still pass after live source integration.
+- Implemented step-2 production RAG baseline (OpenAI + optional Qdrant + local fallback).
+- Verified API tests/build and end-to-end chat response shape with citations.
+- Added configurable OpenAI-compatible `baseUrl` support for LLM and embeddings.

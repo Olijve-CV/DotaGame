@@ -36,3 +36,35 @@ To disable live sources and use local fallback data only:
 $env:USE_LIVE_SOURCES="false"
 npm run dev
 ```
+
+## RAG Configuration
+
+Chat now uses a production-ready RAG pipeline with pluggable providers:
+
+- Embedding: `OPENAI_API_KEY` + `OPENAI_EMBEDDING_MODEL` (fallback to local deterministic embedding)
+- LLM: `OPENAI_API_KEY` + `OPENAI_CHAT_MODEL` (fallback to template answer generator)
+- Provider URL: `OPENAI_BASE_URL` (OpenAI-compatible API base, default `https://api.openai.com/v1`)
+- Vector Store: `VECTOR_STORE_PROVIDER=memory|qdrant`
+
+Qdrant settings when `VECTOR_STORE_PROVIDER=qdrant`:
+
+```bash
+# PowerShell example
+$env:VECTOR_STORE_PROVIDER="qdrant"
+$env:QDRANT_URL="http://localhost:6333"
+$env:QDRANT_COLLECTION="dota_knowledge"
+$env:QDRANT_API_KEY=""
+```
+
+OpenAI settings:
+
+```bash
+# PowerShell example
+$env:OPENAI_API_KEY="sk-..."
+$env:OPENAI_BASE_URL="https://api.openai.com/v1"
+$env:OPENAI_EMBEDDING_MODEL="text-embedding-3-small"
+$env:OPENAI_CHAT_MODEL="gpt-4.1-mini"
+```
+
+For OpenAI-compatible providers, point `OPENAI_BASE_URL` to their API root
+(for example, `https://your-provider.example.com/v1`).
