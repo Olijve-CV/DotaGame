@@ -5,13 +5,17 @@ import { fetchChatSessions, fetchFavorites, fetchMe } from "../lib/api";
 const labels = {
   "zh-CN": {
     title: "个人中心",
-    needLogin: "请先登录查看收藏和聊天历史。",
-    favorites: "收藏记录",
-    chats: "聊天历史"
+    needLogin: "请先登录后查看收藏和聊天记录。",
+    displayName: "用户名",
+    email: "邮箱",
+    favorites: "收藏内容",
+    chats: "聊天记录"
   },
   "en-US": {
     title: "Profile",
     needLogin: "Please login to view favorites and chat history.",
+    displayName: "Display Name",
+    email: "Email",
     favorites: "Favorites",
     chats: "Chat History"
   }
@@ -26,6 +30,7 @@ export function ProfilePage(props: {
   const [favorites, setFavorites] = useState<Array<{ contentType: string; contentId: string }>>([]);
   const [sessions, setSessions] = useState<Array<{ id: string; question: string; answer: string }>>([]);
   const text = useMemo(() => labels[props.locale], [props.locale]);
+  const displayName = props.user?.name?.trim() || props.user?.email || "-";
 
   useEffect(() => {
     if (!props.token) {
@@ -44,7 +49,7 @@ export function ProfilePage(props: {
       .catch(() => {
         props.onUserLoaded(null);
       });
-  }, [props.token]);
+  }, [props.token, props.onUserLoaded]);
 
   if (!props.token) {
     return (
@@ -59,9 +64,14 @@ export function ProfilePage(props: {
       <div className="panel">
         <h2>{text.title}</h2>
         {props.user && (
-          <p className="muted">
-            {props.user.name} · {props.user.email}
-          </p>
+          <div className="stack profile-summary">
+            <p className="muted">
+              <strong>{text.displayName}:</strong> {displayName}
+            </p>
+            <p className="muted">
+              <strong>{text.email}:</strong> {props.user.email}
+            </p>
+          </div>
         )}
       </div>
 

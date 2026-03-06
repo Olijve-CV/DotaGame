@@ -1,7 +1,8 @@
 import { Link, Navigate, Route, Routes } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Language, UserProfile } from "@dotagame/contracts";
 import { clearToken, getLocale, getToken, setLocale, setToken } from "./lib/storage";
+import { fetchMe } from "./lib/api";
 import { ChatPage } from "./pages/ChatPage";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
@@ -39,7 +40,60 @@ export function App() {
   const [locale, setLocaleState] = useState<Language>(getLocale());
   const [token, setTokenState] = useState<string | null>(getToken());
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const copy = useMemo(() => copyMap[locale], [locale]);
+  const accountName = user?.name?.trim() || user?.email || copy.profile;
+  const accountInitial = accountName.charAt(0).toUpperCase();
+
+  useEffect(() => {
+    if (!token) {
+      setUser(null);
+      return;
+    }
+
+    let active = true;
+    fetchMe(token)
+      .then((nextUser) => {
+        if (active) {
+          setUser(nextUser);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setUser(null);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    if (!isAccountMenuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!accountMenuRef.current?.contains(event.target as Node)) {
+        setIsAccountMenuOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsAccountMenuOpen(false);
+      }
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isAccountMenuOpen]);
 
   function handleLocaleChange(nextLocale: Language) {
     setLocale(nextLocale);
@@ -50,12 +104,14 @@ export function App() {
     setToken(nextToken);
     setTokenState(nextToken);
     setUser(nextUser);
+    setIsAccountMenuOpen(false);
   }
 
   function handleLogout() {
     clearToken();
     setTokenState(null);
     setUser(null);
+    setIsAccountMenuOpen(false);
   }
 
   return (
@@ -82,9 +138,37 @@ export function App() {
             </button>
           </div>
           {token ? (
-            <button className="ghost-btn" onClick={handleLogout}>
-              {copy.logout}
-            </button>
+            <div className="account-menu" ref={accountMenuRef}>
+              <button
+                aria-expanded={isAccountMenuOpen}
+                className="account-trigger"
+                onClick={() => setIsAccountMenuOpen((current) => !current)}
+                type="button"
+              >
+                <span className="account-avatar">{accountInitial}</span>
+                <span className="account-meta">
+                  <span className="account-label">{copy.profile}</span>
+                  <strong>{accountName}</strong>
+                </span>
+                <span className={`account-caret${isAccountMenuOpen ? " open" : ""}`}>⌄</span>
+              </button>
+
+              {isAccountMenuOpen && (
+                <div className="account-dropdown">
+                  <p className="account-email">{user?.email ?? accountName}</p>
+                  <Link
+                    className="account-dropdown-link"
+                    onClick={() => setIsAccountMenuOpen(false)}
+                    to="/profile"
+                  >
+                    {copy.profile}
+                  </Link>
+                  <button className="account-dropdown-link" onClick={handleLogout} type="button">
+                    {copy.logout}
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
             <Link className="ghost-btn" to="/login">
               {copy.login}
@@ -96,7 +180,6 @@ export function App() {
       <nav className="nav">
         <Link to="/">{copy.home}</Link>
         <Link to="/chat">{copy.chat}</Link>
-        <Link to="/profile">{copy.profile}</Link>
       </nav>
 
       <main>
@@ -110,7 +193,10 @@ export function App() {
             path="/profile"
             element={<ProfilePage locale={locale} token={token} user={user} onUserLoaded={setUser} />}
           />
-          <Route path="/login" element={<LoginPage locale={locale} onAuth={handleAuth} />} />
+          <Route
+            path="/login"
+            element={<LoginPage locale={locale} onAuth={handleAuth} token={token} />}
+          />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>

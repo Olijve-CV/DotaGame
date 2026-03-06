@@ -14,3 +14,7 @@
 - Implemented step-2 production RAG baseline (OpenAI + optional Qdrant + local fallback).
 - Verified API tests/build and end-to-end chat response shape with citations.
 - Added configurable OpenAI-compatible `baseUrl` support for LLM and embeddings.
+- Started auth UX refinement in `apps/web`, targeting the login/register interaction, validation feedback, and responsive page structure.
+- Rebuilt `apps/web/src/pages/LoginPage.tsx` into a responsive split auth screen with inline validation, submit pending states, and post-auth redirect behavior.
+- Updated `apps/web/src/App.tsx` to pass the current token into the login route so authenticated users are redirected away from the auth page.
+- Extended `apps/web/src/styles.css` with auth-specific layout and interaction styles, then verified with `npm run build --workspace @dotagame/web` and root `npm run build`.

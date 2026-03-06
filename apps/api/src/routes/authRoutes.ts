@@ -18,12 +18,14 @@ authRouter.post("/register", (req, res) => {
   }
 
   try {
+    const normalizedEmail = parsed.data.email.trim().toLowerCase();
+    const displayName = parsed.data.name?.trim() || normalizedEmail;
     const user = createUser(
-      parsed.data.email,
+      normalizedEmail,
       parsed.data.password,
-      parsed.data.name ?? parsed.data.email.split("@")[0]
+      displayName
     );
-    const login = loginUser(parsed.data.email, parsed.data.password);
+    const login = loginUser(normalizedEmail, parsed.data.password);
     res.status(201).json({ user, token: login.token });
   } catch (error) {
     if (error instanceof Error && error.message === "EMAIL_EXISTS") {

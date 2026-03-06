@@ -10,6 +10,7 @@ Implement a full MVP for Dota2 news + Agent Chat platform with separated web and
 | 2. Build API services (content/auth/chat) | complete | Content/auth/chat routes + tests done |
 | 3. Build web UI (news/chat/profile) | complete | News/Chat/Profile/Login pages done |
 | 4. Validate with tests and docs | complete | Build + test passed at workspace level |
+| 5. Refine auth UX (login/register interactions) | complete | Added client-side validation, loading feedback, redirect flow, and a dedicated responsive auth layout |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |
