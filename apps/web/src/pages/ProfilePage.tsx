@@ -12,15 +12,17 @@ import {
 const labels = {
   "zh-CN": {
     title: "个人中心",
-    needLogin: "请先登录后查看收藏、聊天记录和头像设置。",
+    needLogin: "请先登录后再查看收藏、聊天记录和头像设置。",
     displayName: "用户名",
     email: "邮箱",
     avatarTitle: "英雄头像",
-    avatarDescription: "你可以从全部英雄头像里重选，也可以再次随机分配。",
+    avatarDescription: "重新选择一个头像，或者留空后让系统重新随机分配。",
+    avatarRandomPreview: "随机分配",
     avatarSave: "保存头像",
     avatarSaving: "正在保存...",
     avatarSaved: "头像已更新。",
-    favorites: "收藏内容",
+    avatarSaveError: "头像保存失败，请稍后重试。",
+    favorites: "我的收藏",
     chats: "聊天记录"
   },
   "en-US": {
@@ -30,9 +32,11 @@ const labels = {
     email: "Email",
     avatarTitle: "Hero Avatar",
     avatarDescription: "Choose from the full roster again, or let the system assign a fresh random pick.",
+    avatarRandomPreview: "Random pick",
     avatarSave: "Save avatar",
     avatarSaving: "Saving...",
     avatarSaved: "Avatar updated.",
+    avatarSaveError: "Unable to save your avatar right now. Please try again.",
     favorites: "Favorites",
     chats: "Chat History"
   }
@@ -53,6 +57,17 @@ export function ProfilePage(props: {
   const text = useMemo(() => labels[props.locale], [props.locale]);
   const displayName = props.user?.name?.trim() || props.user?.email || "-";
   const currentAvatar = props.user?.avatar ?? null;
+  const previewAvatar = useMemo(() => {
+    if (selectedAvatarId == null) {
+      return null;
+    }
+
+    return (
+      avatarOptions.find((item) => item.id === selectedAvatarId) ??
+      (currentAvatar?.id === selectedAvatarId ? currentAvatar : null)
+    );
+  }, [avatarOptions, currentAvatar, selectedAvatarId]);
+  const hasAvatarChange = selectedAvatarId !== (currentAvatar?.id ?? null);
 
   useEffect(() => {
     setSelectedAvatarId(props.user?.avatar.id ?? null);
@@ -93,6 +108,7 @@ export function ProfilePage(props: {
         if (!active) {
           return;
         }
+
         props.onUserLoaded(user);
         setFavorites(favs);
         setSessions(chats);
@@ -100,6 +116,8 @@ export function ProfilePage(props: {
       .catch(() => {
         if (active) {
           props.onUserLoaded(null);
+          setFavorites([]);
+          setSessions([]);
         }
       });
 
@@ -117,7 +135,7 @@ export function ProfilePage(props: {
   }
 
   async function handleAvatarSave() {
-    if (!props.token) {
+    if (!props.token || !hasAvatarChange) {
       return;
     }
 
@@ -128,7 +146,7 @@ export function ProfilePage(props: {
       props.onUserLoaded(user);
       setAvatarFeedback(text.avatarSaved);
     } catch {
-      setAvatarFeedback(null);
+      setAvatarFeedback(text.avatarSaveError);
     } finally {
       setIsSavingAvatar(false);
     }
@@ -139,7 +157,11 @@ export function ProfilePage(props: {
       <div className="panel profile-hero">
         <div className="profile-hero-main">
           <div className="profile-avatar-frame">
-            {currentAvatar && <img alt={currentAvatar.name} src={currentAvatar.image} />}
+            {previewAvatar ? (
+              <img alt={previewAvatar.name} src={previewAvatar.image} />
+            ) : (
+              <span className="avatar-random-badge large">?</span>
+            )}
           </div>
           <div className="stack profile-summary">
             <h2>{text.title}</h2>
@@ -148,6 +170,9 @@ export function ProfilePage(props: {
             </p>
             <p className="muted">
               <strong>{text.email}:</strong> {props.user?.email ?? "-"}
+            </p>
+            <p className="muted">
+              <strong>{text.avatarTitle}:</strong> {previewAvatar?.name ?? text.avatarRandomPreview}
             </p>
           </div>
         </div>
@@ -160,7 +185,7 @@ export function ProfilePage(props: {
             </div>
             <button
               className="primary-btn"
-              disabled={isSavingAvatar}
+              disabled={isSavingAvatar || !hasAvatarChange}
               onClick={handleAvatarSave}
               type="button"
             >
@@ -175,7 +200,10 @@ export function ProfilePage(props: {
             locale={props.locale}
             options={avatarOptions}
             selectedAvatarId={selectedAvatarId}
-            onSelect={setSelectedAvatarId}
+            onSelect={(avatarHeroId) => {
+              setAvatarFeedback(null);
+              setSelectedAvatarId(avatarHeroId);
+            }}
           />
         </section>
       </div>

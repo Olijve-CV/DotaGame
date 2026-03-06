@@ -1,7 +1,16 @@
 import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Language, UserProfile } from "@dotagame/contracts";
-import { clearToken, getLocale, getToken, setLocale, setToken } from "./lib/storage";
+import {
+  clearStoredUser,
+  clearToken,
+  getLocale,
+  getStoredUser,
+  getToken,
+  setLocale,
+  setStoredUser,
+  setToken
+} from "./lib/storage";
 import { fetchMe } from "./lib/api";
 import { ChatPage } from "./pages/ChatPage";
 import { HomePage } from "./pages/HomePage";
@@ -12,6 +21,7 @@ interface Copy {
   home: string;
   chat: string;
   profile: string;
+  account: string;
   login: string;
   logout: string;
   subtitle: string;
@@ -22,6 +32,7 @@ const copyMap: Record<Language, Copy> = {
     home: "资讯",
     chat: "Agent Chat",
     profile: "个人中心",
+    account: "用户",
     login: "登录",
     logout: "退出",
     subtitle: "赛事 · 版本 · 教学，一站式 Dota2 情报站"
@@ -30,6 +41,7 @@ const copyMap: Record<Language, Copy> = {
     home: "News",
     chat: "Agent Chat",
     profile: "Profile",
+    account: "User",
     login: "Login",
     logout: "Logout",
     subtitle: "Tournaments, patches, and guides in one Dota2 hub"
@@ -37,14 +49,26 @@ const copyMap: Record<Language, Copy> = {
 };
 
 export function App() {
+  const initialToken = getToken();
   const [locale, setLocaleState] = useState<Language>(getLocale());
-  const [token, setTokenState] = useState<string | null>(getToken());
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [token, setTokenState] = useState<string | null>(initialToken);
+  const [user, setUser] = useState<UserProfile | null>(() =>
+    initialToken ? getStoredUser() : null
+  );
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const copy = useMemo(() => copyMap[locale], [locale]);
   const accountName = user?.name?.trim() || user?.email || copy.profile;
   const accountInitial = accountName.charAt(0).toUpperCase();
+
+  useEffect(() => {
+    if (user) {
+      setStoredUser(user);
+      return;
+    }
+
+    clearStoredUser();
+  }, [user]);
 
   useEffect(() => {
     if (!token) {
@@ -155,10 +179,10 @@ export function App() {
                   <span className="account-avatar">{accountInitial}</span>
                 )}
                 <span className="account-meta">
-                  <span className="account-label">{copy.profile}</span>
                   <strong>{accountName}</strong>
+                  <span className="account-label">{copy.account}</span>
                 </span>
-                <span className={`account-caret${isAccountMenuOpen ? " open" : ""}`}>⌄</span>
+                <span className={`account-caret${isAccountMenuOpen ? " open" : ""}`}>▾</span>
               </button>
 
               {isAccountMenuOpen && (
