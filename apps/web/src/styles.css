@@ -345,6 +345,186 @@ button.active {
   padding: 0.8rem 0 0.2rem;
 }
 
+.intro-manual {
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(29, 26, 26, 0.03), transparent 34%),
+    radial-gradient(circle at top left, rgba(193, 70, 47, 0.16), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(10, 123, 122, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(255, 249, 240, 0.98), rgba(255, 253, 247, 0.96));
+}
+
+.intro-manual-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.intro-manual-copy h2 {
+  max-width: 14ch;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 0.94;
+}
+
+.intro-manual-stats {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.intro-manual-stat,
+.intro-anchor-card,
+.intro-roadmap-card,
+.intro-glossary-card,
+.intro-call-card,
+.intro-note-card,
+.intro-prompt-card {
+  border: 1px solid rgba(216, 205, 184, 0.92);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 14px 32px rgba(89, 57, 26, 0.08);
+}
+
+.intro-manual-stat {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.95rem 1rem;
+}
+
+.intro-manual-stat span,
+.intro-anchor-card span,
+.intro-roadmap-card span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.intro-manual-stat strong {
+  line-height: 1.5;
+}
+
+.intro-anchor-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.intro-anchor-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.intro-anchor-card strong {
+  font-size: 1rem;
+}
+
+.intro-anchor-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+.intro-manual-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.intro-manual-grid-lower {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.intro-manual-block {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.intro-roadmap,
+.intro-glossary-grid,
+.intro-call-list,
+.intro-prompt-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.intro-roadmap-card,
+.intro-glossary-card,
+.intro-call-card,
+.intro-note-card,
+.intro-prompt-card {
+  padding: 0.95rem 1rem;
+}
+
+.intro-roadmap {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.intro-roadmap-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 190px;
+  align-content: start;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 247, 235, 0.94));
+}
+
+.intro-roadmap-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -18px -18px auto;
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  background: rgba(193, 70, 47, 0.08);
+}
+
+.intro-roadmap-card h4,
+.intro-call-card h4 {
+  margin-top: 0.45rem;
+  font-size: 1.04rem;
+}
+
+.intro-roadmap-card p,
+.intro-glossary-card p,
+.intro-call-card p,
+.intro-prompt-card p {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.intro-glossary-grid,
+.intro-prompt-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.intro-glossary-card strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.intro-call-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.intro-note-card {
+  padding-block: 1rem 0.85rem;
+}
+
+.intro-checklist {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.65rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.intro-prompt-card {
+  background: linear-gradient(180deg, rgba(255, 253, 247, 0.98), rgba(255, 243, 232, 0.92));
+}
+
 .dota-intro {
   overflow: hidden;
   background:
@@ -991,6 +1171,13 @@ button.active {
 
   .two-col,
   .chat-controls,
+  .intro-anchor-grid,
+  .intro-manual-hero,
+  .intro-manual-grid,
+  .intro-roadmap,
+  .intro-glossary-grid,
+  .intro-call-list,
+  .intro-prompt-grid,
   .dota-intro-grid,
   .dota-skill-list,
   .dota-intro-hero,
@@ -1024,6 +1211,11 @@ button.active {
     padding-inline: 0.8rem;
   }
 
+  .intro-manual-copy h2 {
+    max-width: none;
+    line-height: 1;
+  }
+
   .auth-card,
   .auth-hero {
     padding: 0.9rem;
@@ -1040,5 +1232,1213 @@ button.active {
 
   .dota-gallery-card {
     padding: 0.6rem;
+  }
+}
+
+:root {
+  --bg: #0f1115;
+  --panel: rgba(19, 23, 30, 0.86);
+  --panel-solid: #151a22;
+  --panel-soft: rgba(25, 31, 41, 0.76);
+  --ink: #f4efe6;
+  --muted: #ada596;
+  --line: rgba(205, 183, 143, 0.18);
+  --accent: #d26c3b;
+  --accent-2: #b89b63;
+  --accent-3: #3f8c84;
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+body {
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(210, 108, 59, 0.16), transparent 28%),
+    radial-gradient(circle at 85% 10%, rgba(63, 140, 132, 0.12), transparent 24%),
+    linear-gradient(180deg, #12151b, #0c0f14 62%, #11161f);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.75), transparent 85%);
+}
+
+a {
+  color: inherit;
+}
+
+.app-shell {
+  position: relative;
+  max-width: 1320px;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+.app-header-shell {
+  align-items: center;
+  padding: 1.5rem 1.5rem 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background:
+    linear-gradient(135deg, rgba(210, 108, 59, 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(20, 24, 31, 0.98), rgba(14, 17, 23, 0.92));
+  box-shadow: var(--shadow);
+}
+
+.app-brand-shell {
+  max-width: 760px;
+}
+
+.brand-kicker {
+  color: #f0b07b;
+}
+
+.subtitle {
+  margin-top: 0.65rem;
+  max-width: 62ch;
+  color: #d4c9b6;
+  line-height: 1.65;
+}
+
+.app-pillar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.app-pillar-chip {
+  padding: 0.45rem 0.85rem;
+  border: 1px solid rgba(240, 176, 123, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f6e2c7;
+  font-size: 0.88rem;
+}
+
+.app-header-controls {
+  align-items: flex-start;
+}
+
+.panel,
+.card,
+.account-dropdown,
+.account-trigger,
+.nav-link,
+.story-card,
+.home-brief-card,
+.home-stat-card,
+.featured-story,
+.intel-line,
+.intro-page-card,
+.research-overview-card,
+.research-loop-card,
+.research-pillar-card,
+.research-segment-card,
+.research-first-card,
+.research-prompt-card,
+.dota-fact-card,
+.dota-timeline-card,
+.dota-role-card,
+.dota-skill-card,
+.dota-skill-detail-card,
+.dota-spotlight-details,
+.dota-gallery-card,
+.auth-point {
+  border-color: var(--line);
+  background: var(--panel-soft);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.panel,
+.card {
+  background:
+    linear-gradient(180deg, rgba(22, 27, 35, 0.95), rgba(15, 18, 24, 0.9));
+}
+
+button,
+.ghost-btn {
+  border-radius: 14px;
+  border-color: rgba(205, 183, 143, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+}
+
+button:hover,
+.ghost-btn:hover {
+  border-color: rgba(240, 176, 123, 0.6);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+button.active {
+  background: linear-gradient(135deg, var(--accent), #a94a24);
+  border-color: transparent;
+  color: #fff8ef;
+}
+
+.primary-btn {
+  border-color: transparent;
+  background: linear-gradient(135deg, #db7640, #a54522);
+  color: #fff8ef;
+}
+
+.ghost-btn,
+.primary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding-inline: 1rem;
+  text-decoration: none;
+}
+
+.section-kicker {
+  color: #f0b07b;
+}
+
+.section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.section-heading.compact {
+  align-items: start;
+}
+
+.section-heading p {
+  margin: 0;
+}
+
+.app-nav {
+  margin: 1rem 0 1.4rem;
+  gap: 0.75rem;
+}
+
+.nav-link {
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #dad1c1;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.nav-link.active {
+  border-color: rgba(240, 176, 123, 0.42);
+  background: linear-gradient(135deg, rgba(210, 108, 59, 0.26), rgba(210, 108, 59, 0.08));
+  color: #fff6ea;
+}
+
+.app-main {
+  display: grid;
+  gap: 1rem;
+}
+
+.filters input,
+.chat-controls input,
+.chat-controls select,
+.panel input {
+  border-color: rgba(205, 183, 143, 0.18);
+  background: rgba(7, 9, 13, 0.42);
+  color: var(--ink);
+}
+
+.filters input:focus,
+.chat-controls input:focus,
+.chat-controls select:focus,
+.panel input:focus {
+  border-color: rgba(240, 176, 123, 0.52);
+  box-shadow: 0 0 0 3px rgba(210, 108, 59, 0.12);
+}
+
+.muted,
+.meta,
+.dota-intro-summary,
+.auth-copy,
+.auth-caption,
+.field-error,
+.account-label,
+.account-email,
+.citation {
+  color: var(--muted);
+}
+
+.account-trigger,
+.account-dropdown {
+  background:
+    linear-gradient(180deg, rgba(28, 34, 44, 0.98), rgba(17, 21, 28, 0.94));
+}
+
+.account-dropdown-link:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.home-page {
+  gap: 1.2rem;
+}
+
+.home-command {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
+  gap: 1rem;
+  padding: 1.4rem;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(210, 108, 59, 0.15), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(63, 140, 132, 0.16), transparent 28%),
+    linear-gradient(180deg, rgba(20, 25, 33, 0.98), rgba(15, 19, 25, 0.96));
+}
+
+.home-command h2,
+.intro-page-copy h2,
+.research-manual-copy h2,
+.dota-intro h2 {
+  max-width: 14ch;
+  font-size: clamp(2.1rem, 4vw, 4rem);
+  line-height: 0.95;
+}
+
+.home-command-summary {
+  max-width: 58ch;
+  margin: 0.9rem 0 0;
+  color: #d6cbbb;
+  line-height: 1.7;
+}
+
+.home-stat-grid,
+.intro-page-card-grid,
+.research-overview-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.home-stat-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 1rem;
+}
+
+.home-stat-card,
+.intro-page-card,
+.research-overview-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.95rem 1rem;
+}
+
+.home-stat-card span,
+.home-brief-card span,
+.intro-page-card span,
+.research-overview-card span,
+.research-loop-card span,
+.research-first-card span,
+.status-pill {
+  color: #f0c89e;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.home-stat-card strong,
+.home-brief-card strong,
+.intro-page-card strong,
+.research-overview-card strong {
+  font-size: 1.08rem;
+  line-height: 1.45;
+}
+
+.home-command-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.home-command-rail {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.home-brief-card {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem;
+  align-content: start;
+  background:
+    linear-gradient(180deg, rgba(34, 41, 51, 0.96), rgba(20, 24, 32, 0.92));
+}
+
+.home-brief-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.home-brief-card a {
+  color: #f4d2ac;
+}
+
+.filters-panel {
+  padding: 1.1rem 1.2rem 1.2rem;
+}
+
+.filters-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.home-feed-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.82fr);
+  gap: 1rem;
+}
+
+.home-feed-panel,
+.intel-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.featured-story {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 0.8rem;
+  padding: 1.2rem;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(210, 108, 59, 0.16), transparent 26%),
+    linear-gradient(180deg, rgba(31, 37, 49, 0.98), rgba(17, 21, 28, 0.94));
+}
+
+.featured-story h3 {
+  font-size: clamp(1.8rem, 2.5vw, 2.4rem);
+  line-height: 1.05;
+}
+
+.featured-story p,
+.story-card p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.home-story-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.story-card {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(24, 29, 37, 0.96), rgba(16, 19, 25, 0.92));
+}
+
+.story-card h4 {
+  margin: 0;
+  font-size: 1.08rem;
+  line-height: 1.35;
+}
+
+.home-side-rail {
+  display: grid;
+  gap: 1rem;
+}
+
+.intel-line {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(28, 34, 44, 0.94), rgba(18, 22, 29, 0.92));
+}
+
+.intel-line p,
+.intel-line span,
+.research-prompt-card p,
+.research-loop-card p,
+.research-pillar-card p,
+.research-segment-card p,
+.research-first-card p,
+.dota-timeline-card p,
+.dota-role-card p,
+.dota-skill-card p,
+.dota-skill-detail-card p,
+.dota-spotlight-details p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.intel-line-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.intel-line-actions a {
+  color: #f4d2ac;
+  text-decoration: none;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.32rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.status-pill.live {
+  color: #ffd48c;
+  background: rgba(210, 108, 59, 0.2);
+}
+
+.status-pill.upcoming {
+  color: #99d1c8;
+  background: rgba(63, 140, 132, 0.18);
+}
+
+.status-pill.completed {
+  color: #c7bdab;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.tag-chip {
+  padding: 0.38rem 0.7rem;
+  border: 1px solid rgba(240, 176, 123, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ead7bb;
+  font-size: 0.85rem;
+}
+
+.card-footer {
+  align-items: center;
+}
+
+.intro-page-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.95fr);
+  gap: 1rem;
+  padding: 1.35rem;
+  background:
+    radial-gradient(circle at 12% 14%, rgba(210, 108, 59, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(21, 25, 33, 0.98), rgba(15, 18, 24, 0.94));
+}
+
+.intro-page-copy .dota-intro-summary {
+  max-width: 62ch;
+}
+
+.research-manual {
+  display: grid;
+  gap: 1rem;
+  padding: 1.3rem;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(210, 108, 59, 0.15), transparent 24%),
+    radial-gradient(circle at 82% 18%, rgba(63, 140, 132, 0.12), transparent 24%),
+    linear-gradient(180deg, rgba(20, 24, 31, 0.98), rgba(14, 17, 23, 0.95));
+}
+
+.research-manual-hero,
+.research-manual-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.research-manual-hero {
+  grid-template-columns: minmax(0, 1.18fr) minmax(320px, 0.82fr);
+}
+
+.research-manual-layout {
+  grid-template-columns: minmax(0, 1.18fr) minmax(0, 0.82fr);
+}
+
+.research-manual-layout-lower {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.research-block {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.research-loop-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.research-loop-card,
+.research-pillar-card,
+.research-segment-card,
+.research-first-card,
+.research-prompt-card {
+  padding: 1rem;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(30, 36, 46, 0.96), rgba(18, 22, 30, 0.94));
+}
+
+.research-loop-card {
+  min-height: 220px;
+  align-content: start;
+}
+
+.research-loop-card h4,
+.research-pillar-card h4,
+.research-segment-card h4,
+.research-first-card h4 {
+  margin: 0.45rem 0 0;
+  font-size: 1.04rem;
+}
+
+.research-pillar-grid,
+.research-segment-grid,
+.research-prompt-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.research-segment-grid,
+.research-prompt-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.research-first-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.research-first-card {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.research-first-card span {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(240, 176, 123, 0.24);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.research-prompt-card {
+  min-height: 112px;
+}
+
+.dota-intro {
+  padding: 1.3rem;
+  background:
+    radial-gradient(circle at top right, rgba(210, 108, 59, 0.16), transparent 24%),
+    radial-gradient(circle at bottom left, rgba(63, 140, 132, 0.11), transparent 28%),
+    linear-gradient(180deg, rgba(20, 24, 31, 0.98), rgba(15, 18, 25, 0.95));
+}
+
+.dota-intro-facts {
+  gap: 0.8rem;
+}
+
+.dota-fact-card,
+.dota-timeline-card,
+.dota-role-card,
+.dota-skill-card,
+.dota-skill-detail-card,
+.dota-gallery-card,
+.dota-spotlight-details {
+  background:
+    linear-gradient(180deg, rgba(29, 35, 45, 0.96), rgba(17, 21, 28, 0.92));
+}
+
+.dota-timeline {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dota-timeline-card {
+  min-height: 190px;
+}
+
+.dota-timeline-head {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.dota-timeline-head strong {
+  font-size: 1rem;
+}
+
+.dota-role-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dota-role-card h4 {
+  margin: 0;
+}
+
+.dota-intro-grid.lower {
+  grid-template-columns: minmax(0, 0.74fr) minmax(0, 1.26fr);
+}
+
+.dota-atlas-block {
+  gap: 1rem;
+}
+
+.dota-atlas-toolbar {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dota-spotlight {
+  gap: 1rem;
+}
+
+.dota-spotlight-poster {
+  background:
+    radial-gradient(circle at top, color-mix(in srgb, var(--hero-accent) 26%, transparent), transparent 48%),
+    linear-gradient(180deg, rgba(37, 44, 56, 0.96), rgba(20, 24, 31, 0.94));
+}
+
+.dota-gallery-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.dota-gallery-card.selected {
+  border-color: rgba(240, 176, 123, 0.42);
+  box-shadow: 0 0 0 3px rgba(210, 108, 59, 0.16), var(--shadow);
+}
+
+.chat-controls {
+  grid-template-columns: 180px 1fr 120px;
+}
+
+@media (max-width: 1080px) {
+  .home-command,
+  .home-feed-layout,
+  .intro-page-hero,
+  .research-manual-hero,
+  .research-manual-layout,
+  .research-manual-layout-lower,
+  .dota-intro-hero,
+  .dota-intro-grid,
+  .dota-intro-grid.lower,
+  .auth-layout,
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .home-story-grid,
+  .research-loop-grid,
+  .dota-timeline,
+  .dota-gallery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    padding-inline: 0.9rem;
+  }
+
+  .topbar,
+  .filters-head,
+  .section-heading,
+  .dota-atlas-toolbar,
+  .chat-controls {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .topbar {
+    gap: 1rem;
+  }
+
+  .topbar-controls,
+  .app-pillar-row,
+  .home-command-actions {
+    width: 100%;
+  }
+
+  .language-switch,
+  .home-command-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-stat-grid,
+  .intro-page-card-grid,
+  .research-overview-grid,
+  .research-segment-grid,
+  .research-prompt-grid,
+  .home-story-grid,
+  .dota-role-list,
+  .dota-skill-list,
+  .dota-skill-detail-list,
+  .dota-gallery-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .research-first-card,
+  .chat-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .featured-story h3 {
+    font-size: 1.6rem;
+  }
+
+  .home-command h2,
+  .intro-page-copy h2,
+  .research-manual-copy h2,
+  .dota-intro h2 {
+    max-width: none;
+    font-size: clamp(1.8rem, 10vw, 2.7rem);
+  }
+}
+
+.chat-page,
+.profile-page {
+  gap: 1.2rem;
+}
+
+.chat-hero,
+.profile-command,
+.profile-avatar-panel {
+  padding: 1.3rem;
+}
+
+.chat-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 1rem;
+  background:
+    radial-gradient(circle at top left, rgba(210, 108, 59, 0.14), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(63, 140, 132, 0.12), transparent 24%),
+    linear-gradient(180deg, rgba(21, 26, 34, 0.98), rgba(15, 18, 24, 0.94));
+}
+
+.chat-hero-copy h2,
+.profile-summary h2 {
+  max-width: 14ch;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 0.96;
+}
+
+.chat-starter-panel,
+.chat-console,
+.chat-response-panel,
+.chat-empty-panel,
+.profile-detail-card,
+.profile-metric-card,
+.profile-record-card,
+.profile-session-card {
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(30, 36, 46, 0.96), rgba(18, 22, 30, 0.94));
+  box-shadow: var(--shadow);
+}
+
+.chat-starter-panel {
+  padding: 1rem;
+}
+
+.chat-starter-list,
+.chat-followup-list,
+.profile-record-list,
+.profile-session-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.chat-starter-card,
+.chat-followup-chip {
+  justify-content: flex-start;
+  text-align: left;
+  padding: 0.9rem 1rem;
+}
+
+.chat-console {
+  padding: 1rem;
+}
+
+.chat-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.chat-mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.chat-compose-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 0.8rem;
+  align-items: stretch;
+}
+
+.chat-question-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 132px;
+  border: 1px solid rgba(205, 183, 143, 0.18);
+  border-radius: 18px;
+  padding: 0.95rem 1rem;
+  font: inherit;
+  color: var(--ink);
+  background: rgba(7, 9, 13, 0.42);
+}
+
+.chat-question-input:focus {
+  outline: none;
+  border-color: rgba(240, 176, 123, 0.52);
+  box-shadow: 0 0 0 3px rgba(210, 108, 59, 0.12);
+}
+
+.chat-submit {
+  min-height: 100%;
+}
+
+.chat-response-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1.2rem;
+}
+
+.chat-response-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 1rem;
+}
+
+.chat-confidence-card {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 128px;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(240, 176, 123, 0.18);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.chat-confidence-card span {
+  color: #f0c89e;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.chat-confidence-card strong {
+  font-size: 1.2rem;
+}
+
+.chat-answer-card {
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.chat-answer-card p {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.chat-followups,
+.chat-citation-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.chat-followups h4,
+.chat-citation-section h4 {
+  margin: 0;
+}
+
+.chat-followup-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.chat-citation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.chat-citation-card {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  text-decoration: none;
+}
+
+.chat-citation-card span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.profile-command {
+  display: grid;
+  grid-template-columns: minmax(0, 1.22fr) minmax(220px, 0.78fr);
+  gap: 1rem;
+  align-items: stretch;
+  background:
+    radial-gradient(circle at top left, rgba(210, 108, 59, 0.16), transparent 26%),
+    linear-gradient(180deg, rgba(20, 25, 33, 0.98), rgba(15, 18, 24, 0.94));
+}
+
+.profile-command-main {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+}
+
+.profile-avatar-frame {
+  width: 180px;
+  height: 180px;
+  border: 1px solid rgba(240, 176, 123, 0.16);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.profile-summary {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.profile-detail-grid,
+.profile-metric-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.profile-detail-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.profile-detail-card,
+.profile-metric-card {
+  padding: 0.95rem 1rem;
+}
+
+.profile-detail-card span,
+.profile-metric-card span,
+.profile-record-card span {
+  color: #f0c89e;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.profile-detail-card strong,
+.profile-metric-card strong,
+.profile-record-card strong {
+  display: block;
+  margin-top: 0.35rem;
+  line-height: 1.5;
+}
+
+.profile-metric-grid {
+  align-content: start;
+}
+
+.profile-avatar-panel,
+.profile-log-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.profile-lower-grid {
+  align-items: start;
+}
+
+.profile-record-card,
+.profile-session-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem;
+}
+
+.profile-record-card.rich h4 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.4;
+}
+
+.profile-record-card.rich p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.profile-record-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.2rem;
+}
+
+.profile-record-footer small,
+.profile-session-time {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.profile-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.profile-record-actions a {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  text-decoration: none;
+}
+
+.profile-record-card code {
+  color: #f4d2ac;
+  word-break: break-all;
+}
+
+.profile-session-card p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.avatar-picker {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.avatar-picker-toolbar {
+  display: grid;
+}
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 0.15rem;
+}
+
+.avatar-option {
+  display: grid;
+  gap: 0.55rem;
+  justify-items: center;
+  min-height: 160px;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  text-align: center;
+}
+
+.avatar-option img {
+  width: 100%;
+  max-width: 88px;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+}
+
+.avatar-option span {
+  line-height: 1.35;
+}
+
+.avatar-option.selected {
+  border-color: rgba(240, 176, 123, 0.42);
+  box-shadow: 0 0 0 3px rgba(210, 108, 59, 0.16);
+}
+
+.avatar-random {
+  grid-template-columns: 48px minmax(0, 180px) minmax(0, 1fr);
+  align-items: center;
+  justify-items: start;
+  min-height: auto;
+  text-align: left;
+}
+
+.avatar-option-note {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 1080px) {
+  .chat-hero,
+  .profile-command,
+  .profile-command-main,
+  .chat-compose-row,
+  .profile-detail-grid,
+  .chat-citation-grid,
+  .chat-followup-list {
+    grid-template-columns: 1fr;
+  }
+
+  .avatar-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .chat-response-head,
+  .avatar-random {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .avatar-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profile-avatar-frame,
+  .profile-command-main {
+    width: 100%;
+  }
+
+  .profile-avatar-frame {
+    max-width: 180px;
   }
 }

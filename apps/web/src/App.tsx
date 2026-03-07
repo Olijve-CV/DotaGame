@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, Navigate, Route, Routes } from "react-router-dom";
+import { Link, NavLink, Navigate, Route, Routes } from "react-router-dom";
 import type { Language, UserProfile } from "@dotagame/contracts";
 import { fetchMe } from "./lib/api";
 import {
@@ -26,29 +26,35 @@ interface Copy {
   account: string;
   login: string;
   logout: string;
+  title: string;
   subtitle: string;
+  pillars: string[];
 }
 
 const copyMap: Record<Language, Copy> = {
   "zh-CN": {
-    home: "资讯",
-    intro: "Dota2 介绍",
-    chat: "智能咨询",
+    home: "情报台",
+    intro: "游戏介绍",
+    chat: "战术问答",
     profile: "个人中心",
-    account: "用户",
+    account: "账号",
     login: "登录",
     logout: "退出登录",
-    subtitle: "赛事、补丁、攻略与 Dota2 详细介绍分区展示"
+    title: "Dota 2 情报站",
+    subtitle: "把补丁、赛事、知识导览和战术问答整理成一条更容易进入的学习路径。",
+    pillars: ["地图控制", "经济时机", "团战判断"]
   },
   "en-US": {
-    home: "News",
-    intro: "Dota2 Intro",
+    home: "Intel Desk",
+    intro: "Game Intro",
     chat: "Agent Chat",
     profile: "Profile",
     account: "User",
     login: "Login",
     logout: "Logout",
-    subtitle: "News, coaching, and a standalone Dota2 introduction section"
+    title: "Dota 2 Briefing Room",
+    subtitle: "Patch watch, onboarding, and tactical Q&A arranged as a cleaner learning surface.",
+    pillars: ["Map Control", "Economy Timings", "Fight Calls"]
   }
 };
 
@@ -144,27 +150,38 @@ export function App() {
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div>
+      <header className="topbar app-header-shell">
+        <div className="app-brand-shell">
           <p className="brand-kicker">DotaPulse</p>
-          <h1>Dota2 News + Coaching</h1>
+          <h1>{copy.title}</h1>
           <p className="subtitle">{copy.subtitle}</p>
+          <div className="app-pillar-row">
+            {copy.pillars.map((pillar) => (
+              <span className="app-pillar-chip" key={pillar}>
+                {pillar}
+              </span>
+            ))}
+          </div>
         </div>
-        <div className="topbar-controls">
+
+        <div className="topbar-controls app-header-controls">
           <div className="language-switch">
             <button
               className={locale === "zh-CN" ? "active" : ""}
               onClick={() => handleLocaleChange("zh-CN")}
+              type="button"
             >
               中文
             </button>
             <button
               className={locale === "en-US" ? "active" : ""}
               onClick={() => handleLocaleChange("en-US")}
+              type="button"
             >
               EN
             </button>
           </div>
+
           {token ? (
             <div className="account-menu" ref={accountMenuRef}>
               <button
@@ -219,13 +236,19 @@ export function App() {
         </div>
       </header>
 
-      <nav className="nav">
-        <Link to="/">{copy.home}</Link>
-        <Link to="/intro">{copy.intro}</Link>
-        <Link to="/chat">{copy.chat}</Link>
+      <nav className="nav app-nav">
+        <NavLink className={({ isActive }) => `nav-link${isActive ? " active" : ""}`} to="/">
+          {copy.home}
+        </NavLink>
+        <NavLink className={({ isActive }) => `nav-link${isActive ? " active" : ""}`} to="/intro">
+          {copy.intro}
+        </NavLink>
+        <NavLink className={({ isActive }) => `nav-link${isActive ? " active" : ""}`} to="/chat">
+          {copy.chat}
+        </NavLink>
       </nav>
 
-      <main>
+      <main className="app-main">
         <Routes>
           <Route
             path="/"

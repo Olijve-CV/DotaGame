@@ -108,11 +108,20 @@ export function DotaIntroSection(props: { locale: Language }) {
 
       <div className="dota-intro-grid">
         <section className="dota-intro-block">
-          <h3>{copy.gameplayTitle}</h3>
+          <div className="section-heading compact">
+            <div>
+              <p className="section-kicker">Flow</p>
+              <h3>{copy.gameplayTitle}</h3>
+            </div>
+          </div>
+
           <div className="dota-timeline">
-            {copy.gameplaySteps.map((step) => (
+            {copy.gameplaySteps.map((step, index) => (
               <article className="dota-timeline-card" key={step.phase}>
-                <span>{step.phase}</span>
+                <div className="dota-timeline-head">
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  <strong>{step.phase}</strong>
+                </div>
                 <p>{step.detail}</p>
               </article>
             ))}
@@ -120,7 +129,13 @@ export function DotaIntroSection(props: { locale: Language }) {
         </section>
 
         <section className="dota-intro-block">
-          <h3>{copy.rolesTitle}</h3>
+          <div className="section-heading compact">
+            <div>
+              <p className="section-kicker">Roles</p>
+              <h3>{copy.rolesTitle}</h3>
+            </div>
+          </div>
+
           <div className="dota-role-list">
             {copy.roles.map((role) => (
               <article className="dota-role-card" key={role.name}>
@@ -135,7 +150,13 @@ export function DotaIntroSection(props: { locale: Language }) {
 
       <div className="dota-intro-grid lower">
         <section className="dota-intro-block">
-          <h3>{copy.skillsTitle}</h3>
+          <div className="section-heading compact">
+            <div>
+              <p className="section-kicker">Skills</p>
+              <h3>{copy.skillsTitle}</h3>
+            </div>
+          </div>
+
           <div className="dota-skill-list">
             {copy.skills.map((skill) => (
               <article className="dota-skill-card" key={skill.name}>
@@ -146,9 +167,14 @@ export function DotaIntroSection(props: { locale: Language }) {
           </div>
         </section>
 
-        <section className="dota-intro-block">
-          <h3>{copy.atlasTitle}</h3>
-          <p className="dota-intro-summary compact">{copy.atlasSubtitle}</p>
+        <section className="dota-intro-block dota-atlas-block">
+          <div className="section-heading compact">
+            <div>
+              <p className="section-kicker">Hero Atlas</p>
+              <h3>{copy.atlasTitle}</h3>
+            </div>
+            <p className="dota-intro-summary compact">{copy.atlasSubtitle}</p>
+          </div>
 
           <div className="chip-row dota-role-filters">
             {copy.roleFilters.map((filter) => (

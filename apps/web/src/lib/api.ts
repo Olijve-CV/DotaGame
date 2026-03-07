@@ -121,6 +121,20 @@ export async function addFavorite(
   return result.items;
 }
 
+export async function removeFavorite(
+  token: string,
+  input: { contentType: "article" | "patch" | "tournament"; contentId: string }
+): Promise<FavoriteRecord[]> {
+  const result = await http<{ items: FavoriteRecord[] }>(
+    `/users/me/favorites/${input.contentType}/${encodeURIComponent(input.contentId)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    }
+  );
+  return result.items;
+}
+
 export async function fetchChatSessions(token: string) {
   const result = await http<{
     items: Array<{ id: string; question: string; answer: string; createdAt: string }>;

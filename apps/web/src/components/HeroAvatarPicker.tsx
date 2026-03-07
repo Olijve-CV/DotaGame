@@ -5,8 +5,8 @@ const labels = {
   "zh-CN": {
     search: "搜索英雄头像",
     random: "随机分配",
-    randomHint: "不手动选择时，系统会随机给你一个英雄头像。",
-    empty: "没有匹配到英雄，试试别的关键词。"
+    randomHint: "如果不手动选择，系统会为你随机分配一个英雄头像。",
+    empty: "没有匹配到英雄，请换个关键词。"
   },
   "en-US": {
     search: "Search hero avatars",
