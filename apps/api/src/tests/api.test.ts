@@ -58,6 +58,58 @@ describe("API v1", () => {
     expect(response.body.followUps.length).toBeGreaterThan(0);
   });
 
+  it("creates an agent thread and completes a multi-agent run automatically", async () => {
+    const threadResponse = await request(app).post("/api/v1/agent/threads").send({
+      language: "en-US"
+    });
+
+    expect(threadResponse.status).toBe(201);
+
+    const runResponse = await request(app)
+      .post(`/api/v1/agent/threads/${threadResponse.body.thread.id}/runs`)
+      .send({
+        message: "What is the latest patch trend for carry timings?",
+        mode: "coach",
+        language: "en-US",
+        approvalPolicy: "auto"
+      });
+
+    expect(runResponse.status).toBe(200);
+    expect(runResponse.body.runs[0].status).toBe("completed");
+    expect(runResponse.body.runs[0].steps.length).toBeGreaterThan(2);
+    expect(runResponse.body.messages.some((message: { role: string }) => message.role === "assistant")).toBe(
+      true
+    );
+  });
+
+  it("pauses an agent run for approval and resumes after approval", async () => {
+    const threadResponse = await request(app).post("/api/v1/agent/threads").send({
+      language: "en-US"
+    });
+
+    const runResponse = await request(app)
+      .post(`/api/v1/agent/threads/${threadResponse.body.thread.id}/runs`)
+      .send({
+        message: "What is the latest tournament meta for supports right now?",
+        mode: "quick",
+        language: "en-US",
+        approvalPolicy: "always"
+      });
+
+    expect(runResponse.status).toBe(200);
+    expect(runResponse.body.runs[0].status).toBe("waiting_approval");
+    expect(runResponse.body.runs[0].approvals[0].status).toBe("pending");
+
+    const approval = runResponse.body.runs[0].approvals[0];
+    const resumeResponse = await request(app)
+      .post(`/api/v1/agent/runs/${runResponse.body.runs[0].id}/approvals/${approval.id}`)
+      .send({ decision: "approve" });
+
+    expect(resumeResponse.status).toBe(200);
+    expect(resumeResponse.body.runs[0].status).toBe("completed");
+    expect(resumeResponse.body.runs[0].approvals[0].status).toBe("approved");
+  });
+
   it("uses the email as fallback name and does not expose password fields", async () => {
     const registerResponse = await request(app).post("/api/v1/auth/register").send({
       email: "player@example.com",

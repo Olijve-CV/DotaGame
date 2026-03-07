@@ -40,3 +40,17 @@
 - The current `/intro` route is too thin as a true onboarding surface. It works better as a layered page: top half for newcomer mental models and question prompts, lower half for the existing hero atlas and role examples.
 - A field-manual style onboarding page fits the repo's warm editorial visual language better than a generic dashboard layout.
 - Two follow-up docs now make sense alongside the initial domain research note: one Chinese new-player guide for content reuse, and one product-facing taxonomy/data-model note for API and RAG planning.
+- The current `chat` implementation is still single-turn despite using RAG internally:
+  - `packages/contracts/src/index.ts` exposes only `ChatRequest` and `ChatResponse`.
+  - `apps/api/src/routes/chatRoutes.ts` only accepts one-shot `POST /chat`.
+  - `apps/api/src/services/chatService.ts` performs one retrieval pass and one answer generation pass.
+  - `apps/web/src/pages/ChatPage.tsx` renders a single response panel rather than an agent run timeline.
+- To support a real agent, the repo needs a new interaction model around `thread`, `message`, `run`, `tool call`, and `human approval`, not just richer answer copy.
+- The implemented runtime now follows the minimum viable OpenCode-like shape:
+  - `orchestrator` plans and delegates.
+  - `researcher` executes `knowledge_search` and optionally approval-gated `web_search`.
+  - `coach` writes the final answer back into the thread.
+- Approval is a real run state transition (`waiting_approval`) rather than a UI-only modal. Runs resume through a dedicated approval endpoint and continue from the suspension point.
+- The chosen `web_search` implementation is domain-specific rather than a general search engine:
+  - It searches live/fallback Dota content already available through Steam news, patch notes, and OpenDota tournament feeds.
+  - This keeps the first version deployable without introducing another external search dependency or API key.

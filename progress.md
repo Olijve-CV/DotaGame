@@ -1,5 +1,20 @@
 # Progress Log
 
+## 2026-03-07
+- Reviewed current agent/chat surface before redesign:
+  - Read shared chat contracts, chat route, chat service, and web `ChatPage`.
+  - Confirmed current architecture is one-shot RAG Q&A, not a tool-using agent runtime.
+- User clarified target direction: React-based agent UX with tool usage, at least web search/internet access, plus human-in-the-loop approvals.
+- Implemented a new multi-agent runtime:
+  - Added shared contracts for agent threads, runs, steps, tool calls, and approvals.
+  - Added API routes for creating threads, starting runs, listing thread summaries, fetching thread detail, and resolving approvals.
+  - Added an in-memory agent store and runtime service with `orchestrator`, `researcher`, and `coach` roles.
+  - Added domain-scoped tools for `knowledge_search` and `web_search`, with approval-gated live search.
+- Rebuilt the web `/chat` page into an agent workspace with thread rail, message feed, run timeline, and approval actions.
+- Validation completed:
+  - `npm test --workspace @dotagame/api`
+  - `npm run build`
+
 ## 2026-03-06
 - Started implementation from approved proposed plan.
 - Created planning files and initial folders.

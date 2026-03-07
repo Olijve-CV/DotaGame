@@ -1,4 +1,9 @@
 import type {
+  AgentApprovalRequest,
+  AgentRunRequest,
+  AgentThread,
+  AgentThreadDetail,
+  AgentThreadSummary,
   Article,
   ChatRequest,
   ChatResponse,
@@ -152,5 +157,58 @@ export async function askChat(
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: JSON.stringify(request)
+  });
+}
+
+export async function fetchAgentThreads(token?: string | null): Promise<AgentThreadSummary[]> {
+  const result = await http<{ items: AgentThreadSummary[] }>("/agent/threads", {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined
+  });
+  return result.items;
+}
+
+export async function createAgentThread(
+  input: { language: Language; title?: string },
+  token?: string | null
+): Promise<AgentThread> {
+  const result = await http<{ thread: AgentThread }>("/agent/threads", {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: JSON.stringify(input)
+  });
+  return result.thread;
+}
+
+export async function fetchAgentThread(
+  threadId: string,
+  token?: string | null
+): Promise<AgentThreadDetail> {
+  return http<AgentThreadDetail>(`/agent/threads/${threadId}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined
+  });
+}
+
+export async function startAgentRun(
+  threadId: string,
+  input: AgentRunRequest,
+  token?: string | null
+): Promise<AgentThreadDetail> {
+  return http<AgentThreadDetail>(`/agent/threads/${threadId}/runs`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: JSON.stringify(input)
+  });
+}
+
+export async function resolveAgentApproval(
+  runId: string,
+  approval: Pick<AgentApprovalRequest, "id">,
+  decision: "approve" | "reject",
+  token?: string | null
+): Promise<AgentThreadDetail> {
+  return http<AgentThreadDetail>(`/agent/runs/${runId}/approvals/${approval.id}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: JSON.stringify({ decision })
   });
 }

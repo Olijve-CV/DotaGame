@@ -2516,3 +2516,313 @@ button.active {
     max-width: 180px;
   }
 }
+
+.agent-page {
+  gap: 1.5rem;
+}
+
+.agent-hero {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
+  overflow: hidden;
+  position: relative;
+}
+
+.agent-hero::before {
+  background:
+    radial-gradient(circle at top left, rgba(225, 102, 58, 0.2), transparent 42%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.07), transparent 65%);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.agent-hero-copy,
+.agent-control-grid,
+.agent-workspace,
+.agent-main-stack {
+  position: relative;
+  z-index: 1;
+}
+
+.agent-control-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.agent-control-card {
+  background: rgba(22, 25, 34, 0.6);
+  border: 1px solid rgba(240, 233, 220, 0.08);
+  border-radius: 1.2rem;
+  padding: 1rem;
+}
+
+.agent-toggle-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.agent-toggle-row button {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(240, 233, 220, 0.08);
+  border-radius: 999px;
+  color: inherit;
+  cursor: pointer;
+  flex: 1 1 0;
+  font: inherit;
+  padding: 0.8rem 1rem;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.agent-toggle-row button:hover,
+.agent-thread-card:hover,
+.agent-starter-list button:hover,
+.agent-step-card:hover {
+  border-color: rgba(225, 102, 58, 0.4);
+  transform: translateY(-1px);
+}
+
+.agent-toggle-row button.active {
+  background: linear-gradient(135deg, rgba(225, 102, 58, 0.22), rgba(240, 196, 125, 0.12));
+  border-color: rgba(225, 102, 58, 0.45);
+}
+
+.agent-workspace {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+}
+
+.agent-thread-rail,
+.agent-message-panel,
+.agent-run-panel,
+.agent-compose-panel {
+  min-height: 0;
+}
+
+.agent-thread-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.agent-rail-note {
+  margin-top: -0.35rem;
+}
+
+.agent-thread-list,
+.agent-message-list,
+.agent-step-list,
+.agent-starter-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.agent-thread-card,
+.agent-starter-list button,
+.agent-step-card,
+.agent-approval-card,
+.agent-run-summary {
+  background: rgba(17, 20, 29, 0.72);
+  border: 1px solid rgba(240, 233, 220, 0.08);
+  border-radius: 1.15rem;
+}
+
+.agent-thread-card {
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 1rem;
+  text-align: left;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.agent-thread-card.active {
+  background: linear-gradient(160deg, rgba(225, 102, 58, 0.18), rgba(17, 20, 29, 0.92));
+  border-color: rgba(225, 102, 58, 0.45);
+}
+
+.agent-thread-card p,
+.agent-step-card p,
+.agent-message-bubble p {
+  margin: 0;
+}
+
+.agent-thread-status,
+.agent-run-status,
+.agent-message-role,
+.agent-thread-time {
+  color: rgba(240, 233, 220, 0.62);
+  display: inline-flex;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.agent-thread-card strong,
+.agent-run-summary strong,
+.agent-step-head strong {
+  display: block;
+  margin: 0.4rem 0 0.5rem;
+}
+
+.agent-main-stack {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.agent-message-panel,
+.agent-run-panel,
+.agent-compose-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.agent-message-list {
+  max-height: 36rem;
+  overflow: auto;
+}
+
+.agent-message-bubble {
+  border-radius: 1.3rem;
+  max-width: min(54rem, 88%);
+  padding: 1rem 1.1rem;
+}
+
+.agent-message-user {
+  background: linear-gradient(160deg, rgba(225, 102, 58, 0.2), rgba(225, 102, 58, 0.08));
+  margin-left: auto;
+}
+
+.agent-message-assistant {
+  background: rgba(17, 20, 29, 0.78);
+  border: 1px solid rgba(240, 233, 220, 0.08);
+}
+
+.agent-run-summary,
+.agent-step-card,
+.agent-approval-card {
+  padding: 1rem 1.1rem;
+}
+
+.agent-step-head {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.agent-step-head span {
+  color: rgba(240, 233, 220, 0.56);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.agent-step-card.step-waiting,
+.agent-approval-card {
+  border-color: rgba(240, 196, 125, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(240, 196, 125, 0.12);
+}
+
+.agent-run-status {
+  border: 1px solid rgba(240, 233, 220, 0.08);
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+}
+
+.agent-run-status.status-running {
+  border-color: rgba(240, 196, 125, 0.3);
+}
+
+.agent-run-status.status-waiting_approval {
+  border-color: rgba(225, 102, 58, 0.38);
+}
+
+.agent-run-status.status-completed {
+  border-color: rgba(92, 170, 120, 0.35);
+}
+
+.agent-approval-actions,
+.agent-compose-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.9rem;
+  justify-content: space-between;
+}
+
+.agent-compose-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.agent-empty-state {
+  align-items: center;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+  border: 1px dashed rgba(240, 233, 220, 0.12);
+  border-radius: 1.15rem;
+  display: flex;
+  justify-content: center;
+  min-height: 12rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.agent-starter-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(17, 20, 29, 0.92));
+  border: 1px solid rgba(240, 233, 220, 0.08);
+  border-radius: 1.3rem;
+  padding: 1rem;
+}
+
+.agent-starter-list button {
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0.95rem 1rem;
+  text-align: left;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease;
+}
+
+.agent-source-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.agent-error-text {
+  color: rgba(255, 160, 160, 0.92);
+  font-size: 0.92rem;
+}
+
+@media (max-width: 1080px) {
+  .agent-hero,
+  .agent-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-thread-rail {
+    order: 2;
+  }
+}
+
+@media (max-width: 720px) {
+  .agent-toggle-row,
+  .agent-approval-actions,
+  .agent-compose-actions {
+    flex-direction: column;
+  }
+
+  .agent-message-bubble {
+    max-width: 100%;
+  }
+}

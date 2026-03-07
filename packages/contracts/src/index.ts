@@ -86,3 +86,94 @@ export interface ChatSessionRecord {
   language: Language;
   createdAt: string;
 }
+
+export type AgentKind = "orchestrator" | "researcher" | "coach";
+
+export type AgentToolName = "knowledge_search" | "web_search";
+
+export type AgentRunStatus = "running" | "completed" | "failed";
+
+export type AgentStepStatus = "completed" | "waiting" | "failed";
+
+export type AgentStepType = "plan" | "delegate" | "tool_call" | "final";
+
+export interface AgentThread {
+  id: string;
+  userId: string | null;
+  title: string;
+  language: Language;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentThreadSummary {
+  id: string;
+  title: string;
+  language: Language;
+  updatedAt: string;
+  lastMessage: string;
+  status: AgentRunStatus | "idle";
+}
+
+export interface AgentMessage {
+  id: string;
+  threadId: string;
+  runId: string | null;
+  role: "user" | "assistant";
+  agent: AgentKind | null;
+  content: string;
+  createdAt: string;
+}
+
+export interface AgentToolCall {
+  id: string;
+  tool: AgentToolName;
+  status: "completed" | "waiting" | "failed";
+  requiresApproval: boolean;
+  inputSummary: string;
+  outputSummary?: string;
+  citations?: ChatCitation[];
+}
+
+export interface AgentRunStep {
+  id: string;
+  runId: string;
+  type: AgentStepType;
+  status: AgentStepStatus;
+  agent: AgentKind;
+  title: string;
+  detail: string;
+  createdAt: string;
+  toolCall?: AgentToolCall;
+}
+
+export interface AgentRun {
+  id: string;
+  threadId: string;
+  mode: ChatMode;
+  language: Language;
+  status: AgentRunStatus;
+  summary: string;
+  finalAnswer?: string;
+  createdAt: string;
+  updatedAt: string;
+  steps: AgentRunStep[];
+  citations: ChatCitation[];
+}
+
+export interface AgentThreadDetail {
+  thread: AgentThread;
+  messages: AgentMessage[];
+  runs: AgentRun[];
+}
+
+export interface AgentRunRequest {
+  message: string;
+  mode: ChatMode;
+  language: Language;
+}
+
+export interface CreateAgentThreadRequest {
+  language: Language;
+  title?: string;
+}
