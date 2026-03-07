@@ -2027,6 +2027,12 @@ button.active {
   gap: 1.2rem;
 }
 
+.chat-top-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 1rem;
+}
+
 .chat-hero,
 .profile-command,
 .profile-avatar-panel {
@@ -2051,6 +2057,7 @@ button.active {
 }
 
 .chat-starter-panel,
+.chat-history-panel,
 .chat-console,
 .chat-response-panel,
 .chat-empty-panel,
@@ -2071,6 +2078,7 @@ button.active {
 
 .chat-starter-list,
 .chat-followup-list,
+.chat-history-list,
 .profile-record-list,
 .profile-session-list {
   display: grid;
@@ -2086,6 +2094,38 @@ button.active {
 
 .chat-console {
   padding: 1rem;
+}
+
+.chat-history-panel {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+
+.chat-history-card {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.chat-history-card strong {
+  line-height: 1.45;
+}
+
+.chat-history-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.chat-history-time {
+  color: #f0c89e;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .chat-form {
@@ -2104,6 +2144,17 @@ button.active {
   grid-template-columns: minmax(0, 1fr) 180px;
   gap: 0.8rem;
   align-items: stretch;
+}
+
+.chat-submit-column {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.chat-submit-column .muted {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
 }
 
 .chat-question-input {
@@ -2208,6 +2259,23 @@ button.active {
 .chat-citation-card span {
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.chat-empty-panel {
+  padding: 1rem;
+}
+
+.chat-empty-card {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem 1.05rem;
+  border: 1px dashed rgba(240, 176, 123, 0.22);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.chat-empty-card h3 {
+  margin: 0;
 }
 
 .profile-command {
@@ -2407,6 +2475,7 @@ button.active {
 }
 
 @media (max-width: 1080px) {
+  .chat-top-grid,
   .chat-hero,
   .profile-command,
   .profile-command-main,
@@ -2431,6 +2500,11 @@ button.active {
 
   .avatar-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chat-history-card,
+  .chat-empty-card {
+    padding: 0.9rem;
   }
 
   .profile-avatar-frame,
