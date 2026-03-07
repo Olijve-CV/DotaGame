@@ -1,4 +1,5 @@
 import type { ChatRequest, ChatResponse, Language } from "@dotagame/contracts";
+import { logger } from "../lib/logger.js";
 import { generateRagAnswer } from "./rag/llmProvider.js";
 import { retrieveRagContext } from "./rag/ragService.js";
 
@@ -29,6 +30,12 @@ export async function answerChat(request: ChatRequest): Promise<ChatResponse> {
     limit: 4
   });
   if (ragContext.matches.length === 0) {
+    logger.info("chat request returned fallback because no knowledge matches were found", {
+      event: "chat.no_matches",
+      mode: request.mode,
+      language: request.language,
+      questionLength: request.question.length
+    });
     return buildFallback(request.language);
   }
 

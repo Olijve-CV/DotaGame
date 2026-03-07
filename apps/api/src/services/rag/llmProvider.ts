@@ -1,4 +1,5 @@
 import { getRagConfig } from "./config.js";
+import { logger } from "../../lib/logger.js";
 import { buildApiUrl } from "./http.js";
 import type { LlmAnswerInput, LlmAnswerOutput } from "./types.js";
 
@@ -150,7 +151,14 @@ export async function generateRagAnswer(input: LlmAnswerInput): Promise<LlmAnswe
 
   try {
     return await generateWithOpenAi(input, config.openAiApiKey);
-  } catch {
+  } catch (error) {
+    logger.warn("OpenAI chat request failed, using template fallback", {
+      event: "rag.chat.fallback",
+      model: config.chatModel,
+      mode: input.mode,
+      language: input.language,
+      error
+    });
     return buildFallbackAnswer(input);
   }
 }

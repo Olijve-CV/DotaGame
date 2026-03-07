@@ -1,4 +1,5 @@
 import { getRagConfig } from "./config.js";
+import { logger } from "../../lib/logger.js";
 import { buildApiUrl } from "./http.js";
 import type { EmbeddingProvider } from "./types.js";
 
@@ -82,7 +83,12 @@ class OpenAiEmbeddingProvider implements EmbeddingProvider {
         throw new Error("OPENAI_EMBEDDING_EMPTY");
       }
       return normalize(vector);
-    } catch {
+    } catch (error) {
+      logger.warn("OpenAI embedding request failed, using deterministic embedding fallback", {
+        event: "rag.embedding.fallback",
+        model: this.model,
+        error
+      });
       return this.fallback.embed(input);
     }
   }

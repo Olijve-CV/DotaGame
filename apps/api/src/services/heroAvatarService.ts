@@ -1,4 +1,5 @@
 import type { HeroAvatarOption } from "@dotagame/contracts";
+import { logger } from "../lib/logger.js";
 import { withCache } from "./sources/cache.js";
 
 const HERO_AVATAR_CACHE_KEY = "hero-avatar-options";
@@ -78,7 +79,11 @@ interface OpenDotaHeroRecord {
 export async function listHeroAvatars(): Promise<HeroAvatarOption[]> {
   try {
     return await withCache(HERO_AVATAR_CACHE_KEY, HERO_AVATAR_TTL_MS, fetchHeroAvatarsFromSource);
-  } catch {
+  } catch (error) {
+    logger.warn("failed to load hero avatars from OpenDota, using fallback avatars", {
+      event: "content.hero_avatars.live_source_failed",
+      error
+    });
     return FALLBACK_HERO_AVATARS;
   }
 }

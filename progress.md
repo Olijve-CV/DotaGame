@@ -27,3 +27,13 @@
 - Expanded the atlas again to a 12-hero paginated roster, split bilingual data into `apps/web/src/components/DotaIntroData.ts`, and upgraded every spotlight to show four hero skills instead of a partial spell list.
 - Added atlas pagination UI and updated responsive layout styles, then re-ran `npm run build --workspace @dotagame/web` successfully.
 - Moved the Dota2 introduction out of `HomePage` into a standalone `/intro` route with its own page component and top-level navigation entry.
+
+## 2026-03-07
+- Reviewed existing planning files and current Dota2-related web content to align new documentation with the shipped `/intro` experience.
+- Researched Dota 2 domain sources with emphasis on official pages and a current public hero-data endpoint.
+- Added `docs/plans/2026-03-07-dota2-domain-research.md` as a product-facing Dota 2 research note for future content, IA, and agent work.
+- Updated `findings.md` and `task_plan.md` to record the new research/documentation phase.
+- Added `docs/plans/2026-03-07-dota2-new-player-guide-zh.md` for Chinese beginner onboarding content reuse.
+- Added `docs/plans/2026-03-07-dota2-content-taxonomy-and-data-model.md` to define recommended Dota2 content types, metadata, and retrieval-oriented structures for future contracts/API work.
+- Rebuilt `/intro` into a stronger onboarding page by adding `apps/web/src/components/DotaIntroManual.tsx` ahead of the existing hero atlas and extending `apps/web/src/styles.css` with a field-manual style layout.
+- Verified the frontend changes with `npm run build --workspace @dotagame/web`.

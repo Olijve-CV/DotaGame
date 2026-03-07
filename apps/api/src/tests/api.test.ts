@@ -5,6 +5,21 @@ import { createApp } from "../app.js";
 describe("API v1", () => {
   const app = createApp();
 
+  it("returns a request id header for traceability", async () => {
+    const response = await request(app).get("/health");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["x-request-id"]).toBeTruthy();
+    expect(response.headers["x-trace-id"]).toBeTruthy();
+  });
+
+  it("preserves an incoming trace id", async () => {
+    const response = await request(app).get("/health").set("x-trace-id", "trace-abc-123");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["x-trace-id"]).toBe("trace-abc-123");
+  });
+
   it("filters articles by language", async () => {
     const response = await request(app).get("/api/v1/articles?language=zh-CN");
     expect(response.status).toBe(200);
@@ -24,6 +39,23 @@ describe("API v1", () => {
     expect(response.status).toBe(200);
     expect(response.body.answer).toContain("Coaching plan:");
     expect(response.body.citations.length).toBeGreaterThan(0);
+  });
+
+  it("accepts chat payloads sent as text/plain JSON", async () => {
+    const response = await request(app)
+      .post("/api/v1/chat")
+      .set("Content-Type", "text/plain")
+      .send(
+        JSON.stringify({
+          question: "我线上总是被压，先修补刀还是先修站位？",
+          mode: "quick",
+          language: "zh-CN"
+        })
+      );
+
+    expect(response.status).toBe(200);
+    expect(response.body.answer).toBeTruthy();
+    expect(response.body.followUps.length).toBeGreaterThan(0);
   });
 
   it("uses the email as fallback name and does not expose password fields", async () => {

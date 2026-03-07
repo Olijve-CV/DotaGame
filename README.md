@@ -22,6 +22,12 @@ npm run dev
 
 The API runs on `http://localhost:4000` and web runs on `http://localhost:5173`.
 
+Backend environment variables can be configured in `apps/api/.env`.
+Use `apps/api/.env.example` as the template if you need to recreate it.
+
+Backend logs are emitted as structured JSON lines. Set `LOG_LEVEL=debug|info|warn|error`
+if you need to raise or lower verbosity locally.
+
 ## Live Data Sources
 
 API `v1` now loads live data (with 5-minute cache) from:

@@ -1,6 +1,7 @@
 import type { Article, Language, PatchNote, Tournament } from "@dotagame/contracts";
 import { articles, patchNotes, tournaments } from "../data/content.js";
 import { heroGuides } from "../data/guides.js";
+import { logger } from "../lib/logger.js";
 import { fetchOpenDotaTournaments } from "./sources/openDotaSource.js";
 import { fetchSteamArticles, fetchSteamPatchNotes } from "./sources/steamSource.js";
 
@@ -30,7 +31,14 @@ export async function listArticles(params: {
 }): Promise<Article[]> {
   const query = params.query?.trim().toLowerCase();
   const language = params.language ?? "en-US";
-  const liveItems = await fetchSteamArticles(language).catch(() => []);
+  const liveItems = await fetchSteamArticles(language).catch((error: unknown) => {
+    logger.warn("failed to load live Steam articles, using fallback content only", {
+      event: "content.articles.live_source_failed",
+      language,
+      error
+    });
+    return [];
+  });
   const merged = dedupeById([...liveItems, ...articles, ...heroGuides]);
 
   const filtered = merged.filter((item) => {
@@ -55,14 +63,28 @@ export async function listArticles(params: {
 
 export async function listPatchNotes(language?: Language): Promise<PatchNote[]> {
   const currentLanguage = language ?? "en-US";
-  const liveItems = await fetchSteamPatchNotes(currentLanguage).catch(() => []);
+  const liveItems = await fetchSteamPatchNotes(currentLanguage).catch((error: unknown) => {
+    logger.warn("failed to load live Steam patch notes, using fallback content only", {
+      event: "content.patch_notes.live_source_failed",
+      language: currentLanguage,
+      error
+    });
+    return [];
+  });
   const merged = dedupeById([...liveItems, ...patchNotes]);
   return sortByPublishedAtDesc(merged.filter((item) => !language || item.language === language));
 }
 
 export async function listTournaments(language?: Language): Promise<Tournament[]> {
   const currentLanguage = language ?? "en-US";
-  const liveItems = await fetchOpenDotaTournaments(currentLanguage).catch(() => []);
+  const liveItems = await fetchOpenDotaTournaments(currentLanguage).catch((error: unknown) => {
+    logger.warn("failed to load live OpenDota tournaments, using fallback content only", {
+      event: "content.tournaments.live_source_failed",
+      language: currentLanguage,
+      error
+    });
+    return [];
+  });
   const merged = dedupeById([...liveItems, ...tournaments]);
   return sortByPublishedAtDesc(merged.filter((item) => !language || item.language === language));
 }

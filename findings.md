@@ -30,3 +30,13 @@
 - Splitting the Dota introduction content into `DotaIntroSection.tsx` and `DotaIntroData.ts` is a better maintenance boundary now that the atlas contains a larger bilingual hero data set.
 - Paginating the curated roster at six heroes per page keeps the home page dense but still readable, while role filters naturally collapse many views to a single page without extra UI complexity.
 - The Dota2 introduction module works better as its own route than as an embedded home-page section. It now fits the product IA more cleanly alongside news and chat as a peer-level navigation item.
+
+## 2026-03-07
+- A repository-level Dota 2 research document is warranted now that the product already includes news, chat, and a standalone introduction route. The codebase needs a shared domain reference, not just UI copy.
+- The most durable way to describe Dota 2 for product planning is through match loop, map systems, economy, draft, and role language, rather than through hero trivia.
+- OpenDota's public `heroStats` endpoint returned 127 heroes during this research pass on 2026-03-07.
+- Official Dota 2 pages for `home`, `heroes`, `The New Frontiers`, and `Wandering Waters` were reachable during this research pass, which is sufficient to ground stable game/system descriptions and recent-overhaul references.
+- For this project, Dota 2 knowledge should be split into two buckets: evergreen knowledge (rules, roles, map, systems, glossary) and time-sensitive knowledge (patch, meta, tournament, roster). This is the right boundary for both content modeling and agent-answer sourcing.
+- The current `/intro` route is too thin as a true onboarding surface. It works better as a layered page: top half for newcomer mental models and question prompts, lower half for the existing hero atlas and role examples.
+- A field-manual style onboarding page fits the repo's warm editorial visual language better than a generic dashboard layout.
+- Two follow-up docs now make sense alongside the initial domain research note: one Chinese new-player guide for content reuse, and one product-facing taxonomy/data-model note for API and RAG planning.

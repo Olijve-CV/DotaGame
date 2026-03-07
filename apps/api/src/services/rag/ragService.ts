@@ -1,5 +1,6 @@
 import type { Article, Language } from "@dotagame/contracts";
 import { listKnowledgeDocuments, listPatchNotes } from "../contentService.js";
+import { logger } from "../../lib/logger.js";
 import { getEmbeddingProvider } from "./embeddingProvider.js";
 import type { RagContext, RagPayload, VectorPoint } from "./types.js";
 import { getVectorStore } from "./vectorStore.js";
@@ -81,6 +82,12 @@ async function ensureIndexed(language: Language): Promise<void> {
 
   await vectorStore.upsert(points);
   indexStateByLanguage.set(language, { indexedAt: now, signature });
+  logger.info("knowledge index refreshed", {
+    event: "rag.index.refreshed",
+    language,
+    documents: documents.length,
+    vectors: points.length
+  });
 }
 
 export async function retrieveRagContext(input: {
