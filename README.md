@@ -70,7 +70,27 @@ $env:OPENAI_API_KEY="sk-..."
 $env:OPENAI_BASE_URL="https://api.openai.com/v1"
 $env:OPENAI_EMBEDDING_MODEL="text-embedding-3-small"
 $env:OPENAI_CHAT_MODEL="gpt-4.1-mini"
+$env:OPENAI_WEB_SEARCH_MODEL="o4-mini"
+$env:OPENAI_WEB_SEARCH_COUNTRY="US"
+$env:OPENAI_WEB_SEARCH_TIMEZONE="America/New_York"
 ```
 
 For OpenAI-compatible providers, point `OPENAI_BASE_URL` to their API root
 (for example, `https://your-provider.example.com/v1`).
+
+## Agent Tools
+
+The agent runtime now distinguishes between three search tools:
+
+- `knowledge_search`: local RAG retrieval over the repository's indexed Dota knowledge
+- `dota_live_search`: domain-specific live lookup over Steam patch/news feeds and OpenDota tournament data
+- `web_search`: general web search powered by the OpenAI `Responses API` web search tool
+
+`web_search` reuses `OPENAI_API_KEY` and `OPENAI_BASE_URL`. You can tune its model and
+approximate location with:
+
+- `OPENAI_WEB_SEARCH_MODEL`
+- `OPENAI_WEB_SEARCH_COUNTRY`
+- `OPENAI_WEB_SEARCH_CITY`
+- `OPENAI_WEB_SEARCH_REGION`
+- `OPENAI_WEB_SEARCH_TIMEZONE`

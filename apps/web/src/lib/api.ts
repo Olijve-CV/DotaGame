@@ -1,16 +1,17 @@
 import type {
-  AgentApprovalRequest,
-  AgentRunRequest,
-  AgentThread,
-  AgentThreadDetail,
-  AgentThreadSummary,
+  AgentSessionControlAction,
+  AgentSession,
+  AgentSessionDetail,
+  AgentSessionSummary,
   Article,
   ChatRequest,
   ChatResponse,
+  CreateAgentSessionRequest,
   FavoriteRecord,
   HeroAvatarOption,
   Language,
   PatchNote,
+  SendAgentMessageRequest,
   Tournament,
   UserProfile
 } from "@dotagame/contracts";
@@ -160,55 +161,73 @@ export async function askChat(
   });
 }
 
-export async function fetchAgentThreads(token?: string | null): Promise<AgentThreadSummary[]> {
-  const result = await http<{ items: AgentThreadSummary[] }>("/agent/threads", {
+export async function fetchAgentSessions(token?: string | null): Promise<AgentSessionSummary[]> {
+  const result = await http<{ items: AgentSessionSummary[] }>("/agent/sessions", {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined
   });
   return result.items;
 }
 
-export async function createAgentThread(
-  input: { language: Language; title?: string },
+export async function createAgentSession(
+  input: CreateAgentSessionRequest,
   token?: string | null
-): Promise<AgentThread> {
-  const result = await http<{ thread: AgentThread }>("/agent/threads", {
+): Promise<AgentSession> {
+  const result = await http<{ session: AgentSession }>("/agent/sessions", {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: JSON.stringify(input)
   });
-  return result.thread;
+  return result.session;
 }
 
-export async function fetchAgentThread(
-  threadId: string,
+export async function fetchAgentSession(
+  sessionId: string,
   token?: string | null
-): Promise<AgentThreadDetail> {
-  return http<AgentThreadDetail>(`/agent/threads/${threadId}`, {
+): Promise<AgentSessionDetail> {
+  return http<AgentSessionDetail>(`/agent/sessions/${sessionId}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined
   });
 }
 
-export async function startAgentRun(
-  threadId: string,
-  input: AgentRunRequest,
+export async function fetchAgentSessionChildren(
+  sessionId: string,
   token?: string | null
-): Promise<AgentThreadDetail> {
-  return http<AgentThreadDetail>(`/agent/threads/${threadId}/runs`, {
+): Promise<AgentSessionSummary[]> {
+  const result = await http<{ items: AgentSessionSummary[] }>(`/agent/sessions/${sessionId}/children`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined
+  });
+  return result.items;
+}
+
+export async function sendAgentMessage(
+  sessionId: string,
+  input: SendAgentMessageRequest,
+  token?: string | null
+): Promise<AgentSessionDetail> {
+  return http<AgentSessionDetail>(`/agent/sessions/${sessionId}/messages`, {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: JSON.stringify(input)
   });
 }
 
-export async function resolveAgentApproval(
-  runId: string,
-  approval: Pick<AgentApprovalRequest, "id">,
-  decision: "approve" | "reject",
+export async function controlAgentSession(
+  sessionId: string,
+  action: AgentSessionControlAction,
   token?: string | null
-): Promise<AgentThreadDetail> {
-  return http<AgentThreadDetail>(`/agent/runs/${runId}/approvals/${approval.id}`, {
+): Promise<AgentSessionDetail> {
+  return http<AgentSessionDetail>(`/agent/sessions/${sessionId}/control`, {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    body: JSON.stringify({ decision })
+    body: JSON.stringify({ action })
   });
+}
+
+export function getAgentSessionEventsUrl(sessionId: string, token?: string | null): string {
+  const query = new URLSearchParams();
+  if (token) {
+    query.set("token", token);
+  }
+  const suffix = query.toString();
+  return `${API_BASE}/agent/sessions/${sessionId}/events${suffix ? `?${suffix}` : ""}`;
 }

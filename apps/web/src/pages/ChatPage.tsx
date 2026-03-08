@@ -1,119 +1,100 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import type {
-  AgentApprovalPolicy,
-  AgentApprovalRequest,
-  AgentRun,
-  AgentThread,
-  AgentThreadDetail,
-  AgentThreadSummary,
+  AgentMessage,
+  AgentMessagePart,
+  AgentSession,
+  AgentSessionControlAction,
+  AgentSessionDetail,
+  AgentSessionEvent,
+  AgentSessionSummary,
   ChatMode,
   Language
 } from "@dotagame/contracts";
 import {
-  createAgentThread,
-  fetchAgentThread,
-  fetchAgentThreads,
-  resolveAgentApproval,
-  startAgentRun
+  controlAgentSession,
+  createAgentSession,
+  fetchAgentSession,
+  fetchAgentSessions,
+  getAgentSessionEventsUrl,
+  sendAgentMessage
 } from "../lib/api";
 import { formatContentDateTime } from "../lib/contentFormatting";
 
 const labels = {
   "zh-CN": {
-    kicker: "Agent Workspace",
-    title: "把普通聊天改成真正可运行的多智能体工作台",
+    kicker: "Session Tree",
+    title: "更接近 OpenCode 的 Agent Chat",
     summary:
-      "Orchestrator 负责拆解任务，Researcher 负责检索知识和联网信息，Coach 负责输出结论。遇到联网动作时，你可以把它拦下来做人工确认。",
-    newThread: "新建线程",
-    localOnly: "未登录时只保留当前本地线程。",
-    threadTitle: "任务线程",
-    emptyThreads: "还没有线程。发送第一条任务后会自动创建。",
-    noThreadSelected: "先创建一个线程，再让 agent 开始执行。",
-    modeTitle: "运行模式",
+      "主会话负责和用户交互，并把任务拆给 Researcher 和 Coach 子会话。每个子会话都能独立执行工具并把结果回传到根会话。",
+    roots: "根会话",
+    newSession: "新建会话",
+    tree: "会话树",
+    messages: "消息流",
+    composer: "发送任务",
     quick: "快速分析",
     coach: "教练模式",
-    approvalTitle: "联网审批",
-    approvalAlways: "每次确认",
-    approvalAuto: "自动联网",
-    starterTitle: "推荐起手任务",
-    starters: [
-      "帮我分析当前版本里 carry 什么时候会丢中期节奏。",
-      "检索最近赛事和补丁，解释四号位为什么更强调开图和换线。",
-      "把我的问题拆成对线、节奏、团战三个诊断步骤。"
-    ],
-    composeTitle: "给 Agent 一个任务",
-    placeholder: "例如：结合最近补丁和赛事，帮我判断为什么我玩 carry 总是在 18 分钟前后掉节奏。",
-    submit: "开始执行",
-    running: "运行中...",
-    messages: "消息流",
-    timeline: "当前 Run",
-    noTimeline: "提交任务后，这里会显示 orchestrator、subagent、tool 和 approval 的执行轨迹。",
-    sources: "来源",
-    pendingApproval: "等待人工确认",
-    approve: "批准联网",
-    reject: "拒绝联网",
-    status: "状态",
-    askAt: "更新时间",
-    errorPrefix: "请求失败",
-    emptyMessages: "还没有消息。先从左侧示例或下方输入框开始。",
+    placeholder: "例如：结合最近版本、赛事和通用网页信息，解释我为什么 18 分钟左右 carry 节奏总断。",
+    submit: "发送给主 Agent",
+    sending: "执行中...",
+    starters: "建议任务",
+    noSessions: "还没有根会话。你可以先创建一个会话，或直接发送任务。",
+    noMessages: "当前会话还没有消息。",
+    rootReadonly: "子会话是只读的。请回到根会话继续输入。",
     user: "你",
     assistant: "Agent",
-    latestRun: "最新运行",
-    threadStatus: {
+    tool: "Tool",
+    taskCall: "Task",
+    toolCall: "Tool",
+    openChild: "打开子会话",
+    parent: "返回根会话",
+    controls: "控制",
+    abort: "暂停",
+    resume: "继续",
+    retry: "重试",
+    status: {
       idle: "空闲",
-      running: "执行中",
-      waiting_approval: "待审批",
+      running: "运行中",
+      paused: "已暂停",
       completed: "已完成",
       failed: "失败"
     }
   },
   "en-US": {
-    kicker: "Agent Workspace",
-    title: "Replace one-shot chat with a real multi-agent console",
+    kicker: "Session Tree",
+    title: "A multi-agent session tree closer to OpenCode",
     summary:
-      "The orchestrator breaks down the task, the researcher gathers knowledge and live web context, and the coach produces the final answer. Networked steps can stop for explicit human approval.",
-    newThread: "New Thread",
-    localOnly: "Anonymous usage keeps only the current local thread.",
-    threadTitle: "Task Threads",
-    emptyThreads: "No threads yet. Your first run will create one automatically.",
-    noThreadSelected: "Create a thread first, then send a task to the agent.",
-    modeTitle: "Run Mode",
+      "The primary session talks to the user and dispatches work. Researcher and Coach run inside their own child sessions with independent tool execution and result synthesis.",
+    roots: "Root Sessions",
+    newSession: "New Session",
+    tree: "Session Tree",
+    messages: "Message Feed",
+    composer: "Send Mission",
     quick: "Quick Analysis",
     coach: "Coach Mode",
-    approvalTitle: "Web Approval",
-    approvalAlways: "Ask Every Time",
-    approvalAuto: "Auto Allow",
-    starterTitle: "Suggested Missions",
-    starters: [
-      "Explain why carry players lose their mid-game timing in the current patch.",
-      "Search recent tournaments and patch notes, then explain why roaming support priorities changed.",
-      "Break my issue into lane, timing, and teamfight diagnosis steps."
-    ],
-    composeTitle: "Give the agent a mission",
     placeholder:
-      "Example: Use the latest patch and tournament context to explain why I keep stalling as carry around minute 18.",
-    submit: "Run Agent",
-    running: "Running...",
-    messages: "Message Feed",
-    timeline: "Current Run",
-    noTimeline:
-      "After you submit a mission, this panel will show the orchestrator, subagents, tools, and approvals used during the run.",
-    sources: "Sources",
-    pendingApproval: "Human Approval Needed",
-    approve: "Approve Web Search",
-    reject: "Reject Web Search",
-    status: "Status",
-    askAt: "Updated",
-    errorPrefix: "Request failed",
-    emptyMessages: "No messages yet. Start with a starter task or the composer below.",
+      "Example: Use recent patches, tournaments, and general web context to explain why I keep losing carry tempo around minute 18.",
+    submit: "Send to Primary Agent",
+    sending: "Running...",
+    starters: "Suggested Missions",
+    noSessions: "No root sessions yet. Create one or send a mission to start.",
+    noMessages: "This session has no messages yet.",
+    rootReadonly: "Subagent sessions are read-only. Return to the primary session to continue.",
     user: "You",
     assistant: "Agent",
-    latestRun: "Latest Run",
-    threadStatus: {
+    tool: "Tool",
+    taskCall: "Task",
+    toolCall: "Tool",
+    openChild: "Open Child Session",
+    parent: "Back to Root",
+    controls: "Controls",
+    abort: "Abort",
+    resume: "Resume",
+    retry: "Retry",
+    status: {
       idle: "Idle",
       running: "Running",
-      waiting_approval: "Waiting Approval",
+      paused: "Paused",
       completed: "Completed",
       failed: "Failed"
     }
@@ -124,182 +105,255 @@ const labels = {
     kicker: string;
     title: string;
     summary: string;
-    newThread: string;
-    localOnly: string;
-    threadTitle: string;
-    emptyThreads: string;
-    noThreadSelected: string;
-    modeTitle: string;
+    roots: string;
+    newSession: string;
+    tree: string;
+    messages: string;
+    composer: string;
     quick: string;
     coach: string;
-    approvalTitle: string;
-    approvalAlways: string;
-    approvalAuto: string;
-    starterTitle: string;
-    starters: string[];
-    composeTitle: string;
     placeholder: string;
     submit: string;
-    running: string;
-    messages: string;
-    timeline: string;
-    noTimeline: string;
-    sources: string;
-    pendingApproval: string;
-    approve: string;
-    reject: string;
-    status: string;
-    askAt: string;
-    errorPrefix: string;
-    emptyMessages: string;
+    sending: string;
+    starters: string;
+    noSessions: string;
+    noMessages: string;
+    rootReadonly: string;
     user: string;
     assistant: string;
-    latestRun: string;
-    threadStatus: Record<"idle" | AgentRun["status"], string>;
+    tool: string;
+    taskCall: string;
+    toolCall: string;
+    openChild: string;
+    parent: string;
+    controls: string;
+    abort: string;
+    resume: string;
+    retry: string;
+    status: Record<AgentSession["status"], string>;
   }
 >;
 
-function getLatestRun(detail: AgentThreadDetail | null): AgentRun | null {
-  return detail?.runs[0] ?? null;
+const starterMap: Record<Language, string[]> = {
+  "zh-CN": [
+    "解释为什么当前版本里 carry 容易在中期断节奏。",
+    "让 Researcher 先看最近赛事和版本变化，再让 Coach 给我一份 support 训练计划。",
+    "把我的问题拆成对线、节奏点和团战三段，并告诉我怎么复盘。"
+  ],
+  "en-US": [
+    "Explain why carry players lose tempo in the current patch.",
+    "Have the researcher review recent tournaments and patch notes, then let the coach give me a support training plan.",
+    "Break my issue into lane, timing, and teamfight phases and tell me how to review each one."
+  ]
+};
+
+function toSummary(detail: AgentSessionDetail): AgentSessionSummary {
+  return {
+    id: detail.session.id,
+    title: detail.session.title,
+    language: detail.session.language,
+    agent: detail.session.agent,
+    kind: detail.session.kind,
+    parentSessionId: detail.session.parentSessionId,
+    createdAt: detail.session.createdAt,
+    updatedAt: detail.session.updatedAt,
+    status: detail.session.status,
+    lastMessage: detail.messages[detail.messages.length - 1]?.content ?? "",
+    childCount: detail.children.length
+  };
 }
 
-function getPendingApproval(run: AgentRun | null): AgentApprovalRequest | null {
-  return run?.approvals.find((approval) => approval.status === "pending") ?? null;
+function getRoleLabel(message: AgentMessage, locale: Language) {
+  const copy = labels[locale];
+  if (message.role === "user") {
+    return copy.user;
+  }
+  if (message.role === "tool") {
+    return copy.tool;
+  }
+  return copy.assistant;
 }
 
-function getThreadStatus(
-  summary: AgentThreadSummary,
-  copy: (typeof labels)["en-US"]
-): string {
-  return copy.threadStatus[summary.status];
+function renderPartTitle(part: AgentMessagePart, locale: Language) {
+  const copy = labels[locale];
+  if (part.type === "task_call") {
+    return `${copy.taskCall}: ${part.subagent}`;
+  }
+  if (part.type === "tool_call") {
+    return `${copy.toolCall}: ${part.tool}`;
+  }
+  return null;
 }
 
 export function ChatPage(props: { locale: Language; token: string | null }) {
-  const [threadSummaries, setThreadSummaries] = useState<AgentThreadSummary[]>([]);
-  const [activeThread, setActiveThread] = useState<AgentThreadDetail | null>(null);
+  const copy = useMemo(() => labels[props.locale], [props.locale]);
+  const starters = useMemo(() => starterMap[props.locale], [props.locale]);
+  const [rootSessions, setRootSessions] = useState<AgentSessionSummary[]>([]);
+  const [rootDetail, setRootDetail] = useState<AgentSessionDetail | null>(null);
+  const [activeDetail, setActiveDetail] = useState<AgentSessionDetail | null>(null);
   const [message, setMessage] = useState("");
   const [mode, setMode] = useState<ChatMode>("coach");
-  const [approvalPolicy, setApprovalPolicy] = useState<AgentApprovalPolicy>("always");
   const [loading, setLoading] = useState(false);
+  const [controlLoading, setControlLoading] = useState<AgentSessionControlAction | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const copy = useMemo(() => labels[props.locale], [props.locale]);
-  const latestRun = getLatestRun(activeThread);
-  const pendingApproval = getPendingApproval(latestRun);
+
+  const rootSession = rootDetail?.session ?? null;
+  const activeSession = activeDetail?.session ?? null;
+  const visibleTree = rootDetail?.children ?? [];
+  const canAbort = rootSession?.status === "running";
+  const canResume = rootSession?.status === "paused" || rootSession?.status === "failed";
+  const canRetry = Boolean(rootSession && rootSession.status !== "running");
+
+  function upsertRootSummary(summary: AgentSessionSummary) {
+    setRootSessions((current) => {
+      const existing = current.find((item) => item.id === summary.id);
+      if (!existing) {
+        return [summary, ...current];
+      }
+
+      return current
+        .map((item) => (item.id === summary.id ? summary : item))
+        .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
+    });
+  }
 
   useEffect(() => {
     let active = true;
 
-    if (!props.token) {
-      setThreadSummaries([]);
-      setActiveThread(null);
-      return;
+    async function load() {
+      const items = await fetchAgentSessions(props.token);
+      if (!active) {
+        return;
+      }
+
+      setRootSessions(items);
+      if (!items[0]) {
+        setRootDetail(null);
+        setActiveDetail(null);
+        return;
+      }
+
+      const detail = await fetchAgentSession(items[0].id, props.token);
+      if (!active) {
+        return;
+      }
+
+      setRootDetail(detail);
+      setActiveDetail(detail);
     }
 
-    fetchAgentThreads(props.token)
-      .then(async (items) => {
-        if (!active) {
-          return;
-        }
-
-        setThreadSummaries(items);
-        if (items[0]) {
-          const detail = await fetchAgentThread(items[0].id, props.token);
-          if (active) {
-            setActiveThread(detail);
-          }
-        } else {
-          setActiveThread(null);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setThreadSummaries([]);
-          setActiveThread(null);
-        }
-      });
+    load().catch(() => {
+      if (!active) {
+        return;
+      }
+      setRootSessions([]);
+      setRootDetail(null);
+      setActiveDetail(null);
+    });
 
     return () => {
       active = false;
     };
   }, [props.locale, props.token]);
 
-  async function refreshThreads(selectedThreadId?: string) {
-    if (!props.token) {
+  useEffect(() => {
+    if (!rootDetail) {
       return;
     }
 
-    const items = await fetchAgentThreads(props.token);
-    setThreadSummaries(items);
+    const source = new EventSource(getAgentSessionEventsUrl(rootDetail.session.id, props.token));
 
-    const threadId = selectedThreadId ?? activeThread?.thread.id ?? items[0]?.id;
-    if (!threadId) {
-      setActiveThread(null);
-      return;
-    }
-
-    setActiveThread(await fetchAgentThread(threadId, props.token));
-  }
-
-  async function ensureThread(): Promise<AgentThread> {
-    if (activeThread) {
-      return activeThread.thread;
-    }
-
-    const thread = await createAgentThread(
-      {
-        language: props.locale
-      },
-      props.token
-    );
-    const detail = await fetchAgentThread(thread.id, props.token);
-    setActiveThread(detail);
-    if (props.token) {
-      await refreshThreads(thread.id);
-    }
-    return thread;
-  }
-
-  async function selectThread(threadId: string) {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const detail = await fetchAgentThread(threadId, props.token);
-      setActiveThread(detail);
-    } catch (requestError) {
-      const code = requestError instanceof Error ? requestError.message : "REQUEST_FAILED";
-      setError(`${copy.errorPrefix}: ${code}`);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleCreateThread() {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const thread = await createAgentThread(
-        {
-          language: props.locale
-        },
-        props.token
-      );
-      const detail = await fetchAgentThread(thread.id, props.token);
-      setActiveThread(detail);
-      setMessage("");
-      if (props.token) {
-        await refreshThreads(thread.id);
+    const handleEvent = (event: MessageEvent<string>) => {
+      const payload = JSON.parse(event.data) as AgentSessionEvent;
+      if (!payload.detail) {
+        return;
       }
+      const detail = payload.detail;
+
+      if (detail.session.id === rootDetail.session.id) {
+        setRootDetail(detail);
+        upsertRootSummary(toSummary(detail));
+      }
+
+      setActiveDetail((current) => {
+        if (!current) {
+          return current;
+        }
+
+        return current.session.id === detail.session.id ? detail : current;
+      });
+    };
+
+    source.addEventListener("session.detail", handleEvent as EventListener);
+    source.addEventListener("session.completed", handleEvent as EventListener);
+    source.addEventListener("session.failed", handleEvent as EventListener);
+
+    return () => {
+      source.close();
+    };
+  }, [props.token, rootDetail?.session.id]);
+
+  async function handleCreateSession() {
+    setLoading(true);
+    setError(null);
+    try {
+      const session = await createAgentSession({ language: props.locale }, props.token);
+      const detail = await fetchAgentSession(session.id, props.token);
+      setRootDetail(detail);
+      setActiveDetail(detail);
+      upsertRootSummary(toSummary(detail));
+      setMessage("");
     } catch (requestError) {
       const code = requestError instanceof Error ? requestError.message : "REQUEST_FAILED";
-      setError(`${copy.errorPrefix}: ${code}`);
+      setError(code);
     } finally {
       setLoading(false);
     }
   }
 
-  async function runMission(nextMessage?: string) {
+  async function openRootSession(sessionId: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      const detail = await fetchAgentSession(sessionId, props.token);
+      setRootDetail(detail);
+      setActiveDetail(detail);
+    } catch (requestError) {
+      const code = requestError instanceof Error ? requestError.message : "REQUEST_FAILED";
+      setError(code);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function openChildSession(sessionId: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      const detail = await fetchAgentSession(sessionId, props.token);
+      setActiveDetail(detail);
+    } catch (requestError) {
+      const code = requestError instanceof Error ? requestError.message : "REQUEST_FAILED";
+      setError(code);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function ensureRootSession(): Promise<AgentSession> {
+    if (rootDetail) {
+      return rootDetail.session;
+    }
+
+    const session = await createAgentSession({ language: props.locale }, props.token);
+    const detail = await fetchAgentSession(session.id, props.token);
+    setRootDetail(detail);
+    setActiveDetail(detail);
+    upsertRootSummary(toSummary(detail));
+    return session;
+  }
+
+  async function submitMission(nextMessage?: string) {
     const finalMessage = (nextMessage ?? message).trim();
     if (finalMessage.length < 2) {
       return;
@@ -307,67 +361,57 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
 
     setLoading(true);
     setError(null);
-
     try {
-      const thread = await ensureThread();
-      const detail = await startAgentRun(
-        thread.id,
+      const root = await ensureRootSession();
+      const detail = await sendAgentMessage(
+        root.id,
         {
           message: finalMessage,
           mode,
-          language: props.locale,
-          approvalPolicy
+          language: props.locale
         },
         props.token
       );
-      setActiveThread(detail);
+      setRootDetail(detail);
+      setActiveDetail(detail);
+      upsertRootSummary(toSummary(detail));
       setMessage("");
-      if (props.token) {
-        await refreshThreads(thread.id);
-      }
     } catch (requestError) {
       const code = requestError instanceof Error ? requestError.message : "REQUEST_FAILED";
-      setError(`${copy.errorPrefix}: ${code}`);
+      setError(code);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleResolveApproval(decision: "approve" | "reject") {
-    if (!latestRun || !pendingApproval) {
+  async function handleSessionControl(action: AgentSessionControlAction) {
+    if (!rootSession) {
       return;
     }
 
-    setLoading(true);
+    setControlLoading(action);
     setError(null);
-
     try {
-      const detail = await resolveAgentApproval(
-        latestRun.id,
-        pendingApproval,
-        decision,
-        props.token
-      );
-      setActiveThread(detail);
-      if (props.token) {
-        await refreshThreads(detail.thread.id);
-      }
+      const detail = await controlAgentSession(rootSession.id, action, props.token);
+      setRootDetail(detail);
+      setActiveDetail(detail);
+      upsertRootSummary(toSummary(detail));
     } catch (requestError) {
       const code = requestError instanceof Error ? requestError.message : "REQUEST_FAILED";
-      setError(`${copy.errorPrefix}: ${code}`);
+      setError(code);
     } finally {
-      setLoading(false);
+      setControlLoading(null);
     }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void runMission();
+    void submitMission();
   }
 
   return (
-    <section className="stack agent-page">
-      <section className="panel agent-hero">
+    <section className="stack agent-page opencode-page">
+      <section className="panel agent-hero opencode-hero">
         <div className="agent-hero-copy">
           <p className="section-kicker">{copy.kicker}</p>
           <h2>{copy.title}</h2>
@@ -376,7 +420,7 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
 
         <div className="agent-control-grid">
           <section className="agent-control-card">
-            <p className="section-kicker">{copy.modeTitle}</p>
+            <p className="section-kicker">Mode</p>
             <div className="agent-toggle-row">
               <button
                 className={mode === "quick" ? "active" : ""}
@@ -395,72 +439,77 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
             </div>
           </section>
 
-          <section className="agent-control-card">
-            <p className="section-kicker">{copy.approvalTitle}</p>
-            <div className="agent-toggle-row">
-              <button
-                className={approvalPolicy === "always" ? "active" : ""}
-                onClick={() => setApprovalPolicy("always")}
-                type="button"
-              >
-                {copy.approvalAlways}
-              </button>
-              <button
-                className={approvalPolicy === "auto" ? "active" : ""}
-                onClick={() => setApprovalPolicy("auto")}
-                type="button"
-              >
-                {copy.approvalAuto}
-              </button>
-            </div>
-          </section>
+          {rootSession ? (
+            <section className="agent-control-card">
+              <p className="section-kicker">{copy.controls}</p>
+              <div className="agent-toggle-row">
+                <button
+                  disabled={!canAbort || Boolean(controlLoading)}
+                  onClick={() => void handleSessionControl("abort")}
+                  type="button"
+                >
+                  {controlLoading === "abort" ? copy.sending : copy.abort}
+                </button>
+                <button
+                  disabled={!canResume || Boolean(controlLoading)}
+                  onClick={() => void handleSessionControl("resume")}
+                  type="button"
+                >
+                  {controlLoading === "resume" ? copy.sending : copy.resume}
+                </button>
+                <button
+                  disabled={!canRetry || Boolean(controlLoading)}
+                  onClick={() => void handleSessionControl("retry")}
+                  type="button"
+                >
+                  {controlLoading === "retry" ? copy.sending : copy.retry}
+                </button>
+              </div>
+            </section>
+          ) : null}
         </div>
       </section>
 
-      <section className="agent-workspace">
+      <section className="agent-workspace opencode-workspace">
         <aside className="panel agent-thread-rail">
           <div className="section-heading compact">
             <div>
-              <p className="section-kicker">Threads</p>
-              <h3>{copy.threadTitle}</h3>
+              <p className="section-kicker">Roots</p>
+              <h3>{copy.roots}</h3>
             </div>
-            <button className="ghost-btn" onClick={handleCreateThread} type="button">
-              {copy.newThread}
+            <button className="ghost-btn" onClick={handleCreateSession} type="button">
+              {copy.newSession}
             </button>
           </div>
 
-          <p className="muted agent-rail-note">{props.token ? copy.threadTitle : copy.localOnly}</p>
-
           <div className="agent-thread-list">
-            {threadSummaries.length > 0 ? (
-              threadSummaries.map((thread) => (
+            {rootSessions.length > 0 ? (
+              rootSessions.map((session) => (
                 <button
-                  className={`agent-thread-card${
-                    activeThread?.thread.id === thread.id ? " active" : ""
-                  }`}
-                  key={thread.id}
-                  onClick={() => void selectThread(thread.id)}
+                  className={`agent-thread-card${rootDetail?.session.id === session.id ? " active" : ""}`}
+                  key={session.id}
+                  onClick={() => void openRootSession(session.id)}
                   type="button"
                 >
-                  <span className="agent-thread-status">{getThreadStatus(thread, copy)}</span>
-                  <strong>{thread.title}</strong>
-                  <p>{thread.lastMessage || copy.emptyThreads}</p>
+                  <span className="agent-thread-status">{copy.status[session.status]}</span>
+                  <strong>{session.title}</strong>
+                  <p>{session.lastMessage || copy.noSessions}</p>
                   <span className="agent-thread-time">
-                    {formatContentDateTime(thread.updatedAt, props.locale)}
+                    {formatContentDateTime(session.updatedAt, props.locale)}
                   </span>
                 </button>
               ))
             ) : (
-              <p className="muted">{copy.emptyThreads}</p>
+              <p className="muted">{copy.noSessions}</p>
             )}
           </div>
 
           <section className="agent-starter-card">
             <p className="section-kicker">Starter</p>
-            <h4>{copy.starterTitle}</h4>
+            <h4>{copy.starters}</h4>
             <div className="agent-starter-list">
-              {copy.starters.map((starter) => (
-                <button key={starter} onClick={() => void runMission(starter)} type="button">
+              {starters.map((starter) => (
+                <button key={starter} onClick={() => void submitMission(starter)} type="button">
                   {starter}
                 </button>
               ))}
@@ -469,122 +518,120 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
         </aside>
 
         <div className="agent-main-stack">
-          <section className="panel agent-message-panel">
+          <section className="panel opencode-tree-panel">
             <div className="section-heading compact">
               <div>
-                <p className="section-kicker">Feed</p>
+                <p className="section-kicker">Tree</p>
+                <h3>{copy.tree}</h3>
+              </div>
+            </div>
+
+            {rootDetail ? (
+              <div className="session-tree">
+                <button
+                  className={`session-node root${activeSession?.id === rootDetail.session.id ? " active" : ""}`}
+                  onClick={() => setActiveDetail(rootDetail)}
+                  type="button"
+                >
+                  <span>{rootDetail.session.agent}</span>
+                  <strong>{rootDetail.session.title}</strong>
+                  <small>{copy.status[rootDetail.session.status]}</small>
+                </button>
+                <div className="session-children">
+                  {visibleTree.map((child) => (
+                    <button
+                      className={`session-node child${activeSession?.id === child.id ? " active" : ""}`}
+                      key={child.id}
+                      onClick={() => void openChildSession(child.id)}
+                      type="button"
+                    >
+                      <span>{child.agent}</span>
+                      <strong>{child.title}</strong>
+                      <small>{copy.status[child.status]}</small>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="muted">{copy.noSessions}</p>
+            )}
+          </section>
+
+          <section className="panel agent-message-panel opencode-message-panel">
+            <div className="section-heading compact">
+              <div>
+                <p className="section-kicker">Session</p>
                 <h3>{copy.messages}</h3>
               </div>
-              {activeThread ? (
-                <span className="agent-thread-time">
-                  {copy.askAt}: {formatContentDateTime(activeThread.thread.updatedAt, props.locale)}
-                </span>
+              {activeSession ? (
+                <div className="opencode-breadcrumb">
+                  {activeSession.parentSessionId ? (
+                    <button className="text-btn" onClick={() => setActiveDetail(rootDetail)} type="button">
+                      {copy.parent}
+                    </button>
+                  ) : null}
+                  <span className="agent-thread-time">
+                    {copy.status[activeSession.status]} |{" "}
+                    {formatContentDateTime(activeSession.updatedAt, props.locale)}
+                  </span>
+                </div>
               ) : null}
             </div>
 
-            {activeThread?.messages.length ? (
+            {activeDetail?.messages.length ? (
               <div className="agent-message-list">
-                {activeThread.messages.map((entry) => (
-                  <article
-                    className={`agent-message-bubble agent-message-${entry.role}`}
-                    key={entry.id}
-                  >
-                    <span className="agent-message-role">
-                      {entry.role === "user" ? copy.user : copy.assistant}
-                    </span>
+                {activeDetail.messages.map((entry) => (
+                  <article className={`agent-message-bubble agent-message-${entry.role}`} key={entry.id}>
+                    <span className="agent-message-role">{getRoleLabel(entry, props.locale)}</span>
                     <p>{entry.content}</p>
+                    {entry.parts.length > 0 ? (
+                      <div className="message-part-list">
+                        {entry.parts.map((part, index) => (
+                          <div className={`message-part-card part-${part.type}`} key={`${entry.id}-${index}`}>
+                            {renderPartTitle(part, props.locale) ? (
+                              <strong>{renderPartTitle(part, props.locale)}</strong>
+                            ) : null}
+                            {part.type === "text" ? <p>{part.text}</p> : null}
+                            {part.type === "task_call" ? (
+                              <>
+                                <p>{part.summary}</p>
+                                <button
+                                  className="text-btn"
+                                  onClick={() => void openChildSession(part.childSessionId)}
+                                  type="button"
+                                >
+                                  {copy.openChild}
+                                </button>
+                              </>
+                            ) : null}
+                            {part.type === "tool_call" ? (
+                              <>
+                                <p>{part.outputSummary}</p>
+                                {part.citations.length > 0 ? (
+                                  <div className="message-part-links">
+                                    {part.citations.slice(0, 3).map((citation) => (
+                                      <a
+                                        href={citation.sourceUrl}
+                                        key={citation.id}
+                                        rel="noreferrer"
+                                        target="_blank"
+                                      >
+                                        {citation.source}
+                                      </a>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </article>
                 ))}
               </div>
             ) : (
-              <p className="muted">{copy.emptyMessages}</p>
-            )}
-          </section>
-
-          <section className="panel agent-run-panel">
-            <div className="section-heading compact">
-              <div>
-                <p className="section-kicker">Run</p>
-                <h3>{copy.timeline}</h3>
-              </div>
-              {latestRun ? (
-                <span className={`agent-run-status status-${latestRun.status}`}>
-                  {copy.threadStatus[latestRun.status]}
-                </span>
-              ) : null}
-            </div>
-
-            {latestRun ? (
-              <>
-                <div className="agent-run-summary">
-                  <p className="section-kicker">{copy.latestRun}</p>
-                  <strong>{latestRun.summary}</strong>
-                </div>
-
-                <div className="agent-step-list">
-                  {latestRun.steps.map((step) => (
-                    <article className={`agent-step-card step-${step.status}`} key={step.id}>
-                      <div className="agent-step-head">
-                        <strong>{step.title}</strong>
-                        <span>{step.agent}</span>
-                      </div>
-                      <p>{step.detail}</p>
-                    </article>
-                  ))}
-                </div>
-
-                {pendingApproval ? (
-                  <section className="agent-approval-card">
-                    <p className="section-kicker">{copy.pendingApproval}</p>
-                    <h4>{pendingApproval.reason}</h4>
-                    <p className="muted">{pendingApproval.inputSummary}</p>
-                    <div className="agent-approval-actions">
-                      <button
-                        className="primary-btn"
-                        disabled={loading}
-                        onClick={() => void handleResolveApproval("approve")}
-                        type="button"
-                      >
-                        {copy.approve}
-                      </button>
-                      <button
-                        className="ghost-btn"
-                        disabled={loading}
-                        onClick={() => void handleResolveApproval("reject")}
-                        type="button"
-                      >
-                        {copy.reject}
-                      </button>
-                    </div>
-                  </section>
-                ) : null}
-
-                {latestRun.citations.length > 0 ? (
-                  <section className="agent-source-grid">
-                    <p className="section-kicker">Sources</p>
-                    <div className="chat-citation-grid">
-                      {latestRun.citations.map((citation) => (
-                        <a
-                          className="chat-citation-card"
-                          href={citation.sourceUrl}
-                          key={`${latestRun.id}-${citation.id}`}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          <strong>{citation.title}</strong>
-                          <span>{citation.source}</span>
-                        </a>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-              </>
-            ) : (
-              <div className="agent-empty-state">
-                <p className="muted">
-                  {activeThread ? copy.noTimeline : copy.noThreadSelected}
-                </p>
-              </div>
+              <p className="muted">{copy.noMessages}</p>
             )}
           </section>
 
@@ -592,29 +639,36 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
             <div className="section-heading compact">
               <div>
                 <p className="section-kicker">Compose</p>
-                <h3>{copy.composeTitle}</h3>
+                <h3>{copy.composer}</h3>
               </div>
               {error ? <span className="agent-error-text">{error}</span> : null}
             </div>
 
-            <form className="agent-compose-form" onSubmit={handleSubmit}>
-              <textarea
-                className="chat-question-input"
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder={copy.placeholder}
-                rows={5}
-                value={message}
-              />
-              <div className="agent-compose-actions">
-                <p className="muted">
-                  {copy.status}:{" "}
-                  {latestRun ? copy.threadStatus[latestRun.status] : copy.threadStatus.idle}
-                </p>
-                <button className="primary-btn chat-submit" disabled={loading} type="submit">
-                  {loading ? copy.running : copy.submit}
-                </button>
-              </div>
-            </form>
+            {activeSession && activeSession.kind === "subagent" ? (
+              <p className="muted">{copy.rootReadonly}</p>
+            ) : (
+              <form className="agent-compose-form" onSubmit={handleSubmit}>
+                <textarea
+                  className="chat-question-input"
+                  onChange={(event) => setMessage(event.target.value)}
+                  placeholder={copy.placeholder}
+                  rows={5}
+                  value={message}
+                />
+                <div className="agent-compose-actions">
+                  <p className="muted">
+                    {rootSession ? copy.status[rootSession.status] : copy.status.idle}
+                  </p>
+                  <button
+                    className="primary-btn chat-submit"
+                    disabled={loading || rootSession?.status === "running"}
+                    type="submit"
+                  >
+                    {loading ? copy.sending : copy.submit}
+                  </button>
+                </div>
+              </form>
+            )}
           </section>
         </div>
       </section>

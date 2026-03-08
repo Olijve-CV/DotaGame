@@ -16,6 +16,8 @@ Implement a full MVP for Dota2 news + Agent Chat platform with separated web and
 | 8. Research Dota2 domain and document it | complete | Added a repository research note covering game loop, roles, systems, user segments, and product implications |
 | 9. Expand Dota2 onboarding docs and `/intro` experience | complete | Added a Chinese beginner guide, a content taxonomy note, and a stronger intro landing section above the existing hero atlas; verified with web build |
 | 10. Replace one-shot chat with multi-agent runtime | complete | Added OpenCode-inspired thread/run/tool/approval flow with orchestrator/researcher/coach runtime, live search gating, and a new agent workspace UI |
+| 11. Rework agent chat into session tree runtime | complete | Replaced thread/run timeline with root session + Task-spawned child sessions, session tree navigation, and child-session tool execution closer to OpenCode |
+| 12. Add resumable SSE agent execution controls | complete | Added in-memory execution state, iterative replanning, abort/resume/retry controls, and root-session SSE control handling |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |

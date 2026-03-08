@@ -5,6 +5,22 @@ import { createApp } from "../app.js";
 describe("API v1", () => {
   const app = createApp();
 
+  async function waitForSessionStatus(sessionId: string, statuses: string[]) {
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const response = await request(app).get(`/api/v1/agent/sessions/${sessionId}`);
+      if (statuses.includes(response.body.session?.status)) {
+        return response;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw new Error(`session ${sessionId} did not reach expected status in time`);
+  }
+
+  async function waitForSessionCompletion(sessionId: string) {
+    return waitForSessionStatus(sessionId, ["completed", "failed"]);
+  }
+
   it("returns a request id header for traceability", async () => {
     const response = await request(app).get("/health");
 
@@ -58,56 +74,170 @@ describe("API v1", () => {
     expect(response.body.followUps.length).toBeGreaterThan(0);
   });
 
-  it("creates an agent thread and completes a multi-agent run automatically", async () => {
-    const threadResponse = await request(app).post("/api/v1/agent/threads").send({
+  it("creates a root session and spawns child sessions through task calls", async () => {
+    const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
       language: "en-US"
     });
 
-    expect(threadResponse.status).toBe(201);
+    expect(sessionResponse.status).toBe(201);
 
-    const runResponse = await request(app)
-      .post(`/api/v1/agent/threads/${threadResponse.body.thread.id}/runs`)
+    const turnResponse = await request(app)
+      .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
       .send({
         message: "What is the latest patch trend for carry timings?",
         mode: "coach",
-        language: "en-US",
-        approvalPolicy: "auto"
+        language: "en-US"
       });
 
-    expect(runResponse.status).toBe(200);
-    expect(runResponse.body.runs[0].status).toBe("completed");
-    expect(runResponse.body.runs[0].steps.length).toBeGreaterThan(2);
-    expect(runResponse.body.messages.some((message: { role: string }) => message.role === "assistant")).toBe(
-      true
+    expect(turnResponse.status).toBe(202);
+    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id);
+    expect(completedResponse.body.session.status).toBe("completed");
+    expect(completedResponse.body.children.length).toBeGreaterThanOrEqual(2);
+    expect(
+      completedResponse.body.messages.some((message: { parts?: Array<{ type?: string }> }) =>
+        (message.parts ?? []).some((part) => part.type === "task_call")
+      )
+    ).toBe(true);
+
+    const researcherChild = completedResponse.body.children.find(
+      (child: { agent: string }) => child.agent === "researcher"
     );
+    expect(researcherChild).toBeTruthy();
+
+    const childDetail = await request(app).get(`/api/v1/agent/sessions/${researcherChild.id}`);
+    expect(childDetail.status).toBe(200);
+    expect(childDetail.body.session.parentSessionId).toBe(sessionResponse.body.session.id);
   });
 
-  it("pauses an agent run for approval and resumes after approval", async () => {
-    const threadResponse = await request(app).post("/api/v1/agent/threads").send({
+  it("runs web_search and dota_live_search inside the researcher child session", async () => {
+    const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
       language: "en-US"
     });
 
-    const runResponse = await request(app)
-      .post(`/api/v1/agent/threads/${threadResponse.body.thread.id}/runs`)
+    const turnResponse = await request(app)
+      .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
       .send({
         message: "What is the latest tournament meta for supports right now?",
         mode: "quick",
-        language: "en-US",
-        approvalPolicy: "always"
+        language: "en-US"
       });
 
-    expect(runResponse.status).toBe(200);
-    expect(runResponse.body.runs[0].status).toBe("waiting_approval");
-    expect(runResponse.body.runs[0].approvals[0].status).toBe("pending");
+    expect(turnResponse.status).toBe(202);
+    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id);
+    const researcherChild = completedResponse.body.children.find(
+      (child: { agent: string }) => child.agent === "researcher"
+    );
+    const childDetail = await request(app).get(`/api/v1/agent/sessions/${researcherChild.id}`);
 
-    const approval = runResponse.body.runs[0].approvals[0];
+    expect(
+      childDetail.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
+        (message.parts ?? []).some((part) => part.tool === "web_search")
+      )
+    ).toBe(true);
+    expect(
+      childDetail.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
+        (message.parts ?? []).some((part) => part.tool === "dota_live_search")
+      )
+    ).toBe(true);
+  });
+
+  it("lets the planner skip live web tools for evergreen coaching questions", async () => {
+    const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
+      language: "en-US"
+    });
+
+    const turnResponse = await request(app)
+      .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
+      .send({
+        message: "How should I improve my laning fundamentals as a carry player?",
+        mode: "coach",
+        language: "en-US"
+      });
+
+    expect(turnResponse.status).toBe(202);
+    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id);
+    const researcherChild = completedResponse.body.children.find(
+      (child: { agent: string }) => child.agent === "researcher"
+    );
+    const childDetail = await request(app).get(`/api/v1/agent/sessions/${researcherChild.id}`);
+
+    expect(
+      childDetail.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
+        (message.parts ?? []).some((part) => part.tool === "knowledge_search")
+      )
+    ).toBe(true);
+    expect(
+      childDetail.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
+        (message.parts ?? []).some((part) => part.tool === "web_search")
+      )
+    ).toBe(false);
+  });
+
+  it("supports abort then resume on the same root session", async () => {
+    const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
+      language: "en-US"
+    });
+
+    const sessionId = sessionResponse.body.session.id;
+    const turnResponse = await request(app)
+      .post(`/api/v1/agent/sessions/${sessionId}/messages`)
+      .send({
+        message: "Use recent patches and tournament context to explain support warding priorities.",
+        mode: "coach",
+        language: "en-US"
+      });
+
+    expect(turnResponse.status).toBe(202);
+
+    const abortResponse = await request(app)
+      .post(`/api/v1/agent/sessions/${sessionId}/control`)
+      .send({ action: "abort" });
+
+    expect(abortResponse.status).toBe(200);
+    expect(abortResponse.body.session.status).toBe("paused");
+
+    const pausedResponse = await waitForSessionStatus(sessionId, ["paused"]);
+    expect(pausedResponse.body.session.status).toBe("paused");
+
     const resumeResponse = await request(app)
-      .post(`/api/v1/agent/runs/${runResponse.body.runs[0].id}/approvals/${approval.id}`)
-      .send({ decision: "approve" });
+      .post(`/api/v1/agent/sessions/${sessionId}/control`)
+      .send({ action: "resume" });
 
     expect(resumeResponse.status).toBe(200);
-    expect(resumeResponse.body.runs[0].status).toBe("completed");
-    expect(resumeResponse.body.runs[0].approvals[0].status).toBe("approved");
+
+    const completedResponse = await waitForSessionCompletion(sessionId);
+    expect(completedResponse.body.session.status).toBe("completed");
+  });
+
+  it("retries the same root session and spawns a fresh set of child sessions", async () => {
+    const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
+      language: "en-US"
+    });
+
+    const sessionId = sessionResponse.body.session.id;
+    const firstTurnResponse = await request(app)
+      .post(`/api/v1/agent/sessions/${sessionId}/messages`)
+      .send({
+        message: "Explain my carry laning fundamentals.",
+        mode: "coach",
+        language: "en-US"
+      });
+
+    expect(firstTurnResponse.status).toBe(202);
+
+    const firstCompleted = await waitForSessionCompletion(sessionId);
+    expect(firstCompleted.body.session.status).toBe("completed");
+    const firstChildCount = firstCompleted.body.children.length;
+
+    const retryResponse = await request(app)
+      .post(`/api/v1/agent/sessions/${sessionId}/control`)
+      .send({ action: "retry" });
+
+    expect(retryResponse.status).toBe(200);
+
+    const secondCompleted = await waitForSessionCompletion(sessionId);
+    expect(secondCompleted.body.session.status).toBe("completed");
+    expect(secondCompleted.body.children.length).toBeGreaterThan(firstChildCount);
   });
 
   it("uses the email as fallback name and does not expose password fields", async () => {

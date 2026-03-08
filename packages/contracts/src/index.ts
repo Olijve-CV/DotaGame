@@ -89,91 +89,111 @@ export interface ChatSessionRecord {
 
 export type AgentKind = "orchestrator" | "researcher" | "coach";
 
-export type AgentToolName = "knowledge_search" | "web_search";
+export type AgentToolName = "knowledge_search" | "web_search" | "dota_live_search";
 
-export type AgentRunStatus = "running" | "completed" | "failed";
+export type AgentSessionStatus = "idle" | "running" | "paused" | "completed" | "failed";
 
-export type AgentStepStatus = "completed" | "waiting" | "failed";
+export type AgentExecutionStatus = "running" | "completed" | "failed";
 
-export type AgentStepType = "plan" | "delegate" | "tool_call" | "final";
-
-export interface AgentThread {
+export interface AgentSession {
   id: string;
   userId: string | null;
+  parentSessionId: string | null;
+  rootSessionId: string;
   title: string;
   language: Language;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface AgentThreadSummary {
-  id: string;
-  title: string;
-  language: Language;
-  updatedAt: string;
-  lastMessage: string;
-  status: AgentRunStatus | "idle";
-}
-
-export interface AgentMessage {
-  id: string;
-  threadId: string;
-  runId: string | null;
-  role: "user" | "assistant";
-  agent: AgentKind | null;
-  content: string;
-  createdAt: string;
-}
-
-export interface AgentToolCall {
-  id: string;
-  tool: AgentToolName;
-  status: "completed" | "waiting" | "failed";
-  requiresApproval: boolean;
-  inputSummary: string;
-  outputSummary?: string;
-  citations?: ChatCitation[];
-}
-
-export interface AgentRunStep {
-  id: string;
-  runId: string;
-  type: AgentStepType;
-  status: AgentStepStatus;
-  agent: AgentKind;
-  title: string;
-  detail: string;
-  createdAt: string;
-  toolCall?: AgentToolCall;
-}
-
-export interface AgentRun {
-  id: string;
-  threadId: string;
   mode: ChatMode;
-  language: Language;
-  status: AgentRunStatus;
-  summary: string;
-  finalAnswer?: string;
+  agent: AgentKind;
+  kind: "primary" | "subagent";
+  status: AgentSessionStatus;
   createdAt: string;
   updatedAt: string;
-  steps: AgentRunStep[];
+}
+
+export interface AgentSessionSummary {
+  id: string;
+  title: string;
+  language: Language;
+  agent: AgentKind;
+  kind: "primary" | "subagent";
+  parentSessionId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  status: AgentSessionStatus;
+  lastMessage: string;
+  childCount: number;
+}
+
+export interface AgentTextPart {
+  type: "text";
+  text: string;
+}
+
+export interface AgentToolCallPart {
+  type: "tool_call";
+  tool: AgentToolName;
+  status: AgentExecutionStatus;
+  inputSummary: string;
+  outputSummary: string;
   citations: ChatCitation[];
 }
 
-export interface AgentThreadDetail {
-  thread: AgentThread;
-  messages: AgentMessage[];
-  runs: AgentRun[];
+export interface AgentTaskCallPart {
+  type: "task_call";
+  taskId: string;
+  subagent: AgentKind;
+  status: AgentExecutionStatus;
+  childSessionId: string;
+  instruction: string;
+  summary: string;
 }
 
-export interface AgentRunRequest {
+export type AgentMessagePart = AgentTextPart | AgentToolCallPart | AgentTaskCallPart;
+
+export interface AgentMessage {
+  id: string;
+  sessionId: string;
+  role: "user" | "assistant" | "tool";
+  agent: AgentKind | null;
+  content: string;
+  parts: AgentMessagePart[];
+  createdAt: string;
+}
+
+export interface AgentSessionDetail {
+  session: AgentSession;
+  messages: AgentMessage[];
+  children: AgentSessionSummary[];
+}
+
+export type AgentSessionEventType =
+  | "session.detail"
+  | "session.completed"
+  | "session.failed"
+  | "keepalive";
+
+export interface AgentSessionEvent {
+  type: AgentSessionEventType;
+  sessionId: string;
+  rootSessionId: string;
+  detail?: AgentSessionDetail;
+  error?: string;
+  timestamp: string;
+}
+
+export interface CreateAgentSessionRequest {
+  language: Language;
+  title?: string;
+}
+
+export interface SendAgentMessageRequest {
   message: string;
   mode: ChatMode;
   language: Language;
 }
 
-export interface CreateAgentThreadRequest {
-  language: Language;
-  title?: string;
+export type AgentSessionControlAction = "abort" | "resume" | "retry";
+
+export interface ControlAgentSessionRequest {
+  action: AgentSessionControlAction;
 }

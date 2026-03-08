@@ -48,9 +48,51 @@
 - To support a real agent, the repo needs a new interaction model around `thread`, `message`, `run`, `tool call`, and `human approval`, not just richer answer copy.
 - The implemented runtime now follows the minimum viable OpenCode-like shape:
   - `orchestrator` plans and delegates.
-  - `researcher` executes `knowledge_search` and optionally approval-gated `web_search`.
+  - `researcher` executes `knowledge_search` and automatic built-in `web_search`.
   - `coach` writes the final answer back into the thread.
-- Approval is a real run state transition (`waiting_approval`) rather than a UI-only modal. Runs resume through a dedicated approval endpoint and continue from the suspension point.
 - The chosen `web_search` implementation is domain-specific rather than a general search engine:
-  - It searches live/fallback Dota content already available through Steam news, patch notes, and OpenDota tournament feeds.
-  - This keeps the first version deployable without introducing another external search dependency or API key.
+  - That first version searched live/fallback Dota content already available through Steam news, patch notes, and OpenDota tournament feeds.
+- Follow-up product direction removed the approval gate:
+  - The active runtime now auto-executes `web_search` for time-sensitive questions.
+  - The user-facing workspace no longer exposes an approval toggle or approval card.
+  - Some approval-oriented contract/storage scaffolding was removed from the active code path to keep the runtime aligned with the intended UX.
+- The next follow-up split search into two tools:
+  - `web_search` is now true general web search via the OpenAI `Responses API` built-in web search tool.
+  - The old domain-specific search behavior now lives under `dota_live_search`.
+- This is the right boundary for the repo:
+  - `web_search` can answer open-web and non-site-specific “latest” questions.
+  - `dota_live_search` preserves the product's higher-trust Dota-specific live feeds and should remain separately visible in the run timeline.
+- A planner layer is now a better fit than direct heuristic routing:
+  - the runtime remains deterministic once a plan is chosen
+  - tool choice can become smarter without rewriting execution
+  - fallback rules still preserve predictable behavior when OpenAI planning is unavailable
+- The planner currently decides only tool sequence, not iterative replanning. That is the right MVP boundary before adding loops, retries, or subagent-to-subagent handoffs.
+- The stronger OpenCode-aligned boundary is `session tree`, not `run timeline`:
+  - parent session talks to the user
+  - `Task`-like messages spawn `researcher` and `coach` child sessions
+  - tool execution belongs inside child sessions rather than inside a flat parent run log
+- The current implementation is materially closer to OpenCode because it now has:
+  - root sessions
+  - child sessions
+  - explicit `task_call` message parts
+  - subagent-local tool execution messages
+- Remaining gaps versus a fuller OpenCode runtime:
+  - no persistent permission policy engine (`allow/ask/deny`) yet
+  - no session fork/revert
+  - no iterative replan loop after tool results
+  - no subagent authored free-form back-and-forth beyond the current task execution path
+- SSE is the right transport for the next step because it unlocks the product feel of an agent runtime without yet needing bidirectional sockets:
+  - the server can start a turn asynchronously
+  - the client can see child sessions and tool calls appear in real time
+  - the session tree remains the source of truth, while SSE only carries snapshots/events
+- The current SSE implementation streams root-session-scoped events and updates child sessions by emitting both child snapshots and refreshed root snapshots. This keeps the frontend merge logic simple while preserving the session tree view.
+- `Resume` is not just a UI action; it requires persistent per-root execution state that survives async turn boundaries and stores the question, phase, completed tools, gathered packets, and current child sessions.
+- The correct safe boundary for `abort` in this repo is checkpoint-based:
+  - after each tool result
+  - before entering the next subagent phase
+  - not mid-request inside a live search provider call
+- A minimal iterative replanner is enough to make the runtime feel more agentic:
+  - initial planner chooses the first tool
+  - replanner decides whether to stop or queue one more tool after each result
+  - this keeps the loop simple while removing the old fixed one-shot tool sequence
+- `resume` should also handle the race where the user clicks it before an outstanding tool call reaches the next checkpoint. The runtime now treats that as cancelling the pending pause instead of hard-failing with `SESSION_BUSY`.

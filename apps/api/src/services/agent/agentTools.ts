@@ -2,6 +2,7 @@ import type { ChatCitation, Language, Tournament } from "@dotagame/contracts";
 import type { Article, PatchNote } from "@dotagame/contracts";
 import { listArticles, listPatchNotes, listTournaments } from "../contentService.js";
 import { retrieveRagContext } from "../rag/ragService.js";
+import { runOpenAiWebSearchSafe } from "./openAiWebSearchService.js";
 
 export interface AgentToolResult {
   summary: string;
@@ -12,17 +13,21 @@ function getLanguageText(language: Language) {
   if (language === "zh-CN") {
     return {
       noKnowledge: "知识库里没有找到足够直接的匹配内容。",
-      noWeb: "联网搜索没有找到足够相关的近期资料。",
+      noWeb: "通用全网搜索没有返回足够相关的结果。",
+      noDotaLive: "Dota 实时源没有找到足够相关的近期资料。",
       knowledgePrefix: "知识库命中了这些线索：",
-      webPrefix: "联网检索到这些近期来源："
+      webPrefix: "通用全网搜索检索到这些来源：",
+      dotaLivePrefix: "Dota 实时源检索到这些近期来源："
     };
   }
 
   return {
     noKnowledge: "The local knowledge base did not return strong matches.",
-    noWeb: "Live web search did not return enough relevant recent sources.",
+    noWeb: "General web search did not return enough relevant results.",
+    noDotaLive: "The Dota live-source tool did not return enough recent matches.",
     knowledgePrefix: "Knowledge search matched these sources:",
-    webPrefix: "Live web search found these recent sources:"
+    webPrefix: "General web search found these sources:",
+    dotaLivePrefix: "Dota live search found these recent sources:"
   };
 }
 
@@ -102,6 +107,28 @@ export async function runWebSearch(
   language: Language
 ): Promise<AgentToolResult> {
   const text = getLanguageText(language);
+  const result = await runOpenAiWebSearchSafe(question, language);
+
+  if (result.citations.length === 0) {
+    return {
+      summary: result.summary || text.noWeb,
+      citations: []
+    };
+  }
+
+  return {
+    summary: result.summary.startsWith(text.noWeb)
+      ? summarizeCitations(text.webPrefix, result.citations)
+      : result.summary,
+    citations: result.citations
+  };
+}
+
+export async function runDotaLiveSearch(
+  question: string,
+  language: Language
+): Promise<AgentToolResult> {
+  const text = getLanguageText(language);
   const terms = buildSearchTerms(question);
   const [articles, patchNotes, tournaments] = await Promise.all([
     listArticles({ language, query: question }),
@@ -125,13 +152,13 @@ export async function runWebSearch(
   const citations = matches.map((entry) => toCitation(entry.item));
   if (citations.length === 0) {
     return {
-      summary: text.noWeb,
+      summary: text.noDotaLive,
       citations: []
     };
   }
 
   return {
-    summary: summarizeCitations(text.webPrefix, citations),
+    summary: summarizeCitations(text.dotaLivePrefix, citations),
     citations
   };
 }

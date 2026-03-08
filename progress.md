@@ -14,6 +14,52 @@
 - Validation completed:
   - `npm test --workspace @dotagame/api`
   - `npm run build`
+- Simplified the agent runtime after follow-up direction:
+  - Removed web-search approval gating from the active execution path.
+  - Made `web_search` a built-in tool that runs automatically when the orchestrator deems the question time-sensitive.
+  - Removed approval controls from the web workspace and updated tests to assert automatic web search execution.
+- Split the live-search layer into two distinct tools:
+  - `web_search`: general web search backed by the OpenAI `Responses API` web search tool.
+  - `dota_live_search`: Dota-only live retrieval over Steam/OpenDota sources.
+- Added new web-search config and docs:
+  - `OPENAI_WEB_SEARCH_MODEL`
+  - `OPENAI_WEB_SEARCH_COUNTRY`
+  - `OPENAI_WEB_SEARCH_CITY`
+  - `OPENAI_WEB_SEARCH_REGION`
+  - `OPENAI_WEB_SEARCH_TIMEZONE`
+- Added a planner layer in front of tool execution:
+  - New `agentPlannerService.ts` produces a minimal tool plan from the user question.
+  - Planner prefers OpenAI JSON planning and falls back to deterministic routing if unavailable.
+  - Runtime now executes the planner-selected tool sequence instead of hard-coded keyword branches.
+- Extended tests to verify both directions:
+  - time-sensitive questions trigger `web_search` and `dota_live_search`
+  - evergreen coaching questions skip `web_search`
+- Reworked the agent runtime to be session-first:
+  - Replaced root thread/run state with `AgentSession`, `AgentMessagePart`, and child-session summaries.
+  - Primary session now dispatches work through Task-like messages to `researcher` and `coach` child sessions.
+  - Researcher child sessions hold the actual tool execution messages; coach child sessions hold the synthesis step.
+- Rebuilt the web chat page around a session tree:
+  - root session rail
+  - child session tree navigation
+  - message-part cards for `task_call` and `tool_call`
+  - read-only child sessions with composition restricted to the primary session
+- Validation completed after the session-tree rewrite:
+  - `npm test --workspace @dotagame/api`
+  - `npm run build`
+- Added SSE streaming for session updates:
+  - `POST /agent/sessions/:id/messages` now starts the turn asynchronously and returns the initial running snapshot.
+  - `GET /agent/sessions/:id/events` streams `session.detail`, `session.completed`, `session.failed`, and `keepalive` events.
+  - The web chat page now uses `EventSource` to merge live updates into both the root session and the active child session view.
+- Added resumable session execution on top of SSE:
+  - Introduced an in-memory root-session execution store tracking current phase, completed tools, pending tools, gathered packets, and pause state.
+  - Reworked the runtime into a checkpointed state machine so a root session can `abort`, `resume`, or `retry` the same task instead of behaving like one-shot chat.
+  - Added iterative replanning so the researcher now runs one tool at a time and asks the planner whether more evidence is needed after each result.
+- Extended the API and frontend control surface:
+  - Added `POST /agent/sessions/:id/control` with `abort`, `resume`, and `retry`.
+  - Added root-session control buttons in the web agent workspace and kept them synchronized through the existing SSE stream.
+- Validation completed after the control-flow upgrade:
+  - `npm test --workspace @dotagame/api`
+  - `npm run build`
 
 ## 2026-03-06
 - Started implementation from approved proposed plan.
