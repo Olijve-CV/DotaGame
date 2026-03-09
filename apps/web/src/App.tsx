@@ -67,6 +67,7 @@ export function App() {
   );
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
+  const userStateVersionRef = useRef(0);
   const copy = useMemo(() => copyMap[locale], [locale]);
   const accountName = user?.name?.trim() || user?.email || copy.profile;
   const accountInitial = accountName.charAt(0).toUpperCase();
@@ -87,14 +88,15 @@ export function App() {
     }
 
     let active = true;
+    const requestVersion = userStateVersionRef.current;
     fetchMe(token)
       .then((nextUser) => {
-        if (active) {
+        if (active && requestVersion === userStateVersionRef.current) {
           setUser(nextUser);
         }
       })
       .catch(() => {
-        if (active) {
+        if (active && requestVersion === userStateVersionRef.current) {
           setUser(null);
         }
       });
@@ -134,7 +136,16 @@ export function App() {
     setLocaleState(nextLocale);
   }
 
+  function handleUserLoaded(nextUser: UserProfile | null, source: "fetch" | "mutation" = "fetch") {
+    if (source === "mutation") {
+      userStateVersionRef.current += 1;
+    }
+
+    setUser(nextUser);
+  }
+
   function handleAuth(nextToken: string, nextUser: UserProfile) {
+    userStateVersionRef.current += 1;
     setToken(nextToken);
     setTokenState(nextToken);
     setUser(nextUser);
@@ -142,6 +153,7 @@ export function App() {
   }
 
   function handleLogout() {
+    userStateVersionRef.current += 1;
     clearToken();
     setTokenState(null);
     setUser(null);
@@ -252,13 +264,13 @@ export function App() {
         <Routes>
           <Route
             path="/"
-            element={<HomePage locale={locale} token={token} onUserLoaded={setUser} />}
+            element={<HomePage locale={locale} token={token} onUserLoaded={handleUserLoaded} />}
           />
           <Route path="/intro" element={<DotaIntroPage locale={locale} />} />
           <Route path="/chat" element={<ChatPage locale={locale} token={token} />} />
           <Route
             path="/profile"
-            element={<ProfilePage locale={locale} token={token} user={user} onUserLoaded={setUser} />}
+            element={<ProfilePage locale={locale} token={token} user={user} onUserLoaded={handleUserLoaded} />}
           />
           <Route
             path="/login"

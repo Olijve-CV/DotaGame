@@ -49,28 +49,40 @@ export function HeroAvatarPicker(props: {
 
       <button
         className={`avatar-option avatar-random${props.selectedAvatarId == null ? " selected" : ""}`}
+        aria-pressed={props.selectedAvatarId == null}
         disabled={props.disabled || props.loading}
         onClick={() => props.onSelect(null)}
         type="button"
       >
+        <span aria-hidden="true" className="avatar-option-status" />
         <span className="avatar-random-badge">?</span>
-        <strong>{text.random}</strong>
-        <span className="avatar-option-note">{text.randomHint}</span>
+        <span className="avatar-option-copy">
+          <strong>{text.random}</strong>
+          <span className="avatar-option-note">{text.randomHint}</span>
+        </span>
       </button>
 
       <div className="avatar-grid">
-        {filteredOptions.map((item) => (
-          <button
-            className={`avatar-option${props.selectedAvatarId === item.id ? " selected" : ""}`}
-            disabled={props.disabled || props.loading}
-            key={item.id}
-            onClick={() => props.onSelect(item.id)}
-            type="button"
-          >
-            <img alt={item.name} loading="lazy" src={item.image} />
-            <span>{item.name}</span>
-          </button>
-        ))}
+        {filteredOptions.map((item) => {
+          const isSelected = props.selectedAvatarId === item.id;
+
+          return (
+            <button
+              aria-pressed={isSelected}
+              className={`avatar-option avatar-option-card${isSelected ? " selected" : ""}`}
+              disabled={props.disabled || props.loading}
+              key={item.id}
+              onClick={() => props.onSelect(item.id)}
+              type="button"
+            >
+              <span aria-hidden="true" className="avatar-option-status" />
+              <span className="avatar-option-media">
+                <img alt={item.name} loading="lazy" src={item.image} />
+              </span>
+              <span className="avatar-option-name">{item.name}</span>
+            </button>
+          );
+        })}
       </div>
 
       {!props.loading && filteredOptions.length === 0 && <p className="muted">{text.empty}</p>}

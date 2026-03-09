@@ -6,7 +6,6 @@ import {
   fetchChatSessions,
   fetchFavorites,
   fetchHeroAvatars,
-  fetchMe,
   fetchPatchNotes,
   fetchTournaments,
   removeFavorite,
@@ -105,7 +104,7 @@ export function ProfilePage(props: {
   locale: Language;
   token: string | null;
   user: UserProfile | null;
-  onUserLoaded: (user: UserProfile | null) => void;
+  onUserLoaded: (user: UserProfile | null, source?: "fetch" | "mutation") => void;
 }) {
   const [favorites, setFavorites] = useState<Array<{ contentType: string; contentId: string }>>([]);
   const [sessions, setSessions] = useState<ChatSessionDisplay[]>([]);
@@ -197,19 +196,17 @@ export function ProfilePage(props: {
     let active = true;
 
     Promise.all([
-      fetchMe(props.token),
       fetchFavorites(props.token),
       fetchChatSessions(props.token),
       fetchArticles({ language: props.locale }),
       fetchPatchNotes(props.locale),
       fetchTournaments(props.locale)
     ])
-      .then(([user, favs, chats, articleItems, patchItems, tournamentItems]) => {
+      .then(([favs, chats, articleItems, patchItems, tournamentItems]) => {
         if (!active) {
           return;
         }
 
-        props.onUserLoaded(user);
         setFavorites(favs);
         setSessions(chats);
         setArticles(articleItems);
@@ -218,7 +215,6 @@ export function ProfilePage(props: {
       })
       .catch(() => {
         if (active) {
-          props.onUserLoaded(null);
           setFavorites([]);
           setSessions([]);
           setArticles([]);
@@ -249,7 +245,7 @@ export function ProfilePage(props: {
     setIsSavingAvatar(true);
     try {
       const user = await updateMyAvatar(props.token, selectedAvatarId);
-      props.onUserLoaded(user);
+      props.onUserLoaded(user, "mutation");
       setAvatarFeedback(text.avatarSaved);
     } catch {
       setAvatarFeedback(text.avatarSaveError);

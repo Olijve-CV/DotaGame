@@ -96,7 +96,7 @@ function statusTone(status: Tournament["status"]) {
 export function HomePage(props: {
   locale: Language;
   token: string | null;
-  onUserLoaded: (user: UserProfile | null) => void;
+  onUserLoaded: (user: UserProfile | null, source?: "fetch" | "mutation") => void;
 }) {
   const [category, setCategory] = useState<CategoryFilter>(undefined);
   const [query, setQuery] = useState("");
