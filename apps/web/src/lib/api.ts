@@ -1,5 +1,4 @@
 import type {
-  AgentSessionControlAction,
   AgentSession,
   AgentSessionDetail,
   AgentSessionSummary,
@@ -208,18 +207,6 @@ export async function sendAgentMessage(
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: JSON.stringify(input)
-  });
-}
-
-export async function controlAgentSession(
-  sessionId: string,
-  action: AgentSessionControlAction,
-  token?: string | null
-): Promise<AgentSessionDetail> {
-  return http<AgentSessionDetail>(`/agent/sessions/${sessionId}/control`, {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    body: JSON.stringify({ action })
   });
 }
 

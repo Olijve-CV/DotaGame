@@ -85,7 +85,6 @@ describe("API v1", () => {
       .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
       .send({
         message: "What is the latest patch trend for carry timings?",
-        mode: "coach",
         language: "en-US"
       });
 
@@ -118,7 +117,6 @@ describe("API v1", () => {
       .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
       .send({
         message: "What is the latest tournament meta for supports right now?",
-        mode: "quick",
         language: "en-US"
       });
 
@@ -150,7 +148,6 @@ describe("API v1", () => {
       .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
       .send({
         message: "How should I improve my laning fundamentals as a carry player?",
-        mode: "coach",
         language: "en-US"
       });
 
@@ -173,72 +170,7 @@ describe("API v1", () => {
     ).toBe(false);
   });
 
-  it("supports abort then resume on the same root session", async () => {
-    const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
-      language: "en-US"
-    });
 
-    const sessionId = sessionResponse.body.session.id;
-    const turnResponse = await request(app)
-      .post(`/api/v1/agent/sessions/${sessionId}/messages`)
-      .send({
-        message: "Use recent patches and tournament context to explain support warding priorities.",
-        mode: "coach",
-        language: "en-US"
-      });
-
-    expect(turnResponse.status).toBe(202);
-
-    const abortResponse = await request(app)
-      .post(`/api/v1/agent/sessions/${sessionId}/control`)
-      .send({ action: "abort" });
-
-    expect(abortResponse.status).toBe(200);
-    expect(abortResponse.body.session.status).toBe("paused");
-
-    const pausedResponse = await waitForSessionStatus(sessionId, ["paused"]);
-    expect(pausedResponse.body.session.status).toBe("paused");
-
-    const resumeResponse = await request(app)
-      .post(`/api/v1/agent/sessions/${sessionId}/control`)
-      .send({ action: "resume" });
-
-    expect(resumeResponse.status).toBe(200);
-
-    const completedResponse = await waitForSessionCompletion(sessionId);
-    expect(completedResponse.body.session.status).toBe("completed");
-  });
-
-  it("retries the same root session and spawns a fresh set of child sessions", async () => {
-    const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
-      language: "en-US"
-    });
-
-    const sessionId = sessionResponse.body.session.id;
-    const firstTurnResponse = await request(app)
-      .post(`/api/v1/agent/sessions/${sessionId}/messages`)
-      .send({
-        message: "Explain my carry laning fundamentals.",
-        mode: "coach",
-        language: "en-US"
-      });
-
-    expect(firstTurnResponse.status).toBe(202);
-
-    const firstCompleted = await waitForSessionCompletion(sessionId);
-    expect(firstCompleted.body.session.status).toBe("completed");
-    const firstChildCount = firstCompleted.body.children.length;
-
-    const retryResponse = await request(app)
-      .post(`/api/v1/agent/sessions/${sessionId}/control`)
-      .send({ action: "retry" });
-
-    expect(retryResponse.status).toBe(200);
-
-    const secondCompleted = await waitForSessionCompletion(sessionId);
-    expect(secondCompleted.body.session.status).toBe("completed");
-    expect(secondCompleted.body.children.length).toBeGreaterThan(firstChildCount);
-  });
 
   it("uses the email as fallback name and does not expose password fields", async () => {
     const registerResponse = await request(app).post("/api/v1/auth/register").send({

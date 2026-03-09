@@ -4,7 +4,6 @@ import { logger } from "../lib/logger.js";
 import { getUserByToken } from "../repo/inMemoryStore.js";
 import { subscribeAgentSessionEvents } from "../services/agent/agentEventBus.js";
 import {
-  controlSession,
   createSession,
   getSessionDetail,
   listChildren,
@@ -19,12 +18,7 @@ const createSessionSchema = z.object({
 
 const sendMessageSchema = z.object({
   message: z.string().min(2),
-  mode: z.enum(["quick", "coach"]),
   language: z.enum(["zh-CN", "en-US"])
-});
-
-const controlSessionSchema = z.object({
-  action: z.enum(["abort", "resume", "retry"])
 });
 
 function resolveUserIdFromToken(token: string | undefined): string | null {
@@ -192,45 +186,6 @@ agentRouter.post("/sessions/:sessionId/messages", async (req, res) => {
     logger.error("agent session message failed", {
       event: "agent.session.failed",
       error
-    });
-    res.status(500).json({ message: "AGENT_SESSION_FAILED" });
-  }
-});
-
-agentRouter.post("/sessions/:sessionId/control", async (req, res) => {
-  const parsed = controlSessionSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ message: "INVALID_PAYLOAD" });
-    return;
-  }
-
-  try {
-    const userId = resolveUserId(req.header("authorization"));
-    const detail = await controlSession({
-      sessionId: req.params.sessionId,
-      userId,
-      action: parsed.data.action
-    });
-    res.json(detail);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "AGENT_SESSION_FAILED";
-    if (
-      message === "SESSION_NOT_FOUND" ||
-      message === "SUBAGENT_SESSION_READ_ONLY" ||
-      message === "SESSION_EXECUTION_NOT_FOUND" ||
-      message === "SESSION_BUSY" ||
-      message === "SESSION_NOT_RUNNING" ||
-      message === "SESSION_NOT_RESUMABLE"
-    ) {
-      res.status(message === "SESSION_NOT_FOUND" ? 404 : 400).json({ message });
-      return;
-    }
-
-    logger.error("agent session control failed", {
-      event: "agent.session.control_failed",
-      error,
-      sessionId: req.params.sessionId,
-      action: parsed.data.action
     });
     res.status(500).json({ message: "AGENT_SESSION_FAILED" });
   }

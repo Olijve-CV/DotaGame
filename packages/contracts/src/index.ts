@@ -91,7 +91,7 @@ export type AgentKind = "orchestrator" | "researcher" | "coach";
 
 export type AgentToolName = "knowledge_search" | "web_search" | "dota_live_search";
 
-export type AgentSessionStatus = "idle" | "running" | "paused" | "completed" | "failed";
+export type AgentSessionStatus = "idle" | "running" | "completed" | "failed";
 
 export type AgentExecutionStatus = "running" | "completed" | "failed";
 
@@ -102,7 +102,6 @@ export interface AgentSession {
   rootSessionId: string;
   title: string;
   language: Language;
-  mode: ChatMode;
   agent: AgentKind;
   kind: "primary" | "subagent";
   status: AgentSessionStatus;
@@ -188,12 +187,5 @@ export interface CreateAgentSessionRequest {
 
 export interface SendAgentMessageRequest {
   message: string;
-  mode: ChatMode;
   language: Language;
-}
-
-export type AgentSessionControlAction = "abort" | "resume" | "retry";
-
-export interface ControlAgentSessionRequest {
-  action: AgentSessionControlAction;
 }

@@ -1,4 +1,4 @@
-import type { AgentToolName, ChatMode, Language } from "@dotagame/contracts";
+import type { AgentToolName, Language } from "@dotagame/contracts";
 import { logger } from "../../lib/logger.js";
 import { getRagConfig } from "../rag/config.js";
 import { buildApiUrl } from "../rag/http.js";
@@ -43,7 +43,7 @@ function extractJsonObject(text: string): string | null {
   return text.slice(start, end + 1);
 }
 
-function getPlannerSignals(question: string, mode: ChatMode) {
+function getPlannerSignals(question: string) {
   const normalizedQuestion = question.toLowerCase();
   const needsFreshInfo = [
     "latest",
@@ -88,19 +88,17 @@ function getPlannerSignals(question: string, mode: ChatMode) {
 
   return {
     needsFreshInfo,
-    mentionsDotaSpecificTopic,
-    mode
+    mentionsDotaSpecificTopic
   };
 }
 
 function getPreferredToolSequence(input: {
   question: string;
-  mode: ChatMode;
 }): AgentToolName[] {
-  const signals = getPlannerSignals(input.question, input.mode);
+  const signals = getPlannerSignals(input.question);
   const tools: AgentToolName[] = [];
 
-  if (signals.mentionsDotaSpecificTopic || input.mode === "coach") {
+  if (signals.mentionsDotaSpecificTopic) {
     tools.push("knowledge_search");
   }
   if (signals.mentionsDotaSpecificTopic && signals.needsFreshInfo) {
@@ -118,10 +116,9 @@ function getPreferredToolSequence(input: {
 
 function fallbackPlan(input: {
   question: string;
-  mode: ChatMode;
   language: Language;
 }): AgentExecutionPlan {
-  const signals = getPlannerSignals(input.question, input.mode);
+  const signals = getPlannerSignals(input.question);
   const tools = getPreferredToolSequence(input);
 
   return {
@@ -143,15 +140,13 @@ function fallbackPlan(input: {
 
 function fallbackReplan(input: {
   question: string;
-  mode: ChatMode;
   language: Language;
   completedTools: AgentToolName[];
   packets: AgentResearchPacket[];
 }): AgentExecutionReplan {
-  const signals = getPlannerSignals(input.question, input.mode);
+  const signals = getPlannerSignals(input.question);
   const preferredTools = getPreferredToolSequence({
-    question: input.question,
-    mode: input.mode
+    question: input.question
   });
   const remainingTools = preferredTools.filter((tool) => !input.completedTools.includes(tool));
   const latestPacket = input.packets[input.packets.length - 1];
@@ -221,7 +216,6 @@ function fallbackReplan(input: {
 
 async function planWithOpenAi(input: {
   question: string;
-  mode: ChatMode;
   language: Language;
 }): Promise<AgentExecutionPlan> {
   const config = getRagConfig();
@@ -248,7 +242,6 @@ Rules:
 - never invent tool names`;
 
   const userPrompt = `language: ${input.language}
-mode: ${input.mode}
 question: ${input.question}`;
 
   const response = await fetch(buildApiUrl(config.openAiBaseUrl, "/chat/completions"), {
@@ -304,7 +297,6 @@ question: ${input.question}`;
 
 async function replanWithOpenAi(input: {
   question: string;
-  mode: ChatMode;
   language: Language;
   completedTools: AgentToolName[];
   packets: AgentResearchPacket[];
@@ -338,7 +330,6 @@ Rules:
 
   const userPrompt = JSON.stringify({
     language: input.language,
-    mode: input.mode,
     question: input.question,
     completedTools: input.completedTools,
     packets: input.packets.map((packet) => ({
@@ -402,7 +393,6 @@ Rules:
 
 export async function buildAgentExecutionPlan(input: {
   question: string;
-  mode: ChatMode;
   language: Language;
 }): Promise<AgentExecutionPlan> {
   try {
@@ -410,7 +400,6 @@ export async function buildAgentExecutionPlan(input: {
   } catch (error) {
     logger.warn("agent planner fell back to deterministic routing", {
       event: "agent.planner.fallback",
-      mode: input.mode,
       language: input.language,
       error
     });
@@ -420,7 +409,6 @@ export async function buildAgentExecutionPlan(input: {
 
 export async function replanAgentExecution(input: {
   question: string;
-  mode: ChatMode;
   language: Language;
   completedTools: AgentToolName[];
   packets: AgentResearchPacket[];
@@ -430,7 +418,6 @@ export async function replanAgentExecution(input: {
   } catch (error) {
     logger.warn("agent replanner fell back to deterministic routing", {
       event: "agent.replanner.fallback",
-      mode: input.mode,
       language: input.language,
       error
     });

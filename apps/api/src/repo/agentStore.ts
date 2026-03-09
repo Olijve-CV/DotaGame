@@ -6,7 +6,6 @@ import type {
   AgentSessionDetail,
   AgentSessionStatus,
   AgentSessionSummary,
-  ChatMode,
   Language
 } from "@dotagame/contracts";
 import { randomUUID } from "node:crypto";
@@ -52,7 +51,6 @@ export function createAgentSession(input: {
   userId: string | null;
   parentSessionId: string | null;
   language: Language;
-  mode: ChatMode;
   agent: AgentKind;
   kind: "primary" | "subagent";
   title?: string;
@@ -68,7 +66,6 @@ export function createAgentSession(input: {
     rootSessionId: parent?.rootSessionId ?? id,
     title: input.title?.trim() || "New Agent Session",
     language: input.language,
-    mode: input.mode,
     agent: input.agent,
     kind: input.kind,
     status: input.status ?? "idle",

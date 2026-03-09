@@ -2,7 +2,6 @@ import type {
   AgentSessionStatus,
   AgentToolName,
   ChatCitation,
-  ChatMode,
   Language
 } from "@dotagame/contracts";
 import {
@@ -20,10 +19,8 @@ import { addChatSession } from "../../repo/inMemoryStore.js";
 import { logger } from "../../lib/logger.js";
 import { publishAgentSessionEvent } from "./agentEventBus.js";
 import {
-  clearAgentExecutionAbort,
   createAgentExecutionState,
   getAgentExecutionState,
-  resetAgentExecutionState,
   updateAgentExecutionState,
   type AgentResearchPacket
 } from "./agentExecutionStore.js";
@@ -40,35 +37,26 @@ function wait(ms: number): Promise<void> {
 function getCopy(language: Language) {
   if (language === "zh-CN") {
     return {
-      titleFallback: "新 Agent Session",
-      rootRunning: "主 Agent 正在协调子智能体处理这次任务。",
-      rootCompleted: "主 Agent 已完成这轮任务。",
-      rootPaused: "当前任务已暂停，可稍后继续。",
-      rootResumed: "继续执行上一次未完成的任务。",
-      rootRetrying: "重新运行上一条任务。",
-      planMessage: "Orchestrator 已生成这轮任务计划。",
-      researcherSession: "Researcher 子会话",
-      coachSession: "Coach 子会话",
-      researcherStart: "Researcher 已接收任务并开始搜集证据。",
-      researcherDone: "Researcher 已完成证据搜集。",
-      coachStart: "Coach 已接收证据并开始整理最终回答。",
-      coachDone: "Coach 已完成最终回答。",
-      researcherTask: "派发给 Researcher 子智能体",
-      coachTask: "派发给 Coach 子智能体",
-      finalPrefix: "最终回答",
-      nextActions: "建议下一步",
-      sources: "来源",
-      subagentOnly: "这是子智能体会话，只读，不接受直接输入。"
+      titleFallback: "? Agent ??",
+      rootRunning: "? Agent ????? Agent ???????",
+      planMessage: "Orchestrator ??????????",
+      researcherSession: "Researcher ???",
+      coachSession: "Coach ???",
+      researcherStart: "Researcher ?????????????",
+      researcherDone: "Researcher ????????",
+      coachStart: "Coach ???????????????",
+      coachDone: "Coach ????????",
+      researcherTask: "??? Researcher ? Agent",
+      coachTask: "??? Coach ? Agent",
+      finalPrefix: "????",
+      nextActions: "?????",
+      sources: "??"
     };
   }
 
   return {
     titleFallback: "New Agent Session",
     rootRunning: "The primary agent is coordinating subagents.",
-    rootCompleted: "The primary agent completed this turn.",
-    rootPaused: "This turn is paused and can be resumed later.",
-    rootResumed: "Resuming the unfinished task in this root session.",
-    rootRetrying: "Retrying the last mission in this root session.",
     planMessage: "The orchestrator generated a task plan.",
     researcherSession: "Researcher Subsession",
     coachSession: "Coach Subsession",
@@ -80,8 +68,7 @@ function getCopy(language: Language) {
     coachTask: "Dispatch to Coach subagent",
     finalPrefix: "Final answer",
     nextActions: "Recommended next actions",
-    sources: "Sources",
-    subagentOnly: "This is a subagent session. It is view-only and does not accept direct user prompts."
+    sources: "Sources"
   };
 }
 
@@ -116,7 +103,6 @@ function formatCitationList(citations: ChatCitation[]): string {
 
 function buildCoachAnswer(input: {
   question: string;
-  mode: ChatMode;
   language: Language;
   packets: AgentResearchPacket[];
 }): string {
@@ -141,18 +127,14 @@ function buildCoachAnswer(input: {
   lines.push(
     "",
     `${copy.nextActions}:`,
-    input.mode === "coach"
-      ? input.language === "zh-CN"
-        ? "1. 先按对线、节奏点、团战三个阶段拆开复盘。"
-        : "1. Break the issue into lane, timing, and teamfight phases before making changes."
-      : input.language === "zh-CN"
-        ? "1. 先确认这是不是一个依赖最新版本、赛事或环境的时效性问题。"
-        : "1. Confirm whether this is time-sensitive and depends on the latest patch or tournament meta.",
     input.language === "zh-CN"
-      ? "2. 如果要继续问，补充英雄、分路、段位和关键时间点。"
+      ? "1. ????????????????????????????"
+      : "1. Break the issue into lane, timing, and teamfight phases before making changes.",
+    input.language === "zh-CN"
+      ? "2. ???????????????????????????"
       : "2. Add your hero, lane, rank, and timing window if you want a sharper follow-up.",
     input.language === "zh-CN"
-      ? "3. 你也可以继续追问某个版本、英雄或 BP 细节。"
+      ? "3. ?????????????? BP ??????????????"
       : "3. Use the sources below to ask follow-ups about a patch, hero, or draft detail."
   );
 
@@ -288,42 +270,6 @@ async function executeResearchTool(
   return { tool, summary: result.summary, citations: result.citations };
 }
 
-function markExecutionPaused(sessionId: string): void {
-  const state = getAgentExecutionState(sessionId);
-  if (!state || state.status === "paused") {
-    return;
-  }
-
-  const copy = getCopy(state.language);
-  updateAgentExecutionState(sessionId, (current) => ({
-    ...current,
-    status: "paused",
-    abortRequested: false,
-    lastError: null
-  }));
-  updateAgentSessionStatus(sessionId, "paused");
-  updateChildStatusIfPresent(state.researcherSessionId, state.phase === "research" ? "paused" : "completed");
-  updateChildStatusIfPresent(state.coachSessionId, state.phase === "coach" ? "paused" : "completed");
-  addAgentMessage({
-    sessionId,
-    role: "assistant",
-    agent: "orchestrator",
-    content: copy.rootPaused,
-    parts: [{ type: "text", text: copy.rootPaused }]
-  });
-  publishRootAndSession(sessionId);
-}
-
-function shouldPauseAtCheckpoint(sessionId: string): boolean {
-  const state = getAgentExecutionState(sessionId);
-  if (!state?.abortRequested) {
-    return false;
-  }
-
-  markExecutionPaused(sessionId);
-  return true;
-}
-
 async function beginResearcherPhase(sessionId: string): Promise<void> {
   const state = getExecutionStateOrThrow(sessionId);
   if (state.researcherSessionId) {
@@ -333,7 +279,6 @@ async function beginResearcherPhase(sessionId: string): Promise<void> {
   const copy = getCopy(state.language);
   const plan = await buildAgentExecutionPlan({
     question: state.question,
-    mode: state.mode,
     language: state.language
   });
 
@@ -341,7 +286,6 @@ async function beginResearcherPhase(sessionId: string): Promise<void> {
     userId: state.userId,
     parentSessionId: sessionId,
     language: state.language,
-    mode: state.mode,
     agent: "researcher",
     kind: "subagent",
     title: `${copy.researcherSession}: ${state.question.slice(0, 36)}`,
@@ -439,10 +383,6 @@ async function runResearchPhase(sessionId: string): Promise<void> {
   await beginResearcherPhase(sessionId);
 
   while (true) {
-    if (shouldPauseAtCheckpoint(sessionId)) {
-      return;
-    }
-
     const state = getExecutionStateOrThrow(sessionId);
     if (state.phase !== "research") {
       return;
@@ -472,14 +412,9 @@ async function runResearchPhase(sessionId: string): Promise<void> {
       lastError: null
     }));
 
-    if (shouldPauseAtCheckpoint(sessionId)) {
-      return;
-    }
-
     const nextState = getExecutionStateOrThrow(sessionId);
     const replan = await replanAgentExecution({
       question: nextState.question,
-      mode: nextState.mode,
       language: nextState.language,
       completedTools: nextState.completedTools,
       packets: nextState.packets
@@ -527,7 +462,6 @@ function beginCoachPhase(sessionId: string): void {
     userId: state.userId,
     parentSessionId: sessionId,
     language: state.language,
-    mode: state.mode,
     agent: "coach",
     kind: "subagent",
     title: `${copy.coachSession}: ${state.question.slice(0, 36)}`,
@@ -581,7 +515,6 @@ function finalizeCompletedTurn(sessionId: string, finalAnswer: string): void {
     ...current,
     phase: "completed",
     status: "completed",
-    abortRequested: false,
     finalAnswer,
     lastError: null
   }));
@@ -602,7 +535,7 @@ function finalizeCompletedTurn(sessionId: string, finalAnswer: string): void {
       userId: state.userId,
       question: state.question,
       answer: finalAnswer,
-      mode: state.mode,
+      mode: "coach",
       language: state.language
     });
   }
@@ -611,7 +544,6 @@ function finalizeCompletedTurn(sessionId: string, finalAnswer: string): void {
     event: "agent.session.completed",
     sessionId,
     language: state.language,
-    mode: state.mode,
     childSessions: listChildSessionSummaries(sessionId).length
   });
 
@@ -628,10 +560,6 @@ function finalizeCompletedTurn(sessionId: string, finalAnswer: string): void {
 }
 
 function runCoachPhase(sessionId: string): void {
-  if (shouldPauseAtCheckpoint(sessionId)) {
-    return;
-  }
-
   beginCoachPhase(sessionId);
 
   const state = getExecutionStateOrThrow(sessionId);
@@ -642,7 +570,6 @@ function runCoachPhase(sessionId: string): void {
   const copy = getCopy(state.language);
   const finalAnswer = buildCoachAnswer({
     question: state.question,
-    mode: state.mode,
     language: state.language,
     packets: state.packets
   });
@@ -693,7 +620,6 @@ function markExecutionFailed(sessionId: string, error: unknown): void {
   updateAgentExecutionState(sessionId, (current) => ({
     ...current,
     status: "failed",
-    abortRequested: false,
     lastError: message
   }));
   updateAgentSessionStatus(sessionId, "failed");
@@ -739,11 +665,7 @@ async function runSessionTurn(sessionId: string): Promise<void> {
   try {
     while (true) {
       const state = getExecutionStateOrThrow(sessionId);
-      if (state.abortRequested) {
-        markExecutionPaused(sessionId);
-        return;
-      }
-      if (state.status === "paused" || state.status === "completed") {
+      if (state.status === "completed") {
         return;
       }
 
@@ -777,7 +699,6 @@ export function createSession(input: {
     userId: input.userId,
     parentSessionId: null,
     language: input.language,
-    mode: "coach",
     agent: "orchestrator",
     kind: "primary",
     title: input.title,
@@ -801,7 +722,6 @@ export async function sendMessageToSession(input: {
   sessionId: string;
   userId: string | null;
   message: string;
-  mode: ChatMode;
   language: Language;
 }) {
   const session = getAgentSession(input.sessionId);
@@ -823,7 +743,6 @@ export async function sendMessageToSession(input: {
   const copy = getCopy(input.language);
   updateAgentSession({
     ...session,
-    mode: input.mode,
     language: input.language,
     status: "running"
   });
@@ -849,7 +768,6 @@ export async function sendMessageToSession(input: {
     sessionId: input.sessionId,
     userId: input.userId,
     question: trimmedMessage,
-    mode: input.mode,
     language: input.language
   });
 
@@ -863,110 +781,3 @@ export async function sendMessageToSession(input: {
   return detail;
 }
 
-export async function controlSession(input: {
-  sessionId: string;
-  userId: string | null;
-  action: "abort" | "resume" | "retry";
-}) {
-  const session = getAgentSession(input.sessionId);
-  if (!session) {
-    throw new Error("SESSION_NOT_FOUND");
-  }
-  if (session.kind !== "primary") {
-    throw new Error("SUBAGENT_SESSION_READ_ONLY");
-  }
-
-  const state = getAgentExecutionState(input.sessionId);
-  if (!state) {
-    throw new Error("SESSION_EXECUTION_NOT_FOUND");
-  }
-
-  const copy = getCopy(state.language);
-
-  if (input.action === "abort") {
-    if (!activeTurns.has(input.sessionId) && session.status !== "running") {
-      throw new Error("SESSION_NOT_RUNNING");
-    }
-
-    updateAgentExecutionState(input.sessionId, (current) => ({
-      ...current,
-      abortRequested: true,
-      status: "paused"
-    }));
-    updateAgentSessionStatus(input.sessionId, "paused");
-    if (state.phase === "research") {
-      updateChildStatusIfPresent(state.researcherSessionId, "paused");
-    }
-    if (state.phase === "coach") {
-      updateChildStatusIfPresent(state.coachSessionId, "paused");
-    }
-    addAgentMessage({
-      sessionId: input.sessionId,
-      role: "assistant",
-      agent: "orchestrator",
-      content: copy.rootPaused,
-      parts: [{ type: "text", text: copy.rootPaused }]
-    });
-    publishRootAndSession(input.sessionId);
-  } else if (input.action === "resume") {
-    if (state.status !== "paused" && session.status !== "failed") {
-      throw new Error("SESSION_NOT_RESUMABLE");
-    }
-
-    clearAgentExecutionAbort(input.sessionId);
-    updateAgentExecutionState(input.sessionId, (current) => ({
-      ...current,
-      status: "running",
-      lastError: null
-    }));
-    updateAgentSessionStatus(input.sessionId, "running");
-    if (state.phase === "research") {
-      updateChildStatusIfPresent(state.researcherSessionId, "running");
-    }
-    if (state.phase === "coach") {
-      updateChildStatusIfPresent(state.coachSessionId, "running");
-    }
-    addAgentMessage({
-      sessionId: input.sessionId,
-      role: "assistant",
-      agent: "orchestrator",
-      content: copy.rootResumed,
-      parts: [{ type: "text", text: copy.rootResumed }]
-    });
-    publishRootAndSession(input.sessionId);
-    if (!activeTurns.has(input.sessionId)) {
-      startSessionTurn(input.sessionId);
-    }
-  } else {
-    if (activeTurns.has(input.sessionId)) {
-      throw new Error("SESSION_BUSY");
-    }
-
-    const retriedState = resetAgentExecutionState(input.sessionId);
-    if (!retriedState) {
-      throw new Error("SESSION_EXECUTION_NOT_FOUND");
-    }
-
-    updateAgentSession({
-      ...session,
-      mode: retriedState.mode,
-      language: retriedState.language,
-      status: "running"
-    });
-    addAgentMessage({
-      sessionId: input.sessionId,
-      role: "assistant",
-      agent: "orchestrator",
-      content: copy.rootRetrying,
-      parts: [{ type: "text", text: copy.rootRetrying }]
-    });
-    publishRootAndSession(input.sessionId);
-    startSessionTurn(input.sessionId);
-  }
-
-  const detail = buildAgentSessionDetail(input.sessionId);
-  if (!detail) {
-    throw new Error("SESSION_NOT_FOUND");
-  }
-  return detail;
-}

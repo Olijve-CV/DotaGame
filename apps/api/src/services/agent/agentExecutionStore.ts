@@ -1,4 +1,4 @@
-import type { AgentToolName, ChatCitation, ChatMode, Language } from "@dotagame/contracts";
+import type { AgentToolName, ChatCitation, Language } from "@dotagame/contracts";
 
 export interface AgentResearchPacket {
   tool: AgentToolName;
@@ -8,17 +8,15 @@ export interface AgentResearchPacket {
 
 export type AgentExecutionPhase = "research" | "coach" | "completed";
 
-export type AgentExecutionStateStatus = "running" | "paused" | "completed" | "failed";
+export type AgentExecutionStateStatus = "running" | "completed" | "failed";
 
 export interface AgentExecutionState {
   sessionId: string;
   userId: string | null;
   question: string;
-  mode: ChatMode;
   language: Language;
   status: AgentExecutionStateStatus;
   phase: AgentExecutionPhase;
-  abortRequested: boolean;
   researcherSessionId: string | null;
   coachSessionId: string | null;
   packets: AgentResearchPacket[];
@@ -55,7 +53,6 @@ export function createAgentExecutionState(input: {
   sessionId: string;
   userId: string | null;
   question: string;
-  mode: ChatMode;
   language: Language;
 }): AgentExecutionState {
   const timestamp = nowIso();
@@ -63,11 +60,9 @@ export function createAgentExecutionState(input: {
     sessionId: input.sessionId,
     userId: input.userId,
     question: input.question,
-    mode: input.mode,
     language: input.language,
     status: "running",
     phase: "research",
-    abortRequested: false,
     researcherSessionId: null,
     coachSessionId: null,
     packets: [],
@@ -109,13 +104,6 @@ export function updateAgentExecutionState(
   return cloneState(updated);
 }
 
-export function clearAgentExecutionAbort(sessionId: string): AgentExecutionState | null {
-  return updateAgentExecutionState(sessionId, (state) => ({
-    ...state,
-    abortRequested: false
-  }));
-}
-
 export function resetAgentExecutionState(sessionId: string): AgentExecutionState | null {
   const current = executionStates.get(sessionId);
   if (!current) {
@@ -126,7 +114,6 @@ export function resetAgentExecutionState(sessionId: string): AgentExecutionState
     ...state,
     status: "running",
     phase: "research",
-    abortRequested: false,
     researcherSessionId: null,
     coachSessionId: null,
     packets: [],

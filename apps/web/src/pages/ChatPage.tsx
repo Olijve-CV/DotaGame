@@ -5,15 +5,12 @@ import type {
   AgentMessage,
   AgentMessagePart,
   AgentSession,
-  AgentSessionControlAction,
   AgentSessionDetail,
   AgentSessionEvent,
   AgentSessionSummary,
-  ChatMode,
   Language
 } from "@dotagame/contracts";
 import {
-  controlAgentSession,
   createAgentSession,
   fetchAgentSession,
   fetchAgentSessions,
@@ -29,32 +26,16 @@ interface ThreadEntry {
 
 const labels = {
   "zh-CN": {
-    kicker: "Agent Chat",
-    title: "像常规聊天一样和 Dota Agent 对话",
-    summary: "保留多 Agent 分工，但主界面改成单线程对话流，更接近日常聊天窗口。",
     history: "已保存会话",
     historyHint: "登录后会自动保存并展示最近会话。",
     guestTitle: "临时对话",
     guestHint: "当前为游客模式，对话仅在本次页面停留期间可见，不会保存到账号历史。",
     newSession: "新建会话",
-    newTemporary: "新的临时对话",
-    activeSession: "当前会话",
-    activeTemporary: "当前临时对话",
-    composer: "发送消息",
-    quick: "快速分析",
-    coach: "教练模式",
     placeholder: "例如：结合最近版本、比赛和通用思路，分析我 18 分钟左右 carry 节奏为什么总断。",
     submit: "发送",
     sending: "处理中...",
-    starters: "你可以直接这样问",
     noSessions: "还没有已保存会话。",
     noMessages: "发送第一条消息开始对话。",
-    emptyTitle: "让 Agent 直接开始分析",
-    emptySummary: "选择一个示例问题，或者直接输入你的 Dota 问题。",
-    controls: "会话控制",
-    abort: "中止",
-    resume: "继续",
-    retry: "重试",
     user: "你",
     tool: "工具",
     taskCall: "任务分派",
@@ -63,7 +44,6 @@ const labels = {
     status: {
       idle: "空闲",
       running: "处理中",
-      paused: "已暂停",
       completed: "已完成",
       failed: "失败"
     },
@@ -74,33 +54,17 @@ const labels = {
     } satisfies Record<AgentKind, string>
   },
   "en-US": {
-    kicker: "Agent Chat",
-    title: "Talk to the Dota agent in a standard chat flow",
-    summary: "The multi-agent workflow stays intact, but the interface now reads like one normal conversation.",
     history: "Saved Chats",
     historyHint: "Signed-in sessions are saved and can be reopened from history.",
     guestTitle: "Temporary Chat",
     guestHint: "Guest conversations stay available only in this page session and are not saved to account history.",
     newSession: "New Chat",
-    newTemporary: "New Temporary Chat",
-    activeSession: "Current Chat",
-    activeTemporary: "Current Temporary Chat",
-    composer: "Send Message",
-    quick: "Quick Analysis",
-    coach: "Coach Mode",
     placeholder:
       "Example: Use recent patches, tournaments, and general context to explain why my carry tempo collapses around minute 18.",
     submit: "Send",
     sending: "Running...",
-    starters: "Try one of these prompts",
     noSessions: "No saved chats yet.",
     noMessages: "Send the first message to start the conversation.",
-    emptyTitle: "Start with a concrete Dota question",
-    emptySummary: "Pick a starter or type your own prompt below.",
-    controls: "Session Controls",
-    abort: "Abort",
-    resume: "Resume",
-    retry: "Retry",
     user: "You",
     tool: "Tool",
     taskCall: "Task",
@@ -109,7 +73,6 @@ const labels = {
     status: {
       idle: "Idle",
       running: "Running",
-      paused: "Paused",
       completed: "Completed",
       failed: "Failed"
     },
@@ -122,32 +85,16 @@ const labels = {
 } satisfies Record<
   Language,
   {
-    kicker: string;
-    title: string;
-    summary: string;
     history: string;
     historyHint: string;
     guestTitle: string;
     guestHint: string;
     newSession: string;
-    newTemporary: string;
-    activeSession: string;
-    activeTemporary: string;
-    composer: string;
-    quick: string;
-    coach: string;
     placeholder: string;
     submit: string;
     sending: string;
-    starters: string;
     noSessions: string;
     noMessages: string;
-    emptyTitle: string;
-    emptySummary: string;
-    controls: string;
-    abort: string;
-    resume: string;
-    retry: string;
     user: string;
     tool: string;
     taskCall: string;
@@ -241,17 +188,12 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
   const [rootDetail, setRootDetail] = useState<AgentSessionDetail | null>(null);
   const [childDetails, setChildDetails] = useState<Record<string, AgentSessionDetail>>({});
   const [message, setMessage] = useState("");
-  const [mode, setMode] = useState<ChatMode>("coach");
   const [loading, setLoading] = useState(false);
-  const [controlLoading, setControlLoading] = useState<AgentSessionControlAction | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const rootSession = rootDetail?.session ?? null;
   const rootSessionId = rootDetail?.session.id ?? null;
   const childIdsKey = rootDetail?.children.map((child) => child.id).join("|") ?? "";
-  const canAbort = rootSession?.status === "running";
-  const canResume = rootSession?.status === "paused" || rootSession?.status === "failed";
-  const canRetry = Boolean(rootSession && rootSession.status !== "running");
 
   const threadEntries = useMemo(() => {
     if (!rootDetail) {
@@ -495,7 +437,6 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
         root.id,
         {
           message: finalMessage,
-          mode,
           language: props.locale
         },
         props.token
@@ -513,27 +454,6 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
     }
   }
 
-  async function handleSessionControl(action: AgentSessionControlAction) {
-    if (!rootSession) {
-      return;
-    }
-
-    setControlLoading(action);
-    setError(null);
-    try {
-      const detail = await controlAgentSession(rootSession.id, action, props.token);
-      setRootDetail(detail);
-      if (isLoggedIn) {
-        upsertRootSummary(toSummary(detail));
-      }
-    } catch (requestError) {
-      const code = requestError instanceof Error ? requestError.message : "REQUEST_FAILED";
-      setError(code);
-    } finally {
-      setControlLoading(null);
-    }
-  }
-
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void submitMission();
@@ -545,10 +465,7 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
         {isLoggedIn ? (
           <aside className="agent-chat-sidebar">
             <div className="section-heading compact">
-              <div>
-                <p className="section-kicker">{copy.history}</p>
-                <h3>{copy.history}</h3>
-              </div>
+              <h3>{copy.history}</h3>
               <button
                 className="ghost-btn"
                 disabled={loading || rootSession?.status === "running"}
@@ -558,8 +475,6 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
                 {copy.newSession}
               </button>
             </div>
-
-            <p className="muted agent-session-note">{copy.historyHint}</p>
 
             <div className="agent-history-list">
               {rootSessions.length > 0 ? (
@@ -589,85 +504,6 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
         ) : null}
 
         <div className="agent-chat-main">
-          <header className="agent-chat-topbar">
-            <div className="agent-chat-title">
-              <p className="section-kicker">{copy.kicker}</p>
-              <h2>{copy.title}</h2>
-              <p className="muted">{copy.summary}</p>
-              <div className="agent-chat-statusline">
-                <span className="agent-session-badge">
-                  {isLoggedIn ? copy.activeSession : copy.activeTemporary}
-                </span>
-                <span className="muted">
-                  {rootSession
-                    ? `${copy.status[rootSession.status]} · ${formatContentDateTime(
-                        rootSession.updatedAt,
-                        props.locale
-                      )}`
-                    : isLoggedIn
-                      ? copy.historyHint
-                      : copy.guestHint}
-                </span>
-              </div>
-            </div>
-
-            <div className="agent-control-stack">
-              <section className="agent-control-card">
-                <p className="section-kicker">Mode</p>
-                <div className="agent-toggle-row">
-                  <button
-                    className={mode === "quick" ? "active" : ""}
-                    onClick={() => setMode("quick")}
-                    type="button"
-                  >
-                    {copy.quick}
-                  </button>
-                  <button
-                    className={mode === "coach" ? "active" : ""}
-                    onClick={() => setMode("coach")}
-                    type="button"
-                  >
-                    {copy.coach}
-                  </button>
-                </div>
-              </section>
-
-              <section className="agent-control-card">
-                <p className="section-kicker">{copy.controls}</p>
-                <div className="agent-session-actions">
-                  <button
-                    className="ghost-btn"
-                    disabled={loading || rootSession?.status === "running"}
-                    onClick={handleCreateSession}
-                    type="button"
-                  >
-                    {isLoggedIn ? copy.newSession : copy.newTemporary}
-                  </button>
-                  <button
-                    disabled={!canAbort || Boolean(controlLoading)}
-                    onClick={() => void handleSessionControl("abort")}
-                    type="button"
-                  >
-                    {controlLoading === "abort" ? copy.sending : copy.abort}
-                  </button>
-                  <button
-                    disabled={!canResume || Boolean(controlLoading)}
-                    onClick={() => void handleSessionControl("resume")}
-                    type="button"
-                  >
-                    {controlLoading === "resume" ? copy.sending : copy.resume}
-                  </button>
-                  <button
-                    disabled={!canRetry || Boolean(controlLoading)}
-                    onClick={() => void handleSessionControl("retry")}
-                    type="button"
-                  >
-                    {controlLoading === "retry" ? copy.sending : copy.retry}
-                  </button>
-                </div>
-              </section>
-            </div>
-          </header>
 
           {!isLoggedIn ? (
             <section className="agent-guest-note inline">
@@ -743,9 +579,6 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
               </div>
             ) : (
               <div className="agent-empty-state">
-                <p className="section-kicker">{copy.starters}</p>
-                <h3>{copy.emptyTitle}</h3>
-                <p>{copy.emptySummary}</p>
                 <div className="agent-starter-list">
                   {starters.map((starter) => (
                     <button key={starter} onClick={() => void submitMission(starter)} type="button">
@@ -758,13 +591,7 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
           </section>
 
           <section className="panel agent-compose-panel">
-            <div className="section-heading compact">
-              <div>
-                <p className="section-kicker">{copy.composer}</p>
-                <h3>{rootSession?.title ?? (isLoggedIn ? copy.activeSession : copy.guestTitle)}</h3>
-              </div>
-              {error ? <span className="agent-error-text">{error}</span> : null}
-            </div>
+            {error ? <span className="agent-error-text">{error}</span> : null}
 
             <form className="agent-compose-form" onSubmit={handleSubmit}>
               <textarea
@@ -778,7 +605,6 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
               <div className="agent-compose-actions">
                 <div className="agent-compose-hint">
                   <span className="agent-session-badge">{copy.status[rootSession?.status ?? "idle"]}</span>
-                  <span className="muted">{isLoggedIn ? copy.historyHint : copy.guestHint}</span>
                 </div>
                 <button
                   className="primary-btn chat-submit"
