@@ -3,9 +3,15 @@ import type { CSSProperties } from "react";
 import type { HeroAvatarOption, Language } from "@dotagame/contracts";
 import { fetchHeroAvatars } from "../lib/api";
 import { copyMap, HEROES_PER_PAGE, HERO_IMAGE_FALLBACKS, type RoleKey } from "./DotaIntroData";
+import { buildHeroAtlas } from "./heroAtlasCatalog";
 
 export function DotaIntroSection(props: { locale: Language }) {
   const copy = copyMap[props.locale];
+  const genericProfileLabel = props.locale === "zh-CN" ? "英雄档案" : "Hero Profile";
+  const genericProfileHint =
+    props.locale === "zh-CN"
+      ? "该条目当前展示完整英雄目录的基础资料；若命中精选英雄，会显示更深入的技能说明。"
+      : "This entry currently shows baseline catalog data from the full hero roster. Curated heroes still surface deeper spell-by-spell notes.";
   const [avatars, setAvatars] = useState<HeroAvatarOption[]>([]);
   const [isLoadingAvatars, setIsLoadingAvatars] = useState(true);
   const [activeRole, setActiveRole] = useState<RoleKey>("all");
@@ -37,13 +43,18 @@ export function DotaIntroSection(props: { locale: Language }) {
     };
   }, []);
 
+  const heroAtlas = useMemo(
+    () => buildHeroAtlas(props.locale, avatars, copy.heroSpotlights),
+    [avatars, copy.heroSpotlights, props.locale]
+  );
+
   const filteredHeroes = useMemo(() => {
     if (activeRole === "all") {
-      return copy.heroSpotlights;
+      return heroAtlas;
     }
 
-    return copy.heroSpotlights.filter((hero) => hero.role === activeRole);
-  }, [activeRole, copy.heroSpotlights]);
+    return heroAtlas.filter((hero) => hero.role === activeRole);
+  }, [activeRole, heroAtlas]);
 
   const totalPages = Math.max(1, Math.ceil(filteredHeroes.length / HEROES_PER_PAGE));
   const safePage = Math.min(currentPage, totalPages - 1);
@@ -69,17 +80,17 @@ export function DotaIntroSection(props: { locale: Language }) {
       return;
     }
 
-    setSelectedHeroName(pagedHeroes[0]?.name ?? copy.heroSpotlights[0]?.name ?? "");
-  }, [copy.heroSpotlights, pagedHeroes, selectedHeroName]);
+    setSelectedHeroName(pagedHeroes[0]?.name ?? heroAtlas[0]?.name ?? "");
+  }, [heroAtlas, pagedHeroes, selectedHeroName]);
 
   const selectedHero =
     pagedHeroes.find((hero) => hero.name === selectedHeroName) ??
     pagedHeroes[0] ??
     filteredHeroes[0] ??
-    copy.heroSpotlights[0];
+    heroAtlas[0];
 
   const selectedHeroImage = selectedHero
-    ? avatarMap.get(selectedHero.name) ?? HERO_IMAGE_FALLBACKS[selectedHero.name]
+    ? selectedHero.image ?? avatarMap.get(selectedHero.name) ?? HERO_IMAGE_FALLBACKS[selectedHero.name]
     : undefined;
 
   function handleRoleFilter(role: RoleKey) {
@@ -263,7 +274,10 @@ export function DotaIntroSection(props: { locale: Language }) {
                 </div>
 
                 <div className="dota-spotlight-section">
-                  <span className="dota-spotlight-label">{copy.skillsLabel}</span>
+                  <span className="dota-spotlight-label">
+                    {selectedHero.isCurated ? copy.skillsLabel : genericProfileLabel}
+                  </span>
+                  {!selectedHero.isCurated && <p>{genericProfileHint}</p>}
                   <div className="dota-skill-detail-list">
                     {selectedHero.skills.map((skill) => (
                       <article className="dota-skill-detail-card" key={`${selectedHero.name}-${skill.name}`}>
@@ -279,7 +293,7 @@ export function DotaIntroSection(props: { locale: Language }) {
 
           <div className="dota-gallery-grid">
             {pagedHeroes.map((hero) => {
-              const heroImage = avatarMap.get(hero.name) ?? HERO_IMAGE_FALLBACKS[hero.name];
+              const heroImage = hero.image ?? avatarMap.get(hero.name) ?? HERO_IMAGE_FALLBACKS[hero.name];
               const isSelected = hero.name === selectedHero?.name;
 
               return (

@@ -199,6 +199,20 @@ describe("API v1", () => {
     const avatarsResponse = await request(app).get("/api/v1/hero-avatars");
     expect(avatarsResponse.status).toBe(200);
     expect(avatarsResponse.body.items.length).toBeGreaterThan(0);
+    expect(avatarsResponse.body.items[0]).toEqual(
+      expect.objectContaining({
+        id: expect.any(Number),
+        name: expect.any(String),
+        image: expect.any(String)
+      })
+    );
+    expect(avatarsResponse.body.items[0].roles).toEqual(expect.any(Array));
+    expect(["str", "agi", "int", "all", undefined]).toContain(
+      avatarsResponse.body.items[0].primaryAttr
+    );
+    expect(["Melee", "Ranged", undefined]).toContain(
+      avatarsResponse.body.items[0].attackType
+    );
 
     const chosenAvatarId = avatarsResponse.body.items[0].id;
     const registerResponse = await request(app).post("/api/v1/auth/register").send({

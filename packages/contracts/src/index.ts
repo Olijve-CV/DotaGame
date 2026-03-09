@@ -56,10 +56,17 @@ export interface ChatResponse {
   followUps: string[];
 }
 
+export type HeroPrimaryAttribute = "str" | "agi" | "int" | "all";
+
+export type HeroAttackType = "Melee" | "Ranged";
+
 export interface HeroAvatarOption {
   id: number;
   name: string;
   image: string;
+  primaryAttr?: HeroPrimaryAttribute;
+  attackType?: HeroAttackType;
+  roles?: string[];
 }
 
 export interface UserProfile {
