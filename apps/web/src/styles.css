@@ -2625,20 +2625,18 @@ button.active {
 .agent-thread-status,
 .agent-thread-time,
 .agent-chat-meta span:last-child {
-  color: rgba(240, 233, 220, 0.62);
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  color: rgba(240, 233, 220, 0.46);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
 }
 
 .agent-session-badge,
 .agent-speaker-pill {
   border-radius: 999px;
   display: inline-flex;
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  padding: 0.38rem 0.72rem;
-  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  padding: 0.3rem 0.58rem;
 }
 
 .agent-session-badge {
@@ -2668,9 +2666,7 @@ button.active {
 }
 
 .agent-chat-feed {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
-    rgba(8, 11, 18, 0.62);
+  background: rgba(8, 11, 18, 0.54);
   border: 1px solid rgba(240, 233, 220, 0.08);
   border-radius: 1.45rem;
   min-height: 0;
@@ -2680,6 +2676,7 @@ button.active {
 
 .agent-message-list {
   align-content: start;
+  gap: 0.6rem;
 }
 
 .agent-chat-message {
@@ -2691,28 +2688,29 @@ button.active {
 }
 
 .agent-chat-bubble {
-  background: rgba(16, 20, 30, 0.88);
+  background: rgba(16, 20, 30, 0.82);
   border: 1px solid rgba(240, 233, 220, 0.08);
-  border-radius: 1.3rem;
-  max-width: min(48rem, 88%);
-  padding: 1rem 1.05rem;
+  border-radius: 1.1rem 1.1rem 1.1rem 0.7rem;
+  max-width: min(44rem, 82%);
+  padding: 0.82rem 0.9rem;
 }
 
 .agent-chat-message.is-user .agent-chat-bubble {
-  background: linear-gradient(160deg, rgba(225, 102, 58, 0.22), rgba(70, 150, 224, 0.1));
-  border-color: rgba(225, 102, 58, 0.28);
+  background: linear-gradient(160deg, rgba(225, 102, 58, 0.18), rgba(70, 150, 224, 0.08));
+  border-color: rgba(225, 102, 58, 0.22);
+  border-radius: 1.1rem 1.1rem 0.7rem 1.1rem;
 }
 
 .agent-chat-message.is-subagent .agent-chat-bubble {
-  background: rgba(12, 16, 25, 0.88);
+  background: rgba(12, 16, 25, 0.76);
 }
 
 .agent-chat-meta {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
-  margin-bottom: 0.65rem;
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
 }
 
 .agent-speaker-pill {
@@ -2746,6 +2744,7 @@ button.active {
 
 .agent-chat-content {
   margin: 0;
+  line-height: 1.5;
   white-space: pre-wrap;
 }
 
