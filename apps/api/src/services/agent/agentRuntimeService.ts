@@ -1,5 +1,8 @@
+import { randomUUID } from "node:crypto";
 import type {
-  AgentSessionStatus,
+  AgentMessage,
+  AgentMessagePart,
+  AgentStepFinishReason,
   AgentToolName,
   ChatCitation,
   Language
@@ -11,6 +14,7 @@ import {
   getAgentSession,
   listAgentSessionSummaries,
   listChildSessionSummaries,
+  updateAgentMessage,
   updateAgentSession,
   updateAgentSessionStatus,
   updateAgentSessionTitle
@@ -18,56 +22,87 @@ import {
 import { addChatSession } from "../../repo/inMemoryStore.js";
 import { logger } from "../../lib/logger.js";
 import { publishAgentSessionEvent } from "./agentEventBus.js";
-import {
-  createAgentExecutionState,
-  getAgentExecutionState,
-  updateAgentExecutionState,
-  type AgentResearchPacket
-} from "./agentExecutionStore.js";
-import { buildAgentExecutionPlan, replanAgentExecution } from "./agentPlannerService.js";
 import { runDotaLiveSearch, runKnowledgeSearch, runWebSearch } from "./agentTools.js";
+import { getRagConfig } from "../rag/config.js";
+import { buildApiUrl } from "../rag/http.js";
+
+type AgentConversationMessage =
+  | {
+      role: "system" | "user" | "assistant";
+      content: string;
+      tool_calls?: OpenAiToolCall[];
+    }
+  | {
+      role: "tool";
+      tool_call_id: string;
+      content: string;
+    };
+
+interface OpenAiToolCall {
+  id: string;
+  type: "function";
+  function: {
+    name: AgentToolName;
+    arguments: string;
+  };
+}
+
+interface AgentStepResult {
+  content: string;
+  toolCalls: Array<{
+    callId: string;
+    tool: AgentToolName;
+    input: string;
+    rawArguments: string;
+  }>;
+}
+
+interface ToolExecutionPacket {
+  tool: AgentToolName;
+  summary: string;
+  citations: ChatCitation[];
+}
 
 const activeTurns = new Set<string>();
-const TOOL_CHECKPOINT_DELAY_MS = process.env.NODE_ENV === "test" ? 20 : 0;
+const DEFAULT_MAX_STEPS = 6;
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function appendStepFinish(
+  message: AgentMessage,
+  step: number,
+  reason: AgentStepFinishReason
+): AgentMessage {
+  const nextParts: AgentMessagePart[] = message.parts.filter((part) => part.type !== "step_finish");
+  nextParts.push({
+    type: "step_finish",
+    step,
+    finishedAt: new Date().toISOString(),
+    reason
+  });
+
+  return {
+    ...message,
+    parts: nextParts
+  };
 }
 
 function getCopy(language: Language) {
   if (language === "zh-CN") {
     return {
-      titleFallback: "? Agent ??",
-      rootRunning: "? Agent ????? Agent ???????",
-      planMessage: "Orchestrator ??????????",
-      researcherSession: "Researcher ???",
-      coachSession: "Coach ???",
-      researcherStart: "Researcher ?????????????",
-      researcherDone: "Researcher ????????",
-      coachStart: "Coach ???????????????",
-      coachDone: "Coach ????????",
-      researcherTask: "??? Researcher ? Agent",
-      coachTask: "??? Coach ? Agent",
-      finalPrefix: "????",
-      nextActions: "?????",
-      sources: "??"
+      titleFallback: "新 Agent 会话",
+      toolOnly: "正在调用工具处理这个问题。",
+      maxSteps: "已达到当前任务的最大步骤数。请提供更具体的后续问题。",
+      fallbackAnswerTitle: "回答",
+      fallbackNext: "建议下一步",
+      sources: "来源"
     };
   }
 
   return {
     titleFallback: "New Agent Session",
-    rootRunning: "The primary agent is coordinating subagents.",
-    planMessage: "The orchestrator generated a task plan.",
-    researcherSession: "Researcher Subsession",
-    coachSession: "Coach Subsession",
-    researcherStart: "The researcher received the task and started gathering evidence.",
-    researcherDone: "The researcher finished collecting evidence.",
-    coachStart: "The coach received the evidence and started synthesizing the answer.",
-    coachDone: "The coach finished composing the conclusion.",
-    researcherTask: "Dispatch to Researcher subagent",
-    coachTask: "Dispatch to Coach subagent",
-    finalPrefix: "Final answer",
-    nextActions: "Recommended next actions",
+    toolOnly: "Working through tool calls.",
+    maxSteps: "The maximum step limit was reached. Send a narrower follow-up to continue.",
+    fallbackAnswerTitle: "Answer",
+    fallbackNext: "Suggested next steps",
     sources: "Sources"
   };
 }
@@ -78,71 +113,6 @@ function buildSessionTitle(message: string, language: Language): string {
     return getCopy(language).titleFallback;
   }
   return trimmed.slice(0, 52);
-}
-
-function dedupeCitations(citations: ChatCitation[]): ChatCitation[] {
-  const seen = new Set<string>();
-  const result: ChatCitation[] = [];
-  for (const citation of citations) {
-    const key = `${citation.id}:${citation.sourceUrl}`;
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    result.push({ ...citation });
-  }
-  return result;
-}
-
-function formatCitationList(citations: ChatCitation[]): string {
-  return citations
-    .slice(0, 4)
-    .map((citation, index) => `${index + 1}. ${citation.title} (${citation.source})`)
-    .join("\n");
-}
-
-function buildCoachAnswer(input: {
-  question: string;
-  language: Language;
-  packets: AgentResearchPacket[];
-}): string {
-  const copy = getCopy(input.language);
-  const knowledgePacket = input.packets.find((packet) => packet.tool === "knowledge_search");
-  const dotaLivePacket = input.packets.find((packet) => packet.tool === "dota_live_search");
-  const webPacket = input.packets.find((packet) => packet.tool === "web_search");
-  const citations = dedupeCitations(input.packets.flatMap((packet) => packet.citations));
-
-  const lines: string[] = [`${copy.finalPrefix}: ${input.question}`];
-
-  if (knowledgePacket?.summary) {
-    lines.push("", knowledgePacket.summary);
-  }
-  if (dotaLivePacket?.summary) {
-    lines.push("", dotaLivePacket.summary);
-  }
-  if (webPacket?.summary) {
-    lines.push("", webPacket.summary);
-  }
-
-  lines.push(
-    "",
-    `${copy.nextActions}:`,
-    input.language === "zh-CN"
-      ? "1. ????????????????????????????"
-      : "1. Break the issue into lane, timing, and teamfight phases before making changes.",
-    input.language === "zh-CN"
-      ? "2. ???????????????????????????"
-      : "2. Add your hero, lane, rank, and timing window if you want a sharper follow-up.",
-    input.language === "zh-CN"
-      ? "3. ?????????????? BP ??????????????"
-      : "3. Use the sources below to ask follow-ups about a patch, hero, or draft detail."
-  );
-
-  if (citations.length > 0) {
-    lines.push("", `${copy.sources}:`, formatCitationList(citations));
-  }
-
-  return lines.join("\n");
 }
 
 function publishDetailEvent(sessionId: string): void {
@@ -160,500 +130,375 @@ function publishDetailEvent(sessionId: string): void {
   });
 }
 
-function publishRootAndSession(sessionId: string): void {
+function publishRoot(sessionId: string): void {
   const session = getAgentSession(sessionId);
   if (!session) {
     return;
   }
 
-  publishDetailEvent(sessionId);
-  if (session.rootSessionId !== sessionId) {
-    publishDetailEvent(session.rootSessionId);
+  publishDetailEvent(session.rootSessionId);
+}
+
+function dedupeCitations(citations: ChatCitation[]): ChatCitation[] {
+  const seen = new Set<string>();
+  const result: ChatCitation[] = [];
+  for (const citation of citations) {
+    const key = `${citation.sourceUrl}:${citation.title}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    result.push({ ...citation });
+  }
+  return result;
+}
+
+function summarizeCitations(citations: ChatCitation[]): string {
+  return citations
+    .slice(0, 4)
+    .map((citation, index) => `${index + 1}. ${citation.title} (${citation.source})`)
+    .join("\n");
+}
+
+function buildFallbackAnswer(input: {
+  question: string;
+  language: Language;
+  packets: ToolExecutionPacket[];
+}): string {
+  const copy = getCopy(input.language);
+  const citations = dedupeCitations(input.packets.flatMap((packet) => packet.citations));
+  const lines: string[] = [`${copy.fallbackAnswerTitle}: ${input.question}`];
+
+  for (const packet of input.packets) {
+    if (!packet.summary) {
+      continue;
+    }
+    lines.push("", packet.summary);
+  }
+
+  lines.push(
+    "",
+    `${copy.fallbackNext}:`,
+    input.language === "zh-CN"
+      ? "1. 如果你想更具体，请补充英雄、分路、段位和时间点。"
+      : "1. Add your hero, lane, rank, and timing window if you want a sharper follow-up.",
+    input.language === "zh-CN"
+      ? "2. 继续追问某个补丁、赛事或对线细节。"
+      : "2. Follow up on any patch, tournament, or matchup detail that still looks unclear."
+  );
+
+  if (citations.length > 0) {
+    lines.push("", `${copy.sources}:`, summarizeCitations(citations));
+  }
+
+  return lines.join("\n");
+}
+
+function isLikelyTimeSensitive(question: string): boolean {
+  return /latest|recent|current|today|right now|meta|patch|trend|tournament|赛事|最近|最新|当前|版本|补丁/i.test(
+    question
+  );
+}
+
+function buildFallbackToolPlan(question: string): AgentToolName[] {
+  const tools: AgentToolName[] = ["knowledge_search"];
+  if (isLikelyTimeSensitive(question)) {
+    tools.push("dota_live_search", "web_search");
+  }
+  return tools;
+}
+
+function buildHistoryAssistantContent(content: string, packets: ToolExecutionPacket[]): string {
+  const sections = [content.trim()].filter(Boolean);
+  for (const packet of packets) {
+    const lines = [`Tool ${packet.tool}:`, packet.summary];
+    if (packet.citations.length > 0) {
+      lines.push(summarizeCitations(packet.citations));
+    }
+    sections.push(lines.filter(Boolean).join("\n"));
+  }
+  return sections.join("\n\n").trim();
+}
+
+function buildConversationSeed(sessionId: string): AgentConversationMessage[] {
+  const detail = buildAgentSessionDetail(sessionId);
+  if (!detail) {
+    return [];
+  }
+
+  const conversation: AgentConversationMessage[] = [];
+  for (const message of detail.messages) {
+    if (message.role === "user") {
+      conversation.push({
+        role: "user",
+        content: message.content
+      });
+      continue;
+    }
+
+    if (message.role === "assistant") {
+      const packets: ToolExecutionPacket[] = message.parts
+        .filter((part): part is Extract<typeof part, { type: "tool_call" }> => part.type === "tool_call")
+        .filter((part) => part.status === "completed" && part.outputSummary.trim().length > 0)
+        .map((part) => ({
+          tool: part.tool,
+          summary: part.outputSummary,
+          citations: part.citations
+        }));
+
+      const content = buildHistoryAssistantContent(message.content, packets);
+      if (content) {
+        conversation.push({
+          role: "assistant",
+          content
+        });
+      }
+    }
+  }
+
+  return conversation;
+}
+
+function parseToolInput(rawArguments: string, fallbackInput: string): string {
+  try {
+    const parsed = JSON.parse(rawArguments) as {
+      input?: string;
+      query?: string;
+      question?: string;
+    };
+    return parsed.input?.trim() || parsed.query?.trim() || parsed.question?.trim() || fallbackInput;
+  } catch {
+    return fallbackInput;
   }
 }
 
-function getExecutionStateOrThrow(sessionId: string) {
-  const state = getAgentExecutionState(sessionId);
-  if (!state) {
-    throw new Error("SESSION_EXECUTION_NOT_FOUND");
-  }
-  return state;
-}
-
-function updateChildStatusIfPresent(sessionId: string | null, status: AgentSessionStatus): void {
-  if (!sessionId) {
-    return;
-  }
-
-  const session = getAgentSession(sessionId);
-  if (!session) {
-    return;
-  }
-
-  if (session.status !== status) {
-    updateAgentSessionStatus(sessionId, status);
-  }
-}
-
-async function executeResearchTool(
-  sessionId: string,
-  tool: AgentToolName,
-  question: string,
-  language: Language
-): Promise<AgentResearchPacket> {
-  if (TOOL_CHECKPOINT_DELAY_MS > 0) {
-    await wait(TOOL_CHECKPOINT_DELAY_MS);
-  }
-
+async function executeTool(tool: AgentToolName, input: string, language: Language) {
   if (tool === "knowledge_search") {
-    const result = await runKnowledgeSearch(question, language);
-    addAgentMessage({
-      sessionId,
-      role: "tool",
-      agent: "researcher",
-      content: result.summary,
-      parts: [
-        {
-          type: "tool_call",
-          tool,
-          status: "completed",
-          inputSummary: question,
-          outputSummary: result.summary,
-          citations: result.citations
-        }
-      ]
-    });
-    publishRootAndSession(sessionId);
-    return { tool, summary: result.summary, citations: result.citations };
+    return runKnowledgeSearch(input, language);
   }
-
   if (tool === "dota_live_search") {
-    const result = await runDotaLiveSearch(question, language);
-    addAgentMessage({
-      sessionId,
-      role: "tool",
-      agent: "researcher",
-      content: result.summary,
-      parts: [
+    return runDotaLiveSearch(input, language);
+  }
+  return runWebSearch(input, language);
+}
+
+function getToolDefinitions() {
+  return [
+    {
+      type: "function",
+      function: {
+        name: "knowledge_search",
+        description:
+          "Search the local Dota knowledge base for evergreen gameplay, role, and historical product context.",
+        parameters: {
+          type: "object",
+          properties: {
+            input: {
+              type: "string",
+              description: "The search query to send to the knowledge search tool."
+            }
+          },
+          required: ["input"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "dota_live_search",
+        description:
+          "Search recent Dota-specific live sources such as patch, tournament, and current ecosystem content.",
+        parameters: {
+          type: "object",
+          properties: {
+            input: {
+              type: "string",
+              description: "The Dota-specific live search query."
+            }
+          },
+          required: ["input"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "web_search",
+        description: "Search the broader web for recent or open-world information when local Dota data is not enough.",
+        parameters: {
+          type: "object",
+          properties: {
+            input: {
+              type: "string",
+              description: "The web search query."
+            }
+          },
+          required: ["input"]
+        }
+      }
+    }
+  ] as const;
+}
+
+function buildSystemPrompt(language: Language): string {
+  if (language === "zh-CN") {
+    return [
+      "你是 Dota 2 Agent。",
+      "必要时调用工具，不要伪造来源。",
+      "知识性、长期稳定的问题优先用 knowledge_search。",
+      "涉及最新版本、当前赛事、最近趋势的问题可以用 dota_live_search 或 web_search。",
+      "拿到足够工具结果后直接给出简洁、有根据的回答。"
+    ].join("\n");
+  }
+
+  return [
+    "You are a Dota 2 agent.",
+    "Use tools when needed and never invent sources.",
+    "Prefer knowledge_search for evergreen gameplay or historical context.",
+    "Use dota_live_search or web_search for current patches, tournaments, or recent trends.",
+    "Once you have enough tool evidence, answer directly and concisely."
+  ].join("\n");
+}
+
+async function runOpenAiStep(
+  conversation: AgentConversationMessage[],
+  language: Language
+): Promise<AgentStepResult> {
+  const config = getRagConfig();
+  if (!config.openAiApiKey) {
+    throw new Error("OPENAI_NOT_CONFIGURED");
+  }
+
+  const response = await fetch(buildApiUrl(config.openAiBaseUrl, "/chat/completions"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${config.openAiApiKey}`
+    },
+    body: JSON.stringify({
+      model: config.chatModel,
+      temperature: 0.2,
+      messages: [
         {
-          type: "tool_call",
-          tool,
-          status: "completed",
-          inputSummary: question,
-          outputSummary: result.summary,
-          citations: result.citations
+          role: "system",
+          content: buildSystemPrompt(language)
+        },
+        ...conversation
+      ],
+      tools: getToolDefinitions(),
+      tool_choice: "auto"
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`OPENAI_AGENT_FAILED:${response.status}`);
+  }
+
+  const payload = (await response.json()) as {
+    choices?: Array<{
+      message?: {
+        content?: string | null;
+        tool_calls?: OpenAiToolCall[];
+      };
+    }>;
+  };
+
+  const message = payload.choices?.[0]?.message;
+  if (!message) {
+    throw new Error("OPENAI_AGENT_EMPTY");
+  }
+
+  return {
+    content: typeof message.content === "string" ? message.content.trim() : "",
+    toolCalls: (message.tool_calls ?? [])
+      .filter((call) => call.type === "function")
+      .map((call) => ({
+        callId: call.id,
+        tool: call.function.name,
+        input: parseToolInput(call.function.arguments, ""),
+        rawArguments: call.function.arguments
+      }))
+  };
+}
+
+function runFallbackStep(input: {
+  question: string;
+  language: Language;
+  executedTools: AgentToolName[];
+  packets: ToolExecutionPacket[];
+}): AgentStepResult {
+  const plan = buildFallbackToolPlan(input.question);
+  const nextTool = plan.find((tool) => !input.executedTools.includes(tool));
+  if (nextTool) {
+    return {
+      content: "",
+      toolCalls: [
+        {
+          callId: randomUUID(),
+          tool: nextTool,
+          input: input.question,
+          rawArguments: JSON.stringify({ input: input.question })
         }
       ]
+    };
+  }
+
+  return {
+    content: buildFallbackAnswer({
+      question: input.question,
+      language: input.language,
+      packets: input.packets
+    }),
+    toolCalls: []
+  };
+}
+
+async function decideAgentStep(input: {
+  conversation: AgentConversationMessage[];
+  question: string;
+  language: Language;
+  executedTools: AgentToolName[];
+  packets: ToolExecutionPacket[];
+}): Promise<AgentStepResult> {
+  try {
+    return await runOpenAiStep(input.conversation, input.language);
+  } catch (error) {
+    logger.warn("agent model step failed, using deterministic fallback", {
+      event: "agent.step.fallback",
+      questionLength: input.question.length,
+      language: input.language,
+      error
     });
-    publishRootAndSession(sessionId);
-    return { tool, summary: result.summary, citations: result.citations };
+    return runFallbackStep(input);
   }
-
-  const result = await runWebSearch(question, language);
-  addAgentMessage({
-    sessionId,
-    role: "tool",
-    agent: "researcher",
-    content: result.summary,
-    parts: [
-      {
-        type: "tool_call",
-        tool,
-        status: "completed",
-        inputSummary: question,
-        outputSummary: result.summary,
-        citations: result.citations
-      }
-    ]
-  });
-  publishRootAndSession(sessionId);
-  return { tool, summary: result.summary, citations: result.citations };
 }
 
-async function beginResearcherPhase(sessionId: string): Promise<void> {
-  const state = getExecutionStateOrThrow(sessionId);
-  if (state.researcherSessionId) {
-    return;
-  }
-
-  const copy = getCopy(state.language);
-  const plan = await buildAgentExecutionPlan({
-    question: state.question,
-    language: state.language
+function buildToolConversationPayload(packet: ToolExecutionPacket): string {
+  return JSON.stringify({
+    tool: packet.tool,
+    summary: packet.summary,
+    citations: packet.citations.map((citation) => ({
+      title: citation.title,
+      source: citation.source,
+      url: citation.sourceUrl
+    }))
   });
-
-  const researcherSession = createAgentSession({
-    userId: state.userId,
-    parentSessionId: sessionId,
-    language: state.language,
-    agent: "researcher",
-    kind: "subagent",
-    title: `${copy.researcherSession}: ${state.question.slice(0, 36)}`,
-    status: "running"
-  });
-
-  addAgentMessage({
-    sessionId,
-    role: "assistant",
-    agent: "orchestrator",
-    content: copy.researcherTask,
-    parts: [
-      {
-        type: "task_call",
-        taskId: `task-${researcherSession.id}`,
-        subagent: "researcher",
-        status: "running",
-        childSessionId: researcherSession.id,
-        instruction: plan.summary,
-        summary: plan.rationale
-      }
-    ]
-  });
-
-  addAgentMessage({
-    sessionId: researcherSession.id,
-    role: "assistant",
-    agent: "researcher",
-    content: copy.researcherStart,
-    parts: [{ type: "text", text: `${plan.summary}\n${plan.rationale}` }]
-  });
-
-  updateAgentExecutionState(sessionId, (current) => ({
-    ...current,
-    researcherSessionId: researcherSession.id,
-    pendingTools: plan.tools.slice(0, 1),
-    planSummary: plan.summary,
-    planRationale: plan.rationale
-  }));
-
-  publishRootAndSession(researcherSession.id);
 }
 
-function finalizeResearcherPhase(sessionId: string): void {
-  const state = getExecutionStateOrThrow(sessionId);
-  if (!state.researcherSessionId) {
-    return;
+function findLatestAssistantAnswer(sessionId: string): string {
+  const detail = buildAgentSessionDetail(sessionId);
+  if (!detail) {
+    return "";
   }
 
-  const copy = getCopy(state.language);
-  const summary =
-    state.researchSummary ||
-    (state.language === "zh-CN"
-      ? `Researcher 已使用 ${state.completedTools.join(" -> ")} 完成证据搜集。`
-      : `The researcher completed evidence gathering with ${state.completedTools.join(" -> ")}.`);
-
-  addAgentMessage({
-    sessionId: state.researcherSessionId,
-    role: "assistant",
-    agent: "researcher",
-    content: copy.researcherDone,
-    parts: [{ type: "text", text: summary }]
-  });
-  updateAgentSessionStatus(state.researcherSessionId, "completed");
-
-  addAgentMessage({
-    sessionId,
-    role: "assistant",
-    agent: "orchestrator",
-    content: copy.researcherTask,
-    parts: [
-      {
-        type: "task_call",
-        taskId: `task-${state.researcherSessionId}-completed`,
-        subagent: "researcher",
-        status: "completed",
-        childSessionId: state.researcherSessionId,
-        instruction: state.planSummary || copy.researcherTask,
-        summary
-      }
-    ]
-  });
-
-  updateAgentExecutionState(sessionId, (current) => ({
-    ...current,
-    phase: "coach",
-    pendingTools: [],
-    researchSummary: summary
-  }));
-
-  publishRootAndSession(state.researcherSessionId);
-}
-
-async function runResearchPhase(sessionId: string): Promise<void> {
-  await beginResearcherPhase(sessionId);
-
-  while (true) {
-    const state = getExecutionStateOrThrow(sessionId);
-    if (state.phase !== "research") {
-      return;
+  for (let index = detail.messages.length - 1; index >= 0; index -= 1) {
+    const message = detail.messages[index];
+    if (message.role === "assistant" && message.content.trim()) {
+      return message.content;
     }
-    if (!state.researcherSessionId) {
-      throw new Error("RESEARCHER_SESSION_NOT_FOUND");
-    }
-
-    const nextTool = state.pendingTools[0];
-    if (!nextTool) {
-      finalizeResearcherPhase(sessionId);
-      return;
-    }
-
-    const packet = await executeResearchTool(
-      state.researcherSessionId,
-      nextTool,
-      state.question,
-      state.language
-    );
-
-    updateAgentExecutionState(sessionId, (current) => ({
-      ...current,
-      packets: [...current.packets, packet],
-      completedTools: [...current.completedTools, nextTool],
-      pendingTools: current.pendingTools.filter((tool) => tool !== nextTool),
-      lastError: null
-    }));
-
-    const nextState = getExecutionStateOrThrow(sessionId);
-    const replan = await replanAgentExecution({
-      question: nextState.question,
-      language: nextState.language,
-      completedTools: nextState.completedTools,
-      packets: nextState.packets
-    });
-
-    if (replan.done || replan.nextTools.length === 0) {
-      updateAgentExecutionState(sessionId, (current) => ({
-        ...current,
-        pendingTools: [],
-        planSummary: replan.summary,
-        planRationale: replan.rationale,
-        researchSummary: replan.summary
-      }));
-      finalizeResearcherPhase(sessionId);
-      return;
-    }
-
-    addAgentMessage({
-      sessionId: state.researcherSessionId,
-      role: "assistant",
-      agent: "researcher",
-      content: replan.summary,
-      parts: [{ type: "text", text: `${replan.summary}\n${replan.rationale}` }]
-    });
-
-    updateAgentExecutionState(sessionId, (current) => ({
-      ...current,
-      pendingTools: replan.nextTools,
-      planSummary: replan.summary,
-      planRationale: replan.rationale
-    }));
-
-    publishRootAndSession(state.researcherSessionId);
-  }
-}
-
-function beginCoachPhase(sessionId: string): void {
-  const state = getExecutionStateOrThrow(sessionId);
-  if (state.coachSessionId) {
-    return;
   }
 
-  const copy = getCopy(state.language);
-  const coachSession = createAgentSession({
-    userId: state.userId,
-    parentSessionId: sessionId,
-    language: state.language,
-    agent: "coach",
-    kind: "subagent",
-    title: `${copy.coachSession}: ${state.question.slice(0, 36)}`,
-    status: "running"
-  });
-
-  addAgentMessage({
-    sessionId,
-    role: "assistant",
-    agent: "orchestrator",
-    content: copy.coachTask,
-    parts: [
-      {
-        type: "task_call",
-        taskId: `task-${coachSession.id}`,
-        subagent: "coach",
-        status: "running",
-        childSessionId: coachSession.id,
-        instruction:
-          state.language === "zh-CN"
-            ? "基于 researcher 收集到的证据整理最终回答。"
-            : "Produce the final answer from the researcher evidence.",
-        summary:
-          state.language === "zh-CN"
-            ? "Coach 正在整合子会话里的证据。"
-            : "The coach is synthesizing the child-session evidence."
-      }
-    ]
-  });
-
-  addAgentMessage({
-    sessionId: coachSession.id,
-    role: "assistant",
-    agent: "coach",
-    content: copy.coachStart,
-    parts: [{ type: "text", text: copy.coachStart }]
-  });
-
-  updateAgentExecutionState(sessionId, (current) => ({
-    ...current,
-    coachSessionId: coachSession.id
-  }));
-
-  publishRootAndSession(coachSession.id);
-}
-
-function finalizeCompletedTurn(sessionId: string, finalAnswer: string): void {
-  const state = getExecutionStateOrThrow(sessionId);
-
-  updateAgentExecutionState(sessionId, (current) => ({
-    ...current,
-    phase: "completed",
-    status: "completed",
-    finalAnswer,
-    lastError: null
-  }));
-  updateAgentSessionStatus(sessionId, "completed");
-
-  addAgentMessage({
-    sessionId,
-    role: "assistant",
-    agent: "orchestrator",
-    content: finalAnswer,
-    parts: [{ type: "text", text: finalAnswer }]
-  });
-
-  publishRootAndSession(sessionId);
-
-  if (state.userId) {
-    addChatSession({
-      userId: state.userId,
-      question: state.question,
-      answer: finalAnswer,
-      mode: "coach",
-      language: state.language
-    });
-  }
-
-  logger.info("agent session turn completed", {
-    event: "agent.session.completed",
-    sessionId,
-    language: state.language,
-    childSessions: listChildSessionSummaries(sessionId).length
-  });
-
-  const completedDetail = buildAgentSessionDetail(sessionId);
-  if (completedDetail) {
-    publishAgentSessionEvent({
-      type: "session.completed",
-      sessionId,
-      rootSessionId: completedDetail.session.rootSessionId,
-      detail: completedDetail,
-      timestamp: new Date().toISOString()
-    });
-  }
-}
-
-function runCoachPhase(sessionId: string): void {
-  beginCoachPhase(sessionId);
-
-  const state = getExecutionStateOrThrow(sessionId);
-  if (!state.coachSessionId) {
-    throw new Error("COACH_SESSION_NOT_FOUND");
-  }
-
-  const copy = getCopy(state.language);
-  const finalAnswer = buildCoachAnswer({
-    question: state.question,
-    language: state.language,
-    packets: state.packets
-  });
-
-  addAgentMessage({
-    sessionId: state.coachSessionId,
-    role: "assistant",
-    agent: "coach",
-    content: finalAnswer,
-    parts: [{ type: "text", text: finalAnswer }]
-  });
-  updateAgentSessionStatus(state.coachSessionId, "completed");
-
-  addAgentMessage({
-    sessionId,
-    role: "assistant",
-    agent: "orchestrator",
-    content: copy.coachTask,
-    parts: [
-      {
-        type: "task_call",
-        taskId: `task-${state.coachSessionId}-completed`,
-        subagent: "coach",
-        status: "completed",
-        childSessionId: state.coachSessionId,
-        instruction:
-          state.language === "zh-CN"
-            ? "基于 researcher 收集到的证据整理最终回答。"
-            : "Produce the final answer from the researcher evidence.",
-        summary: copy.coachDone
-      }
-    ]
-  });
-
-  publishRootAndSession(state.coachSessionId);
-  finalizeCompletedTurn(sessionId, finalAnswer);
-}
-
-function markExecutionFailed(sessionId: string, error: unknown): void {
-  const session = getAgentSession(sessionId);
-  if (!session) {
-    return;
-  }
-
-  const state = getAgentExecutionState(sessionId);
-  const message = error instanceof Error ? error.message : "AGENT_SESSION_FAILED";
-
-  updateAgentExecutionState(sessionId, (current) => ({
-    ...current,
-    status: "failed",
-    lastError: message
-  }));
-  updateAgentSessionStatus(sessionId, "failed");
-
-  if (state?.phase === "research") {
-    updateChildStatusIfPresent(state.researcherSessionId, "failed");
-  }
-  if (state?.phase === "coach") {
-    updateChildStatusIfPresent(state.coachSessionId, "failed");
-  }
-
-  addAgentMessage({
-    sessionId,
-    role: "assistant",
-    agent: "orchestrator",
-    content: message,
-    parts: [{ type: "text", text: message }]
-  });
-  publishRootAndSession(sessionId);
-
-  publishAgentSessionEvent({
-    type: "session.failed",
-    sessionId,
-    rootSessionId: session.rootSessionId,
-    detail: buildAgentSessionDetail(sessionId) ?? undefined,
-    error: message,
-    timestamp: new Date().toISOString()
-  });
-
-  logger.error("agent session turn failed", {
-    event: "agent.session.failed",
-    sessionId,
-    error
-  });
+  return "";
 }
 
 async function runSessionTurn(sessionId: string): Promise<void> {
@@ -661,26 +506,280 @@ async function runSessionTurn(sessionId: string): Promise<void> {
     return;
   }
 
+  const session = getAgentSession(sessionId);
+  if (!session) {
+    return;
+  }
+
   activeTurns.add(sessionId);
+  const maxSteps = Number(process.env.AGENT_MAX_STEPS ?? DEFAULT_MAX_STEPS);
+  const conversation = buildConversationSeed(sessionId);
+  const packets: ToolExecutionPacket[] = [];
+  const executedTools: AgentToolName[] = [];
+  const copy = getCopy(session.language);
+  const latestUserQuestion = (() => {
+    const messages = buildAgentSessionDetail(sessionId)?.messages ?? [];
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index].role === "user") {
+        return messages[index].content;
+      }
+    }
+    return "";
+  })();
+
   try {
-    while (true) {
-      const state = getExecutionStateOrThrow(sessionId);
-      if (state.status === "completed") {
+    for (let step = 1; step <= maxSteps; step += 1) {
+      const assistantMessage = addAgentMessage({
+        sessionId,
+        role: "assistant",
+        agent: "orchestrator",
+        content: "",
+        parts: [
+          {
+            type: "step_start",
+            step,
+            startedAt: new Date().toISOString()
+          }
+        ]
+      });
+      publishRoot(sessionId);
+
+      const stepResult = await decideAgentStep({
+        conversation,
+        question: latestUserQuestion,
+        language: session.language,
+        executedTools,
+        packets
+      });
+
+      let currentAssistant = {
+        ...assistantMessage,
+        content:
+          stepResult.content.trim() ||
+          (stepResult.toolCalls.length > 0 ? copy.toolOnly : assistantMessage.content)
+      };
+
+      if (stepResult.toolCalls.length === 0) {
+        currentAssistant = appendStepFinish(currentAssistant, step, "completed");
+        updateAgentMessage(currentAssistant);
+        updateAgentSessionStatus(sessionId, "completed");
+        publishRoot(sessionId);
+
+        const finalAnswer = currentAssistant.content.trim() || buildFallbackAnswer({
+          question: latestUserQuestion,
+          language: session.language,
+          packets
+        });
+
+        if (finalAnswer !== currentAssistant.content) {
+          currentAssistant = {
+            ...currentAssistant,
+            content: finalAnswer
+          };
+          updateAgentMessage(currentAssistant);
+          publishRoot(sessionId);
+        }
+
+        if (session.userId) {
+          addChatSession({
+            userId: session.userId,
+            question: latestUserQuestion,
+            answer: finalAnswer,
+            mode: "coach",
+            language: session.language
+          });
+        }
+
+        const completedDetail = buildAgentSessionDetail(sessionId);
+        if (completedDetail) {
+          publishAgentSessionEvent({
+            type: "session.completed",
+            sessionId,
+            rootSessionId: completedDetail.session.rootSessionId,
+            detail: completedDetail,
+            timestamp: new Date().toISOString()
+          });
+        }
         return;
       }
 
-      if (state.phase === "research") {
-        await runResearchPhase(sessionId);
-        continue;
+      const toolParts: AgentMessagePart[] = stepResult.toolCalls.map((toolCall) => ({
+        type: "tool_call" as const,
+        callId: toolCall.callId,
+        tool: toolCall.tool,
+        status: "running" as const,
+        inputSummary: toolCall.input || latestUserQuestion,
+        outputSummary: "",
+        citations: []
+      }));
+
+      currentAssistant = {
+        ...currentAssistant,
+        parts: [...currentAssistant.parts, ...toolParts]
+      };
+      updateAgentMessage(currentAssistant);
+      publishRoot(sessionId);
+
+      const openAiToolCalls: OpenAiToolCall[] = stepResult.toolCalls.map((toolCall) => ({
+        id: toolCall.callId,
+        type: "function",
+        function: {
+          name: toolCall.tool,
+          arguments: toolCall.rawArguments
+        }
+      }));
+
+      conversation.push({
+        role: "assistant",
+        content: stepResult.content,
+        tool_calls: openAiToolCalls
+      });
+
+      for (const toolCall of stepResult.toolCalls) {
+        try {
+          const result = await executeTool(
+            toolCall.tool,
+            toolCall.input || latestUserQuestion,
+            session.language
+          );
+
+          packets.push({
+            tool: toolCall.tool,
+            summary: result.summary,
+            citations: result.citations
+          });
+          executedTools.push(toolCall.tool);
+
+          currentAssistant = {
+            ...currentAssistant,
+            parts: currentAssistant.parts.map((part) =>
+              part.type === "tool_call" && part.callId === toolCall.callId
+                ? {
+                    ...part,
+                    status: "completed",
+                    outputSummary: result.summary,
+                    citations: result.citations
+                  }
+                : part
+            )
+          };
+          updateAgentMessage(currentAssistant);
+          publishRoot(sessionId);
+
+          conversation.push({
+            role: "tool",
+            tool_call_id: toolCall.callId,
+            content: buildToolConversationPayload({
+              tool: toolCall.tool,
+              summary: result.summary,
+              citations: result.citations
+            })
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "TOOL_FAILED";
+          currentAssistant = {
+            ...currentAssistant,
+            parts: currentAssistant.parts.map((part) =>
+              part.type === "tool_call" && part.callId === toolCall.callId
+                ? {
+                    ...part,
+                    status: "failed",
+                    outputSummary: message,
+                    citations: []
+                  }
+                : part
+            )
+          };
+          updateAgentMessage(currentAssistant);
+          publishRoot(sessionId);
+
+          conversation.push({
+            role: "tool",
+            tool_call_id: toolCall.callId,
+            content: JSON.stringify({
+              tool: toolCall.tool,
+              error: message
+            })
+          });
+        }
       }
-      if (state.phase === "coach") {
-        runCoachPhase(sessionId);
-        return;
-      }
-      return;
+
+      currentAssistant = appendStepFinish(currentAssistant, step, "tool_calls");
+      updateAgentMessage(currentAssistant);
+      publishRoot(sessionId);
+    }
+
+    const lastAssistantAnswer = findLatestAssistantAnswer(sessionId);
+    addAgentMessage({
+      sessionId,
+      role: "assistant",
+      agent: "orchestrator",
+      content: lastAssistantAnswer || copy.maxSteps,
+      parts: [
+        {
+          type: "step_start",
+          step: maxSteps + 1,
+          startedAt: new Date().toISOString()
+        },
+        {
+          type: "step_finish",
+          step: maxSteps + 1,
+          finishedAt: new Date().toISOString(),
+          reason: "max_steps"
+        }
+      ]
+    });
+    updateAgentSessionStatus(sessionId, "completed");
+    publishRoot(sessionId);
+
+    const completedDetail = buildAgentSessionDetail(sessionId);
+    if (completedDetail) {
+      publishAgentSessionEvent({
+        type: "session.completed",
+        sessionId,
+        rootSessionId: completedDetail.session.rootSessionId,
+        detail: completedDetail,
+        timestamp: new Date().toISOString()
+      });
     }
   } catch (error) {
-    markExecutionFailed(sessionId, error);
+    const message = error instanceof Error ? error.message : "AGENT_SESSION_FAILED";
+    updateAgentSessionStatus(sessionId, "failed");
+    addAgentMessage({
+      sessionId,
+      role: "assistant",
+      agent: "orchestrator",
+      content: message,
+      parts: [
+        {
+          type: "step_start",
+          step: 0,
+          startedAt: new Date().toISOString()
+        },
+        {
+          type: "step_finish",
+          step: 0,
+          finishedAt: new Date().toISOString(),
+          reason: "failed"
+        }
+      ]
+    });
+    publishRoot(sessionId);
+
+    publishAgentSessionEvent({
+      type: "session.failed",
+      sessionId,
+      rootSessionId: session.rootSessionId,
+      detail: buildAgentSessionDetail(sessionId) ?? undefined,
+      error: message,
+      timestamp: new Date().toISOString()
+    });
+
+    logger.error("agent session turn failed", {
+      event: "agent.session.failed",
+      sessionId,
+      error
+    });
   } finally {
     activeTurns.delete(sessionId);
   }
@@ -740,7 +839,6 @@ export async function sendMessageToSession(input: {
     throw new Error("INVALID_MESSAGE");
   }
 
-  const copy = getCopy(input.language);
   updateAgentSession({
     ...session,
     language: input.language,
@@ -756,22 +854,7 @@ export async function sendMessageToSession(input: {
     parts: [{ type: "text", text: trimmedMessage }]
   });
 
-  addAgentMessage({
-    sessionId: input.sessionId,
-    role: "assistant",
-    agent: "orchestrator",
-    content: copy.planMessage,
-    parts: [{ type: "text", text: copy.rootRunning }]
-  });
-
-  createAgentExecutionState({
-    sessionId: input.sessionId,
-    userId: input.userId,
-    question: trimmedMessage,
-    language: input.language
-  });
-
-  publishRootAndSession(input.sessionId);
+  publishRoot(input.sessionId);
   startSessionTurn(input.sessionId);
 
   const detail = buildAgentSessionDetail(input.sessionId);
@@ -780,4 +863,3 @@ export async function sendMessageToSession(input: {
   }
   return detail;
 }
-

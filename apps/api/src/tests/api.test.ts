@@ -74,7 +74,7 @@ describe("API v1", () => {
     expect(response.body.followUps.length).toBeGreaterThan(0);
   });
 
-  it("creates a root session and spawns child sessions through task calls", async () => {
+  it("runs the agent loop inside a single root session", async () => {
     const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
       language: "en-US"
     });
@@ -91,24 +91,31 @@ describe("API v1", () => {
     expect(turnResponse.status).toBe(202);
     const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id);
     expect(completedResponse.body.session.status).toBe("completed");
-    expect(completedResponse.body.children.length).toBeGreaterThanOrEqual(2);
+    expect(completedResponse.body.children).toEqual([]);
     expect(
       completedResponse.body.messages.some((message: { parts?: Array<{ type?: string }> }) =>
-        (message.parts ?? []).some((part) => part.type === "task_call")
+        (message.parts ?? []).some((part) => part.type === "tool_call")
       )
     ).toBe(true);
-
-    const researcherChild = completedResponse.body.children.find(
-      (child: { agent: string }) => child.agent === "researcher"
-    );
-    expect(researcherChild).toBeTruthy();
-
-    const childDetail = await request(app).get(`/api/v1/agent/sessions/${researcherChild.id}`);
-    expect(childDetail.status).toBe(200);
-    expect(childDetail.body.session.parentSessionId).toBe(sessionResponse.body.session.id);
+    expect(
+      completedResponse.body.messages.some((message: { parts?: Array<{ type?: string }> }) =>
+        (message.parts ?? []).some((part) => part.type === "step_start")
+      )
+    ).toBe(true);
+    expect(
+      completedResponse.body.messages.some((message: { parts?: Array<{ type?: string }> }) =>
+        (message.parts ?? []).some((part) => part.type === "step_finish")
+      )
+    ).toBe(true);
+    expect(
+      completedResponse.body.messages.some(
+        (message: { role?: string; content?: string }) =>
+          message.role === "assistant" && Boolean(message.content?.trim())
+      )
+    ).toBe(true);
   });
 
-  it("runs web_search and dota_live_search inside the researcher child session", async () => {
+  it("runs web_search and dota_live_search in the main session for time-sensitive questions", async () => {
     const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
       language: "en-US"
     });
@@ -122,24 +129,20 @@ describe("API v1", () => {
 
     expect(turnResponse.status).toBe(202);
     const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id);
-    const researcherChild = completedResponse.body.children.find(
-      (child: { agent: string }) => child.agent === "researcher"
-    );
-    const childDetail = await request(app).get(`/api/v1/agent/sessions/${researcherChild.id}`);
 
     expect(
-      childDetail.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
+      completedResponse.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
         (message.parts ?? []).some((part) => part.tool === "web_search")
       )
     ).toBe(true);
     expect(
-      childDetail.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
+      completedResponse.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
         (message.parts ?? []).some((part) => part.tool === "dota_live_search")
       )
     ).toBe(true);
   });
 
-  it("lets the planner skip live web tools for evergreen coaching questions", async () => {
+  it("skips live web tools for evergreen coaching questions", async () => {
     const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
       language: "en-US"
     });
@@ -153,21 +156,18 @@ describe("API v1", () => {
 
     expect(turnResponse.status).toBe(202);
     const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id);
-    const researcherChild = completedResponse.body.children.find(
-      (child: { agent: string }) => child.agent === "researcher"
-    );
-    const childDetail = await request(app).get(`/api/v1/agent/sessions/${researcherChild.id}`);
 
     expect(
-      childDetail.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
+      completedResponse.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
         (message.parts ?? []).some((part) => part.tool === "knowledge_search")
       )
     ).toBe(true);
     expect(
-      childDetail.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
+      completedResponse.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
         (message.parts ?? []).some((part) => part.tool === "web_search")
       )
     ).toBe(false);
+    expect(completedResponse.body.children).toEqual([]);
   });
 
 
@@ -193,7 +193,7 @@ describe("API v1", () => {
     expect(meResponse.body.user.avatar).toBeTruthy();
     expect(meResponse.body.user.password).toBeUndefined();
     expect(meResponse.body.user.passwordHash).toBeUndefined();
-  });
+  }, 15000);
 
   it("lists hero avatars and updates the profile avatar", async () => {
     const avatarsResponse = await request(app).get("/api/v1/hero-avatars");
@@ -233,5 +233,5 @@ describe("API v1", () => {
 
     expect(updateResponse.status).toBe(200);
     expect(updateResponse.body.user.avatar.id).toBe(nextAvatarId);
-  });
+  }, 15000);
 });

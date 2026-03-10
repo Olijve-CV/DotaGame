@@ -118,8 +118,8 @@ export function ProfilePage(props: {
   const [avatarFeedback, setAvatarFeedback] = useState<string | null>(null);
   const [favoriteFeedback, setFavoriteFeedback] = useState<string | null>(null);
   const text = useMemo(() => labels[props.locale], [props.locale]);
-  const displayName = props.user?.name?.trim() || props.user?.email || "-";
-  const profileHeading = props.user?.name?.trim() || props.user?.email || text.title;
+  const customName = props.user?.name?.trim() || "";
+  const displayName = customName || props.user?.email?.split("@")[0] || props.user?.email || "-";
   const currentAvatar = props.user?.avatar ?? null;
   const previewAvatar = useMemo(() => {
     if (selectedAvatarId == null) {
@@ -290,7 +290,8 @@ export function ProfilePage(props: {
 
           <div className="profile-summary">
             <p className="section-kicker">{text.identity}</p>
-            <h2 className="profile-heading">{profileHeading}</h2>
+            <h2 className="profile-heading">{displayName}</h2>
+            <p className="profile-heading-note">{text.title}</p>
             <p className="dota-intro-summary">{text.summary}</p>
             <div className="profile-detail-grid">
               <article className="profile-detail-card">

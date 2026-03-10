@@ -23,13 +23,10 @@ interface Copy {
   intro: string;
   chat: string;
   profile: string;
-  account: string;
-  language: string;
   login: string;
   logout: string;
   title: string;
   subtitle: string;
-  pillars: string[];
 }
 
 const copyMap: Record<Language, Copy> = {
@@ -38,26 +35,20 @@ const copyMap: Record<Language, Copy> = {
     intro: "新手入门",
     chat: "智能问答",
     profile: "个人资料",
-    account: "已登录",
-    language: "语言",
     login: "登录",
     logout: "退出登录",
     title: "Dota 2 情报台",
-    subtitle: "把版本动态、入门资料和对局问答收进一个更轻量的前台。",
-    pillars: ["版本追踪", "英雄入门", "实战问答"]
+    subtitle: "版本、入门和对局问答放进一个更紧凑的前台。"
   },
   "en-US": {
     home: "Intel Desk",
     intro: "Starter Guide",
     chat: "Agent Chat",
     profile: "Profile",
-    account: "Signed In",
-    language: "Language",
     login: "Login",
     logout: "Logout",
     title: "Dota 2 Intel Desk",
-    subtitle: "Patch watch, onboarding, and match questions in one compact front desk.",
-    pillars: ["Patch Watch", "Starter Guide", "Match Q&A"]
+    subtitle: "Patch, onboarding, and match Q&A in one tighter front desk."
   }
 };
 
@@ -173,20 +164,12 @@ export function App() {
             <h1>{copy.title}</h1>
             <p className="subtitle">{copy.subtitle}</p>
           </div>
-          <div className="app-pillar-row">
-            {copy.pillars.map((pillar) => (
-              <span className="app-pillar-chip" key={pillar}>
-                {pillar}
-              </span>
-            ))}
-          </div>
         </div>
 
         <div className="topbar-controls app-header-controls">
           <label className="language-switch" htmlFor="app-language-select">
-            <span className="language-switch-label">{copy.language}</span>
             <select
-              aria-label={copy.language}
+              aria-label="Language"
               id="app-language-select"
               onChange={(event) => handleLocaleChange(event.target.value as Language)}
               value={locale}
@@ -215,7 +198,6 @@ export function App() {
                 )}
                 <span className="account-meta">
                   <strong>{accountName}</strong>
-                  <span className="account-label">{copy.account}</span>
                 </span>
                 <span className={`account-caret${isAccountMenuOpen ? " open" : ""}`}>v</span>
               </button>

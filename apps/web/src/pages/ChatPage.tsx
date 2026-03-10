@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import type {
   AgentKind,
   AgentMessage,
   AgentMessagePart,
+  AgentStepFinishReason,
   AgentSession,
   AgentSessionDetail,
   AgentSessionEvent,
@@ -113,7 +114,7 @@ const starterMap: Record<Language, string[]> = {
   ],
   "en-US": [
     "Explain which timing windows usually break carry tempo in the current patch.",
-    "Have the researcher review recent patches and tournaments, then let the coach give me a support practice plan.",
+    "Use recent patches and tournaments to explain what support players should change right now.",
     "Break my issue into lane, tempo, and teamfight phases and tell me what to review in each one."
   ]
 };
@@ -178,6 +179,31 @@ function renderPartTitle(part: AgentMessagePart, locale: Language) {
   return null;
 }
 
+function formatPartTitle(part: AgentMessagePart, locale: Language) {
+  const copy = labels[locale];
+  if (part.type === "task_call") {
+    return `${copy.taskCall} · ${copy.agents[part.subagent]}`;
+  }
+  if (part.type === "tool_call") {
+    return `${copy.toolCall} · ${part.tool}`;
+  }
+  return null;
+}
+
+function formatStepLabel(step: number): string {
+  return `Step ${step}`;
+}
+
+function formatStepReason(reason: AgentStepFinishReason): string {
+  const labelsByReason: Record<AgentStepFinishReason, string> = {
+    tool_calls: "Tool calls",
+    completed: "Completed",
+    max_steps: "Max steps",
+    failed: "Failed"
+  };
+  return labelsByReason[reason];
+}
+
 export function ChatPage(props: { locale: Language; token: string | null }) {
   const copy = useMemo(() => labels[props.locale], [props.locale]);
   const starters = useMemo(() => starterMap[props.locale], [props.locale]);
@@ -186,40 +212,28 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
 
   const [rootSessions, setRootSessions] = useState<AgentSessionSummary[]>([]);
   const [rootDetail, setRootDetail] = useState<AgentSessionDetail | null>(null);
-  const [childDetails, setChildDetails] = useState<Record<string, AgentSessionDetail>>({});
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const rootSession = rootDetail?.session ?? null;
   const rootSessionId = rootDetail?.session.id ?? null;
-  const childIdsKey = rootDetail?.children.map((child) => child.id).join("|") ?? "";
 
   const threadEntries = useMemo(() => {
     if (!rootDetail) {
       return [];
     }
 
-    const details = [
-      rootDetail,
-      ...rootDetail.children
-        .map((child) => childDetails[child.id])
-        .filter((detail): detail is AgentSessionDetail => Boolean(detail))
-    ];
-
-    return details
-      .flatMap((detail) =>
-        detail.messages.map((entry) => ({
-          message: entry,
-          session: detail.session
-        }))
-      )
+    return rootDetail.messages
+      .map((entry) => ({
+        message: entry,
+        session: rootDetail.session
+      }))
       .sort(sortThreadEntries);
-  }, [childDetails, rootDetail]);
+  }, [rootDetail]);
 
   function replaceRoot(detail: AgentSessionDetail | null) {
     setRootDetail(detail);
-    setChildDetails({});
   }
 
   function resetTemporaryConversation() {
@@ -284,49 +298,6 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
   }, [isLoggedIn, props.locale, props.token]);
 
   useEffect(() => {
-    if (!rootDetail) {
-      return;
-    }
-
-    const missingChildren = rootDetail.children.filter((child) => !childDetails[child.id]);
-    if (missingChildren.length === 0) {
-      return;
-    }
-
-    let active = true;
-
-    Promise.all(
-      missingChildren.map(async (child) => {
-        try {
-          const detail = await fetchAgentSession(child.id, props.token);
-          return [child.id, detail] as const;
-        } catch {
-          return null;
-        }
-      })
-    ).then((results) => {
-      if (!active) {
-        return;
-      }
-
-      setChildDetails((current) => {
-        const next = { ...current };
-        for (const item of results) {
-          if (!item) {
-            continue;
-          }
-          next[item[0]] = item[1];
-        }
-        return next;
-      });
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [childDetails, childIdsKey, props.token, rootDetail, rootSessionId]);
-
-  useEffect(() => {
     if (!rootDetail || !rootSessionId) {
       return;
     }
@@ -340,16 +311,12 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
       }
 
       const detail = payload.detail;
-      if (detail.session.id === rootSessionId) {
-        setRootDetail(detail);
-        upsertRootSummary(toSummary(detail));
+      if (detail.session.id !== rootSessionId) {
         return;
       }
 
-      setChildDetails((current) => ({
-        ...current,
-        [detail.session.id]: detail
-      }));
+      setRootDetail(detail);
+      upsertRootSummary(toSummary(detail));
     };
 
     source.addEventListener("session.detail", handleEvent as EventListener);
@@ -371,7 +338,7 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
       top: container.scrollHeight,
       behavior: "smooth"
     });
-  }, [threadEntries, loading]);
+  }, [loading, rootDetail]);
 
   async function handleCreateSession() {
     if (!isLoggedIn) {
@@ -459,6 +426,80 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
     void submitMission();
   }
 
+  function renderCitations(
+    citations: Array<{
+      id: string;
+      source: string;
+      sourceUrl: string;
+    }>
+  ) {
+    if (citations.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="message-part-links">
+        {citations.slice(0, 3).map((citation) => (
+          <a href={citation.sourceUrl} key={citation.id} rel="noreferrer" target="_blank">
+            {citation.source}
+          </a>
+        ))}
+      </div>
+    );
+  }
+
+  function renderMessagePart(part: AgentMessagePart, key: string): ReactNode {
+    const title = formatPartTitle(part, props.locale);
+
+    if (part.type === "text") {
+      return null;
+    }
+
+    if (part.type === "step_start") {
+      return (
+        <div className="message-step-marker is-start" key={key}>
+          <span className="message-step-label">{formatStepLabel(part.step)}</span>
+          <span>{formatContentDateTime(part.startedAt, props.locale)}</span>
+        </div>
+      );
+    }
+
+    if (part.type === "step_finish") {
+      return (
+        <div className="message-step-marker is-finish" key={key}>
+          <span className="message-step-label">{formatStepLabel(part.step)}</span>
+          <span>{formatStepReason(part.reason)}</span>
+          <span>{formatContentDateTime(part.finishedAt, props.locale)}</span>
+        </div>
+      );
+    }
+
+    if (part.type === "tool_call") {
+      return (
+        <div className={`message-part-card part-${part.type}`} key={key}>
+          <div className="message-part-head">
+            {title ? <strong>{title}</strong> : null}
+            <span className={`message-part-status is-${part.status}`}>{copy.status[part.status]}</span>
+          </div>
+          {part.inputSummary ? <p className="message-part-note">{part.inputSummary}</p> : null}
+          {part.outputSummary ? <p>{part.outputSummary}</p> : null}
+          {renderCitations(part.citations)}
+        </div>
+      );
+    }
+
+    return (
+      <div className={`message-part-card part-${part.type}`} key={key}>
+        <div className="message-part-head">
+          {title ? <strong>{title}</strong> : null}
+          <span className={`message-part-status is-${part.status}`}>{copy.status[part.status]}</span>
+        </div>
+        <p>{part.summary}</p>
+        {part.instruction ? <p className="message-part-note">{part.instruction}</p> : null}
+      </div>
+    );
+  }
+
   return (
     <section className="stack agent-page">
       <section className={`panel agent-chat-shell${isLoggedIn ? "" : " guest"}`}>
@@ -519,14 +560,15 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
                   const visibleParts = entry.message.parts.filter((part) => part.type !== "text");
                   const speakerTone = getSpeakerTone(entry);
                   const isUser = entry.message.role === "user";
+                  const hasStructuredActivity = visibleParts.some(
+                    (part) => part.type === "tool_call" || part.type === "task_call"
+                  );
+                  const shouldShowContent =
+                    entry.message.content.trim().length > 0 &&
+                    (isUser || entry.message.role === "tool" || !hasStructuredActivity);
 
                   return (
-                    <article
-                      className={`agent-chat-message${isUser ? " is-user" : ""}${
-                        entry.session.kind === "subagent" ? " is-subagent" : ""
-                      }`}
-                      key={entry.message.id}
-                    >
+                    <article className={`agent-chat-message${isUser ? " is-user" : ""}`} key={entry.message.id}>
                       <div className="agent-chat-bubble">
                         <div className="agent-chat-meta">
                           <span className={`agent-speaker-pill tone-${speakerTone}`}>
@@ -535,41 +577,15 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
                           <span>{formatContentDateTime(entry.message.createdAt, props.locale)}</span>
                         </div>
 
-                        <p className="agent-chat-content">{entry.message.content}</p>
+                        {shouldShowContent ? (
+                          <p className="agent-chat-content">{entry.message.content}</p>
+                        ) : null}
 
                         {visibleParts.length > 0 ? (
                           <div className="message-part-list">
-                            {visibleParts.map((part, index) => (
-                              <div className={`message-part-card part-${part.type}`} key={`${entry.message.id}-${index}`}>
-                                {renderPartTitle(part, props.locale) ? (
-                                  <strong>{renderPartTitle(part, props.locale)}</strong>
-                                ) : null}
-
-                                {part.type === "task_call" ? (
-                                  <p>{part.summary}</p>
-                                ) : null}
-
-                                {part.type === "tool_call" ? (
-                                  <>
-                                    <p>{part.outputSummary}</p>
-                                    {part.citations.length > 0 ? (
-                                      <div className="message-part-links">
-                                        {part.citations.slice(0, 3).map((citation) => (
-                                          <a
-                                            href={citation.sourceUrl}
-                                            key={citation.id}
-                                            rel="noreferrer"
-                                            target="_blank"
-                                          >
-                                            {citation.source}
-                                          </a>
-                                        ))}
-                                      </div>
-                                    ) : null}
-                                  </>
-                                ) : null}
-                              </div>
-                            ))}
+                            {visibleParts.map((part, index) =>
+                              renderMessagePart(part, `${entry.message.id}-${index}`)
+                            )}
                           </div>
                         ) : null}
                       </div>

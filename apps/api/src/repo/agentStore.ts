@@ -17,21 +17,21 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+function cloneMessagePart(part: AgentMessagePart): AgentMessagePart {
+  if (part.type === "tool_call") {
+    return {
+      ...part,
+      citations: part.citations.map((citation) => ({ ...citation }))
+    };
+  }
+
+  return { ...part };
+}
+
 function cloneMessage(message: AgentMessage): AgentMessage {
   return {
     ...message,
-    parts: message.parts.map((part) => {
-      if (part.type === "text") {
-        return { ...part };
-      }
-      if (part.type === "task_call") {
-        return { ...part };
-      }
-      return {
-        ...part,
-        citations: part.citations.map((citation) => ({ ...citation }))
-      };
-    })
+    parts: message.parts.map(cloneMessagePart)
   };
 }
 
@@ -136,7 +136,7 @@ export function addAgentMessage(input: {
     role: input.role,
     agent: input.agent,
     content: input.content,
-    parts: (input.parts ?? []).map((part) => ({ ...part })) as AgentMessagePart[],
+    parts: (input.parts ?? []).map(cloneMessagePart),
     createdAt: nowIso()
   };
 
@@ -145,6 +145,26 @@ export function addAgentMessage(input: {
   messagesBySession.set(input.sessionId, list);
   touchSession(input.sessionId);
   return cloneMessage(message);
+}
+
+export function updateAgentMessage(input: AgentMessage): AgentMessage | null {
+  const list = messagesBySession.get(input.sessionId);
+  if (!list) {
+    return null;
+  }
+
+  const index = list.findIndex((message) => message.id === input.id);
+  if (index < 0) {
+    return null;
+  }
+
+  list[index] = {
+    ...input,
+    parts: input.parts.map(cloneMessagePart)
+  };
+  messagesBySession.set(input.sessionId, list);
+  touchSession(input.sessionId);
+  return cloneMessage(list[index]);
 }
 
 export function listAgentSessionSummaries(userId: string): AgentSessionSummary[] {

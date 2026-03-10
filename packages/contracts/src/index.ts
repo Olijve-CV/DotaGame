@@ -135,8 +135,24 @@ export interface AgentTextPart {
   text: string;
 }
 
+export interface AgentStepStartPart {
+  type: "step_start";
+  step: number;
+  startedAt: string;
+}
+
+export type AgentStepFinishReason = "tool_calls" | "completed" | "max_steps" | "failed";
+
+export interface AgentStepFinishPart {
+  type: "step_finish";
+  step: number;
+  finishedAt: string;
+  reason: AgentStepFinishReason;
+}
+
 export interface AgentToolCallPart {
   type: "tool_call";
+  callId: string;
   tool: AgentToolName;
   status: AgentExecutionStatus;
   inputSummary: string;
@@ -154,7 +170,12 @@ export interface AgentTaskCallPart {
   summary: string;
 }
 
-export type AgentMessagePart = AgentTextPart | AgentToolCallPart | AgentTaskCallPart;
+export type AgentMessagePart =
+  | AgentTextPart
+  | AgentStepStartPart
+  | AgentStepFinishPart
+  | AgentToolCallPart
+  | AgentTaskCallPart;
 
 export interface AgentMessage {
   id: string;
