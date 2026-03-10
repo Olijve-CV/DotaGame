@@ -85,6 +85,22 @@
   - `npm run build`
   - `npm test`
 
+## 2026-03-11
+- Reworked the active agent protocol from step-oriented to thinking-oriented:
+  - removed `step_start`, `step_finish`, and `task_call` from the shared `AgentMessagePart` union
+  - added a `thinking` part with `running/completed/failed` status
+- Rebuilt the backend turn loop so each user prompt now maps to one assistant message:
+  - the assistant message starts as `thinking`
+  - tool activity is appended into the same message
+  - the final answer is written back into that same message instead of spawning step-by-step assistant entries
+- Rebuilt the web `ChatPage` around the new UX:
+  - no more step markers
+  - activity before result is shown as `Thinking`
+  - final answer renders in a dedicated result block after the thinking/tool activity cards
+- Updated API tests to assert the new behavior and verified the whole repo:
+  - `npm test --workspace @dotagame/api`
+  - `npm run build`
+
 ## 2026-03-06
 - Started implementation from approved proposed plan.
 - Created planning files and initial folders.

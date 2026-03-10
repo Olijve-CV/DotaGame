@@ -119,3 +119,22 @@
   - tool calls are stored as mutable `tool_call` parts on that assistant message
   - OpenAI tool-calling is used when configured, with a deterministic fallback loop for local tests
 - This gives the repo the most important OpenCode behavior without pulling in its full provider, permission, compaction, or patch-tracking subsystems.
+
+## 2026-03-11
+- The remaining UX mismatch after the OpenCode-style backend rewrite was not the loop itself, but the message-part protocol exposed to the client:
+  - the server still emitted `step_start` / `step_finish`
+  - the frontend rendered those internal control markers directly
+  - the result felt like a debugger timeline instead of a modern agent chat
+- The better boundary for this repo is:
+  - one user turn
+  - one assistant message
+  - one visible thinking process made of `thinking` and `tool_call` parts
+  - one final result appended to that same assistant message
+- `step` is still a valid internal loop concept for safety caps, but it should not be part of the shared contract or the user-facing UI.
+- Removing `task_call` from the active message-part union is also correct now:
+  - the current backend no longer uses subagent/task sessions in the live path
+  - keeping dead protocol branches only makes the web renderer harder to reason about
+- The frontend reads much more like a current general-purpose agent once the assistant bubble is ordered as:
+  - thinking summary
+  - tool activity cards
+  - final result block
