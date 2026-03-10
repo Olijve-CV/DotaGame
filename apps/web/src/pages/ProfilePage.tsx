@@ -35,41 +35,41 @@ type ChatSessionDisplay = {
 
 const labels = {
   "zh-CN": {
-    title: "个人作战档案",
-    needLogin: "登录后才能查看收藏、聊天记录和头像设置。",
-    summary: "把你的账号、收藏和最近的问答放在同一张工作台里。",
-    displayName: "显示名称",
+    title: "玩家档案",
+    needLogin: "请先登录后再查看收藏、聊天记录和头像设置。",
+    summary: "把你的头像、收藏和最近问答整理在同一个个人面板里。",
+    displayName: "用户名",
     email: "邮箱",
     avatarTitle: "英雄头像",
-    avatarDescription: "可以重新选择英雄头像，也可以切回随机分配。",
+    avatarDescription: "你可以重新选择英雄头像，也可以切回随机分配。",
     avatarRandomPreview: "随机头像",
     avatarSave: "保存头像",
     avatarSaving: "保存中...",
     avatarSaved: "头像已更新。",
-    avatarSaveError: "头像保存失败，请稍后重试。",
-    favorites: "收藏记录",
+    avatarSaveError: "头像保存失败，请稍后再试。",
+    favorites: "我的收藏",
     chats: "最近问答",
-    identity: "账号信息",
-    favoritesCount: "收藏总数",
-    chatCount: "问答总数",
-    emptyFavorites: "还没有收藏内容。",
-    emptyChats: "还没有问答记录。",
+    identity: "个人信息",
+    favoritesCount: "收藏条目",
+    chatCount: "聊天会话",
+    emptyFavorites: "你还没有收藏任何内容。",
+    emptyChats: "你还没有聊天记录。",
     questionLabel: "问题",
     answerLabel: "回答",
-    openSource: "查看来源",
-    removeFavorite: "取消收藏",
+    openSource: "打开来源",
+    removeFavorite: "移除",
     removingFavorite: "移除中...",
-    favoriteRemoved: "已取消收藏。",
-    favoriteRemoveError: "取消收藏失败，请稍后重试。",
+    favoriteRemoved: "收藏已移除。",
+    favoriteRemoveError: "暂时无法移除收藏，请稍后再试。",
     untitled: "未命名内容",
     unknownSource: "未知来源",
-    unknownSummary: "当前没有更多摘要信息。",
+    unknownSummary: "这条内容暂时没有摘要。",
     askedAt: "提问时间"
   },
   "en-US": {
     title: "Player Dossier",
     needLogin: "Please login to view favorites, chat history, and avatar settings.",
-    summary: "Keep your account identity, saved items, and recent Q&A on one operational surface.",
+    summary: "Manage your avatar, saved items, and recent Q&A from one clear profile surface.",
     displayName: "Display Name",
     email: "Email",
     avatarTitle: "Hero Avatar",
@@ -119,6 +119,7 @@ export function ProfilePage(props: {
   const [favoriteFeedback, setFavoriteFeedback] = useState<string | null>(null);
   const text = useMemo(() => labels[props.locale], [props.locale]);
   const displayName = props.user?.name?.trim() || props.user?.email || "-";
+  const profileHeading = props.user?.name?.trim() || props.user?.email || text.title;
   const currentAvatar = props.user?.avatar ?? null;
   const previewAvatar = useMemo(() => {
     if (selectedAvatarId == null) {
@@ -289,7 +290,7 @@ export function ProfilePage(props: {
 
           <div className="profile-summary">
             <p className="section-kicker">{text.identity}</p>
-            <h2>{text.title}</h2>
+            <h2 className="profile-heading">{profileHeading}</h2>
             <p className="dota-intro-summary">{text.summary}</p>
             <div className="profile-detail-grid">
               <article className="profile-detail-card">

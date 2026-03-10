@@ -24,6 +24,7 @@ interface Copy {
   chat: string;
   profile: string;
   account: string;
+  language: string;
   login: string;
   logout: string;
   title: string;
@@ -34,27 +35,29 @@ interface Copy {
 const copyMap: Record<Language, Copy> = {
   "zh-CN": {
     home: "情报台",
-    intro: "游戏介绍",
-    chat: "战术问答",
-    profile: "个人中心",
-    account: "账号",
+    intro: "新手入门",
+    chat: "智能问答",
+    profile: "个人资料",
+    account: "已登录",
+    language: "语言",
     login: "登录",
     logout: "退出登录",
-    title: "Dota 2 情报站",
-    subtitle: "把补丁、赛事、知识导览和战术问答整理成一条更容易进入的学习路径。",
-    pillars: ["地图控制", "经济时机", "团战判断"]
+    title: "Dota 2 情报台",
+    subtitle: "把版本动态、入门资料和对局问答收进一个更轻量的前台。",
+    pillars: ["版本追踪", "英雄入门", "实战问答"]
   },
   "en-US": {
     home: "Intel Desk",
-    intro: "Game Intro",
+    intro: "Starter Guide",
     chat: "Agent Chat",
     profile: "Profile",
-    account: "User",
+    account: "Signed In",
+    language: "Language",
     login: "Login",
     logout: "Logout",
-    title: "Dota 2 Briefing Room",
-    subtitle: "Patch watch, onboarding, and tactical Q&A arranged as a cleaner learning surface.",
-    pillars: ["Map Control", "Economy Timings", "Fight Calls"]
+    title: "Dota 2 Intel Desk",
+    subtitle: "Patch watch, onboarding, and match questions in one compact front desk.",
+    pillars: ["Patch Watch", "Starter Guide", "Match Q&A"]
   }
 };
 
@@ -70,6 +73,7 @@ export function App() {
   const userStateVersionRef = useRef(0);
   const copy = useMemo(() => copyMap[locale], [locale]);
   const accountName = user?.name?.trim() || user?.email || copy.profile;
+  const accountEmail = user?.email && user.email !== accountName ? user.email : null;
   const accountInitial = accountName.charAt(0).toUpperCase();
 
   useEffect(() => {
@@ -165,8 +169,10 @@ export function App() {
       <header className="topbar app-header-shell">
         <div className="app-brand-shell">
           <p className="brand-kicker">DotaPulse</p>
-          <h1>{copy.title}</h1>
-          <p className="subtitle">{copy.subtitle}</p>
+          <div>
+            <h1>{copy.title}</h1>
+            <p className="subtitle">{copy.subtitle}</p>
+          </div>
           <div className="app-pillar-row">
             {copy.pillars.map((pillar) => (
               <span className="app-pillar-chip" key={pillar}>
@@ -177,22 +183,18 @@ export function App() {
         </div>
 
         <div className="topbar-controls app-header-controls">
-          <div className="language-switch">
-            <button
-              className={locale === "zh-CN" ? "active" : ""}
-              onClick={() => handleLocaleChange("zh-CN")}
-              type="button"
+          <label className="language-switch" htmlFor="app-language-select">
+            <span className="language-switch-label">{copy.language}</span>
+            <select
+              aria-label={copy.language}
+              id="app-language-select"
+              onChange={(event) => handleLocaleChange(event.target.value as Language)}
+              value={locale}
             >
-              中文
-            </button>
-            <button
-              className={locale === "en-US" ? "active" : ""}
-              onClick={() => handleLocaleChange("en-US")}
-              type="button"
-            >
-              EN
-            </button>
-          </div>
+              <option value="zh-CN">简体中文</option>
+              <option value="en-US">English</option>
+            </select>
+          </label>
 
           {token ? (
             <div className="account-menu" ref={accountMenuRef}>
@@ -226,7 +228,10 @@ export function App() {
                       <strong>{user.avatar.name}</strong>
                     </div>
                   )}
-                  <p className="account-email">{user?.email ?? accountName}</p>
+                  <div className="account-dropdown-summary">
+                    <strong className="account-dropdown-name">{accountName}</strong>
+                    {accountEmail ? <p className="account-email">{accountEmail}</p> : null}
+                  </div>
                   <Link
                     className="account-dropdown-link"
                     onClick={() => setIsAccountMenuOpen(false)}
