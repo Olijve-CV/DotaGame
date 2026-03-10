@@ -18,6 +18,8 @@ Implement a full MVP for Dota2 news + Agent Chat platform with separated web and
 | 10. Replace one-shot chat with multi-agent runtime | complete | Added OpenCode-inspired thread/run/tool/approval flow with orchestrator/researcher/coach runtime, live search gating, and a new agent workspace UI |
 | 11. Rework agent chat into session tree runtime | complete | Replaced thread/run timeline with root session + Task-spawned child sessions, session tree navigation, and child-session tool execution closer to OpenCode |
 | 12. Add resumable SSE agent execution controls | complete | Added in-memory execution state, iterative replanning, abort/resume/retry controls, and root-session SSE control handling |
+| 13. Simplify backend agent loop to OpenCode-style single-session execution | complete | Replaced planner/subagent loop with a single assistant/tool/result loop modeled after anomalyco/opencode; removed coach/research runtime from the active backend path and updated tests accordingly |
+| 14. Rework agent UX from step timeline to thinking-first runtime | complete | Removed step/task message parts, collapsed each turn into one assistant message with thinking + tool activity + final result, and updated the web chat surface to present modern agent behavior |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |

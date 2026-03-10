@@ -61,6 +61,30 @@
   - `npm test --workspace @dotagame/api`
   - `npm run build`
 
+## 2026-03-10
+- User redirected the agent architecture again:
+  - backend loop should now follow `anomalyco/opencode`'s single-session assistant/tool/result cycle
+  - current researcher/coach split should be removed from the active backend path
+- Pulled and inspected `https://github.com/anomalyco/opencode` locally to identify the relevant implementation:
+  - `packages/opencode/src/session/prompt.ts`
+  - `packages/opencode/src/session/processor.ts`
+  - `packages/opencode/src/tool/task.ts` only as contrast, not as the target default loop
+- Confirmed that the correct reference model for this task is not the older session-tree/subagent runtime already built in this repo, but OpenCode's simpler primary-agent loop where one assistant message accumulates tool parts and the same session continues after tool results.
+- Replaced the active backend runtime with a single-session loop:
+  - one root session only
+  - one assistant message per step
+  - tool calls recorded on assistant message parts and updated in place
+  - tool results fed back into the same turn loop until the model stops or the step cap is reached
+- Added `callId` to `AgentToolCallPart` so tool calls have a stable identity closer to OpenCode's message-part model.
+- Added message update support in `apps/api/src/repo/agentStore.ts` so assistant messages can be incrementally updated instead of only appended.
+- Removed now-unused backend files:
+  - `apps/api/src/services/agent/agentPlannerService.ts`
+  - `apps/api/src/services/agent/agentExecutionStore.ts`
+- Updated API tests to assert the new single-session behavior instead of child-session spawning.
+- Final validation completed:
+  - `npm run build`
+  - `npm test`
+
 ## 2026-03-06
 - Started implementation from approved proposed plan.
 - Created planning files and initial folders.

@@ -1,9 +1,177 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../app.js";
 
 describe("API v1", () => {
+  const originalOpenAiApiKey = process.env.OPENAI_API_KEY;
   const app = createApp();
+  const fetchMock = vi.fn(mockOpenAiFetch);
+
+  function jsonResponse(payload: unknown, status = 200): Response {
+    return new Response(JSON.stringify(payload), {
+      status,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  async function mockOpenAiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const payload = JSON.parse(String(init?.body ?? "{}")) as {
+      response_format?: { type?: string };
+      messages?: Array<{
+        role?: string;
+        content?: string;
+      }>;
+    };
+
+    if (url.endsWith("/chat/completions")) {
+      if (payload.response_format?.type === "json_object") {
+        return jsonResponse({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  answer: "Coaching plan: stabilize lane pressure and item timing around your first core.",
+                  confidence: 0.72,
+                  followUps: ["Want a lane checklist?", "Need matchup-specific advice?"]
+                })
+              }
+            }
+          ]
+        });
+      }
+
+      if ((payload.messages ?? []).some((message) => message.role === "tool")) {
+        return jsonResponse({
+          choices: [
+            {
+              message: {
+                content: "Use the retrieved evidence to adjust your timing and map pressure decisions."
+              }
+            }
+          ]
+        });
+      }
+
+      const userMessage =
+        [...(payload.messages ?? [])].reverse().find((message) => message.role === "user")?.content ?? "";
+
+      if (/latest tournament meta for supports right now/i.test(userMessage)) {
+        return jsonResponse({
+          choices: [
+            {
+              message: {
+                content: "",
+                tool_calls: [
+                  {
+                    id: "call-dota-live",
+                    type: "function",
+                    function: {
+                      name: "dota_live_search",
+                      arguments: JSON.stringify({ input: userMessage })
+                    }
+                  },
+                  {
+                    id: "call-web",
+                    type: "function",
+                    function: {
+                      name: "web_search",
+                      arguments: JSON.stringify({ input: userMessage })
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        });
+      }
+
+      if (/latest patch trend for carry timings/i.test(userMessage)) {
+        return jsonResponse({
+          choices: [
+            {
+              message: {
+                content: "",
+                tool_calls: [
+                  {
+                    id: "call-knowledge",
+                    type: "function",
+                    function: {
+                      name: "knowledge_search",
+                      arguments: JSON.stringify({ input: userMessage })
+                    }
+                  },
+                  {
+                    id: "call-dota-live",
+                    type: "function",
+                    function: {
+                      name: "dota_live_search",
+                      arguments: JSON.stringify({ input: userMessage })
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        });
+      }
+
+      return jsonResponse({
+        choices: [
+          {
+            message: {
+              content: "",
+              tool_calls: [
+                {
+                  id: "call-knowledge",
+                  type: "function",
+                  function: {
+                    name: "knowledge_search",
+                    arguments: JSON.stringify({ input: userMessage })
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      });
+    }
+
+    if (url.endsWith("/responses")) {
+      return jsonResponse({
+        output_text: "General web search found these sources:\n1. Recent support meta roundup (example.com)",
+        output: [
+          {
+            type: "web_search_call",
+            action: {
+              sources: [{ title: "Recent support meta roundup", url: "https://example.com/support-meta" }]
+            }
+          }
+        ]
+      });
+    }
+
+    throw new Error(`Unexpected fetch call: ${url}`);
+  }
+
+  beforeAll(() => {
+    process.env.OPENAI_API_KEY = "test-openai-key";
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  beforeEach(() => {
+    fetchMock.mockClear();
+    fetchMock.mockImplementation(mockOpenAiFetch);
+  });
+
+  afterAll(() => {
+    if (originalOpenAiApiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = originalOpenAiApiKey;
+    }
+    vi.unstubAllGlobals();
+  });
 
   async function waitForSessionStatus(sessionId: string, statuses: string[]) {
     for (let attempt = 0; attempt < 30; attempt += 1) {
@@ -19,6 +187,16 @@ describe("API v1", () => {
 
   async function waitForSessionCompletion(sessionId: string) {
     return waitForSessionStatus(sessionId, ["completed", "failed"]);
+  }
+
+  function findLastAssistantMessage(
+    messages: Array<{
+      role?: string;
+      content?: string;
+      parts?: Array<{ type?: string; status?: string }>;
+    }>
+  ) {
+    return [...messages].reverse().find((message) => message.role === "assistant");
   }
 
   it("returns a request id header for traceability", async () => {
@@ -90,27 +268,60 @@ describe("API v1", () => {
 
     expect(turnResponse.status).toBe(202);
     const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id);
+    const assistantMessage = findLastAssistantMessage(completedResponse.body.messages);
+
     expect(completedResponse.body.session.status).toBe("completed");
     expect(completedResponse.body.children).toEqual([]);
+    expect(assistantMessage).toBeTruthy();
+    expect(
+      (assistantMessage?.parts ?? []).some((part: { type?: string }) => part.type === "thinking")
+    ).toBe(true);
+    expect(
+      (assistantMessage?.parts ?? []).some((part: { type?: string }) => part.type === "tool_call")
+    ).toBe(true);
+    expect(Boolean(assistantMessage?.content?.trim())).toBe(true);
+  });
+
+  it("fails the agent session when the model step fails instead of using fallback tools", async () => {
+    fetchMock.mockImplementationOnce(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.endsWith("/chat/completions")) {
+        return jsonResponse({ error: "model unavailable" }, 500);
+      }
+      return mockOpenAiFetch(input, init);
+    });
+
+    const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
+      language: "en-US"
+    });
+
+    const turnResponse = await request(app)
+      .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
+      .send({
+        message: "What is the latest patch trend for carry timings?",
+        language: "en-US"
+      });
+
+    expect(turnResponse.status).toBe(202);
+    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id);
+    const assistantMessage = findLastAssistantMessage(completedResponse.body.messages);
+
+    expect(completedResponse.body.session.status).toBe("failed");
     expect(
       completedResponse.body.messages.some((message: { parts?: Array<{ type?: string }> }) =>
         (message.parts ?? []).some((part) => part.type === "tool_call")
       )
-    ).toBe(true);
+    ).toBe(false);
     expect(
-      completedResponse.body.messages.some((message: { parts?: Array<{ type?: string }> }) =>
-        (message.parts ?? []).some((part) => part.type === "step_start")
-      )
-    ).toBe(true);
-    expect(
-      completedResponse.body.messages.some((message: { parts?: Array<{ type?: string }> }) =>
-        (message.parts ?? []).some((part) => part.type === "step_finish")
+      (assistantMessage?.parts ?? []).some(
+        (part: { type?: string; status?: string }) => part.type === "thinking" && part.status === "failed"
       )
     ).toBe(true);
     expect(
       completedResponse.body.messages.some(
         (message: { role?: string; content?: string }) =>
-          message.role === "assistant" && Boolean(message.content?.trim())
+          message.role === "assistant" && message.content === "OPENAI_AGENT_FAILED:500"
       )
     ).toBe(true);
   });

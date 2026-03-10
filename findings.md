@@ -96,3 +96,26 @@
   - replanner decides whether to stop or queue one more tool after each result
   - this keeps the loop simple while removing the old fixed one-shot tool sequence
 - `resume` should also handle the race where the user clicks it before an outstanding tool call reaches the next checkpoint. The runtime now treats that as cancelling the pending pause instead of hard-failing with `SESSION_BUSY`.
+
+## 2026-03-10
+- The user has now redirected the architecture away from the session-tree/subagent runtime and wants the backend agent loop to follow `anomalyco/opencode` more directly.
+- The relevant OpenCode implementation lives in `packages/opencode/src/session/prompt.ts` and `packages/opencode/src/session/processor.ts`, not in the older Go-based `opencode-ai/opencode` repository.
+- The OpenCode loop shape is:
+  - create a user message
+  - create an assistant message for the next step
+  - stream the model response while incrementally updating message parts
+  - record tool calls as assistant message parts with state transitions `pending -> running -> completed/error`
+  - feed tool results back into the same session history
+  - continue looping until the assistant finishes without more tool calls or max-steps is reached
+- The important architectural difference from the current repo is that OpenCode's main path is a single-session assistant/tool loop; subagents exist, but they are not required for the default agent execution path.
+- For this repo, the closest practical translation is:
+  - keep existing session endpoints and SSE transport
+  - remove the active planner/execution-store/researcher/coach flow
+  - collapse runtime to one primary session with `user`, `assistant`, and `tool` messages only
+  - preserve current Dota-specific tools (`knowledge_search`, `web_search`, `dota_live_search`) as callable tools inside that loop
+- The implemented translation kept the current REST + SSE surface stable while swapping out the execution core:
+  - `sendMessageToSession()` now starts one background loop per session
+  - each loop step creates or updates a single assistant message
+  - tool calls are stored as mutable `tool_call` parts on that assistant message
+  - OpenAI tool-calling is used when configured, with a deterministic fallback loop for local tests
+- This gives the repo the most important OpenCode behavior without pulling in its full provider, permission, compaction, or patch-tracking subsystems.

@@ -1,8 +1,6 @@
-import { randomUUID } from "node:crypto";
 import type {
-  AgentMessage,
   AgentMessagePart,
-  AgentStepFinishReason,
+  AgentThinkingPart,
   AgentToolName,
   ChatCitation,
   Language
@@ -66,31 +64,28 @@ interface ToolExecutionPacket {
 const activeTurns = new Set<string>();
 const DEFAULT_MAX_STEPS = 6;
 
-function appendStepFinish(
-  message: AgentMessage,
-  step: number,
-  reason: AgentStepFinishReason
-): AgentMessage {
-  const nextParts: AgentMessagePart[] = message.parts.filter((part) => part.type !== "step_finish");
-  nextParts.push({
-    type: "step_finish",
-    step,
-    finishedAt: new Date().toISOString(),
-    reason
-  });
-
-  return {
-    ...message,
-    parts: nextParts
+function upsertThinkingPart(
+  parts: AgentMessagePart[],
+  input: Pick<AgentThinkingPart, "status" | "summary">
+): AgentMessagePart[] {
+  const nextThinking: AgentThinkingPart = {
+    type: "thinking",
+    status: input.status,
+    summary: input.summary
   };
+
+  return [nextThinking, ...parts.filter((part) => part.type !== "thinking")];
 }
 
 function getCopy(language: Language) {
   if (language === "zh-CN") {
     return {
-      titleFallback: "新 Agent 会话",
-      toolOnly: "正在调用工具处理这个问题。",
-      maxSteps: "已达到当前任务的最大步骤数。请提供更具体的后续问题。",
+      titleFallback: "新的智能体会话",
+      thinking: "正在思考你的问题。",
+      thinkingWithTools: "正在检索信息并整理结论。",
+      thinkingDone: "已完成推理并生成结论。",
+      thinkingFailed: "本轮智能体执行失败。",
+      maxSteps: "已达到当前推理上限，请缩小问题范围后继续。",
       fallbackAnswerTitle: "回答",
       fallbackNext: "建议下一步",
       sources: "来源"
@@ -99,8 +94,11 @@ function getCopy(language: Language) {
 
   return {
     titleFallback: "New Agent Session",
-    toolOnly: "Working through tool calls.",
-    maxSteps: "The maximum step limit was reached. Send a narrower follow-up to continue.",
+    thinking: "Thinking through the request.",
+    thinkingWithTools: "Gathering evidence and working through tool calls.",
+    thinkingDone: "Reasoning complete.",
+    thinkingFailed: "The agent run failed.",
+    maxSteps: "The agent hit its current reasoning limit. Send a narrower follow-up to continue.",
     fallbackAnswerTitle: "Answer",
     fallbackNext: "Suggested next steps",
     sources: "Sources"
@@ -180,10 +178,10 @@ function buildFallbackAnswer(input: {
     "",
     `${copy.fallbackNext}:`,
     input.language === "zh-CN"
-      ? "1. 如果你想更具体，请补充英雄、分路、段位和时间点。"
+      ? "1. 补充你的英雄、分路、分段和关键时间点，我可以给出更具体的判断。"
       : "1. Add your hero, lane, rank, and timing window if you want a sharper follow-up.",
     input.language === "zh-CN"
-      ? "2. 继续追问某个补丁、赛事或对线细节。"
+      ? "2. 继续追问某个补丁、赛事或对局细节，我可以把问题拆得更具体。"
       : "2. Follow up on any patch, tournament, or matchup detail that still looks unclear."
   );
 
@@ -192,20 +190,6 @@ function buildFallbackAnswer(input: {
   }
 
   return lines.join("\n");
-}
-
-function isLikelyTimeSensitive(question: string): boolean {
-  return /latest|recent|current|today|right now|meta|patch|trend|tournament|赛事|最近|最新|当前|版本|补丁/i.test(
-    question
-  );
-}
-
-function buildFallbackToolPlan(question: string): AgentToolName[] {
-  const tools: AgentToolName[] = ["knowledge_search"];
-  if (isLikelyTimeSensitive(question)) {
-    tools.push("dota_live_search", "web_search");
-  }
-  return tools;
 }
 
 function buildHistoryAssistantContent(content: string, packets: ToolExecutionPacket[]): string {
@@ -343,11 +327,11 @@ function getToolDefinitions() {
 function buildSystemPrompt(language: Language): string {
   if (language === "zh-CN") {
     return [
-      "你是 Dota 2 Agent。",
-      "必要时调用工具，不要伪造来源。",
-      "知识性、长期稳定的问题优先用 knowledge_search。",
-      "涉及最新版本、当前赛事、最近趋势的问题可以用 dota_live_search 或 web_search。",
-      "拿到足够工具结果后直接给出简洁、有根据的回答。"
+      "你是一个 Dota 2 智能体。",
+      "需要时使用工具，不要编造来源。",
+      "常识性玩法、历史背景、长期有效的信息优先用 knowledge_search。",
+      "当前版本、赛事、近期趋势优先考虑 dota_live_search 或 web_search。",
+      "有足够证据后，直接给出清晰结论。"
     ].join("\n");
   }
 
@@ -421,55 +405,21 @@ async function runOpenAiStep(
   };
 }
 
-function runFallbackStep(input: {
-  question: string;
-  language: Language;
-  executedTools: AgentToolName[];
-  packets: ToolExecutionPacket[];
-}): AgentStepResult {
-  const plan = buildFallbackToolPlan(input.question);
-  const nextTool = plan.find((tool) => !input.executedTools.includes(tool));
-  if (nextTool) {
-    return {
-      content: "",
-      toolCalls: [
-        {
-          callId: randomUUID(),
-          tool: nextTool,
-          input: input.question,
-          rawArguments: JSON.stringify({ input: input.question })
-        }
-      ]
-    };
-  }
-
-  return {
-    content: buildFallbackAnswer({
-      question: input.question,
-      language: input.language,
-      packets: input.packets
-    }),
-    toolCalls: []
-  };
-}
-
 async function decideAgentStep(input: {
   conversation: AgentConversationMessage[];
   question: string;
   language: Language;
-  executedTools: AgentToolName[];
-  packets: ToolExecutionPacket[];
 }): Promise<AgentStepResult> {
   try {
     return await runOpenAiStep(input.conversation, input.language);
   } catch (error) {
-    logger.warn("agent model step failed, using deterministic fallback", {
-      event: "agent.step.fallback",
+    logger.error("agent model step failed", {
+      event: "agent.step.failed",
       questionLength: input.question.length,
       language: input.language,
       error
     });
-    return runFallbackStep(input);
+    throw error;
   }
 }
 
@@ -483,22 +433,6 @@ function buildToolConversationPayload(packet: ToolExecutionPacket): string {
       url: citation.sourceUrl
     }))
   });
-}
-
-function findLatestAssistantAnswer(sessionId: string): string {
-  const detail = buildAgentSessionDetail(sessionId);
-  if (!detail) {
-    return "";
-  }
-
-  for (let index = detail.messages.length - 1; index >= 0; index -= 1) {
-    const message = detail.messages[index];
-    if (message.role === "assistant" && message.content.trim()) {
-      return message.content;
-    }
-  }
-
-  return "";
 }
 
 async function runSessionTurn(sessionId: string): Promise<void> {
@@ -515,7 +449,6 @@ async function runSessionTurn(sessionId: string): Promise<void> {
   const maxSteps = Number(process.env.AGENT_MAX_STEPS ?? DEFAULT_MAX_STEPS);
   const conversation = buildConversationSeed(sessionId);
   const packets: ToolExecutionPacket[] = [];
-  const executedTools: AgentToolName[] = [];
   const copy = getCopy(session.language);
   const latestUserQuestion = (() => {
     const messages = buildAgentSessionDetail(sessionId)?.messages ?? [];
@@ -527,58 +460,44 @@ async function runSessionTurn(sessionId: string): Promise<void> {
     return "";
   })();
 
+  let assistantMessage = addAgentMessage({
+    sessionId,
+    role: "assistant",
+    agent: "orchestrator",
+    content: "",
+    parts: upsertThinkingPart([], {
+      status: "running",
+      summary: copy.thinking
+    })
+  });
+  publishRoot(sessionId);
+
   try {
     for (let step = 1; step <= maxSteps; step += 1) {
-      const assistantMessage = addAgentMessage({
-        sessionId,
-        role: "assistant",
-        agent: "orchestrator",
-        content: "",
-        parts: [
-          {
-            type: "step_start",
-            step,
-            startedAt: new Date().toISOString()
-          }
-        ]
-      });
-      publishRoot(sessionId);
-
       const stepResult = await decideAgentStep({
         conversation,
         question: latestUserQuestion,
-        language: session.language,
-        executedTools,
-        packets
+        language: session.language
       });
 
-      let currentAssistant = {
-        ...assistantMessage,
-        content:
-          stepResult.content.trim() ||
-          (stepResult.toolCalls.length > 0 ? copy.toolOnly : assistantMessage.content)
-      };
-
       if (stepResult.toolCalls.length === 0) {
-        currentAssistant = appendStepFinish(currentAssistant, step, "completed");
-        updateAgentMessage(currentAssistant);
-        updateAgentSessionStatus(sessionId, "completed");
-        publishRoot(sessionId);
-
-        const finalAnswer = currentAssistant.content.trim() || buildFallbackAnswer({
+        const finalAnswer = stepResult.content.trim() || buildFallbackAnswer({
           question: latestUserQuestion,
           language: session.language,
           packets
         });
 
-        if (finalAnswer !== currentAssistant.content) {
-          currentAssistant = {
-            ...currentAssistant,
-            content: finalAnswer
-          };
-          updateAgentMessage(currentAssistant);
-          publishRoot(sessionId);
-        }
+        assistantMessage = {
+          ...assistantMessage,
+          content: finalAnswer,
+          parts: upsertThinkingPart(assistantMessage.parts, {
+            status: "completed",
+            summary: copy.thinkingDone
+          })
+        };
+        updateAgentMessage(assistantMessage);
+        updateAgentSessionStatus(sessionId, "completed");
+        publishRoot(sessionId);
 
         if (session.userId) {
           addChatSession({
@@ -613,11 +532,17 @@ async function runSessionTurn(sessionId: string): Promise<void> {
         citations: []
       }));
 
-      currentAssistant = {
-        ...currentAssistant,
-        parts: [...currentAssistant.parts, ...toolParts]
+      assistantMessage = {
+        ...assistantMessage,
+        parts: upsertThinkingPart(
+          [...assistantMessage.parts.filter((part) => part.type !== "thinking"), ...toolParts],
+          {
+            status: "running",
+            summary: copy.thinkingWithTools
+          }
+        )
       };
-      updateAgentMessage(currentAssistant);
+      updateAgentMessage(assistantMessage);
       publishRoot(sessionId);
 
       const openAiToolCalls: OpenAiToolCall[] = stepResult.toolCalls.map((toolCall) => ({
@@ -648,11 +573,10 @@ async function runSessionTurn(sessionId: string): Promise<void> {
             summary: result.summary,
             citations: result.citations
           });
-          executedTools.push(toolCall.tool);
 
-          currentAssistant = {
-            ...currentAssistant,
-            parts: currentAssistant.parts.map((part) =>
+          assistantMessage = {
+            ...assistantMessage,
+            parts: assistantMessage.parts.map((part) =>
               part.type === "tool_call" && part.callId === toolCall.callId
                 ? {
                     ...part,
@@ -663,7 +587,7 @@ async function runSessionTurn(sessionId: string): Promise<void> {
                 : part
             )
           };
-          updateAgentMessage(currentAssistant);
+          updateAgentMessage(assistantMessage);
           publishRoot(sessionId);
 
           conversation.push({
@@ -677,9 +601,9 @@ async function runSessionTurn(sessionId: string): Promise<void> {
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : "TOOL_FAILED";
-          currentAssistant = {
-            ...currentAssistant,
-            parts: currentAssistant.parts.map((part) =>
+          assistantMessage = {
+            ...assistantMessage,
+            parts: assistantMessage.parts.map((part) =>
               part.type === "tool_call" && part.callId === toolCall.callId
                 ? {
                     ...part,
@@ -690,7 +614,7 @@ async function runSessionTurn(sessionId: string): Promise<void> {
                 : part
             )
           };
-          updateAgentMessage(currentAssistant);
+          updateAgentMessage(assistantMessage);
           publishRoot(sessionId);
 
           conversation.push({
@@ -703,32 +627,17 @@ async function runSessionTurn(sessionId: string): Promise<void> {
           });
         }
       }
-
-      currentAssistant = appendStepFinish(currentAssistant, step, "tool_calls");
-      updateAgentMessage(currentAssistant);
-      publishRoot(sessionId);
     }
 
-    const lastAssistantAnswer = findLatestAssistantAnswer(sessionId);
-    addAgentMessage({
-      sessionId,
-      role: "assistant",
-      agent: "orchestrator",
-      content: lastAssistantAnswer || copy.maxSteps,
-      parts: [
-        {
-          type: "step_start",
-          step: maxSteps + 1,
-          startedAt: new Date().toISOString()
-        },
-        {
-          type: "step_finish",
-          step: maxSteps + 1,
-          finishedAt: new Date().toISOString(),
-          reason: "max_steps"
-        }
-      ]
-    });
+    assistantMessage = {
+      ...assistantMessage,
+      content: assistantMessage.content.trim() || copy.maxSteps,
+      parts: upsertThinkingPart(assistantMessage.parts, {
+        status: "completed",
+        summary: copy.maxSteps
+      })
+    };
+    updateAgentMessage(assistantMessage);
     updateAgentSessionStatus(sessionId, "completed");
     publishRoot(sessionId);
 
@@ -744,26 +653,16 @@ async function runSessionTurn(sessionId: string): Promise<void> {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "AGENT_SESSION_FAILED";
-    updateAgentSessionStatus(sessionId, "failed");
-    addAgentMessage({
-      sessionId,
-      role: "assistant",
-      agent: "orchestrator",
+    assistantMessage = {
+      ...assistantMessage,
       content: message,
-      parts: [
-        {
-          type: "step_start",
-          step: 0,
-          startedAt: new Date().toISOString()
-        },
-        {
-          type: "step_finish",
-          step: 0,
-          finishedAt: new Date().toISOString(),
-          reason: "failed"
-        }
-      ]
-    });
+      parts: upsertThinkingPart(assistantMessage.parts, {
+        status: "failed",
+        summary: copy.thinkingFailed
+      })
+    };
+    updateAgentMessage(assistantMessage);
+    updateAgentSessionStatus(sessionId, "failed");
     publishRoot(sessionId);
 
     publishAgentSessionEvent({

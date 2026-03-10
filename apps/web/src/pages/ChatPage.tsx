@@ -4,11 +4,11 @@ import type {
   AgentKind,
   AgentMessage,
   AgentMessagePart,
-  AgentStepFinishReason,
   AgentSession,
   AgentSessionDetail,
   AgentSessionEvent,
   AgentSessionSummary,
+  AgentToolName,
   Language
 } from "@dotagame/contracts";
 import {
@@ -27,31 +27,32 @@ interface ThreadEntry {
 
 const labels = {
   "zh-CN": {
-    history: "已保存会话",
-    historyHint: "登录后会自动保存并展示最近会话。",
-    guestTitle: "临时对话",
-    guestHint: "当前为游客模式，对话仅在本次页面停留期间可见，不会保存到账号历史。",
+    history: "会话历史",
+    historyHint: "登录后会自动保存会话，并可从历史中继续查看。",
+    guestTitle: "临时会话",
+    guestHint: "未登录状态下，对话只保留在当前页面会话中，不会写入账号历史。",
     newSession: "新建会话",
-    placeholder: "例如：结合最近版本、比赛和通用思路，分析我 18 分钟左右 carry 节奏为什么总断。",
+    placeholder: "例如：结合最近补丁、赛事和通用思路，解释我为什么在 18 分钟左右 carry 节奏会断。",
     submit: "发送",
-    sending: "处理中...",
-    noSessions: "还没有已保存会话。",
-    noMessages: "发送第一条消息开始对话。",
+    sending: "思考中...",
+    noSessions: "还没有已保存的会话。",
+    noMessages: "发送第一条消息来开始对话。",
     user: "你",
+    assistant: "Agent",
     tool: "工具",
-    taskCall: "任务分派",
-    toolCall: "工具调用",
-    citations: "参考来源",
+    thinking: "Thinking",
+    result: "结果",
+    citations: "来源",
     status: {
       idle: "空闲",
-      running: "处理中",
+      running: "思考中",
       completed: "已完成",
       failed: "失败"
     },
     agents: {
-      orchestrator: "主 Agent",
-      researcher: "Researcher",
-      coach: "Coach"
+      orchestrator: "Agent",
+      researcher: "Agent",
+      coach: "Agent"
     } satisfies Record<AgentKind, string>
   },
   "en-US": {
@@ -63,24 +64,25 @@ const labels = {
     placeholder:
       "Example: Use recent patches, tournaments, and general context to explain why my carry tempo collapses around minute 18.",
     submit: "Send",
-    sending: "Running...",
+    sending: "Thinking...",
     noSessions: "No saved chats yet.",
     noMessages: "Send the first message to start the conversation.",
     user: "You",
+    assistant: "Agent",
     tool: "Tool",
-    taskCall: "Task",
-    toolCall: "Tool",
+    thinking: "Thinking",
+    result: "Result",
     citations: "Sources",
     status: {
       idle: "Idle",
-      running: "Running",
+      running: "Thinking",
       completed: "Completed",
       failed: "Failed"
     },
     agents: {
-      orchestrator: "Primary Agent",
-      researcher: "Researcher",
-      coach: "Coach"
+      orchestrator: "Agent",
+      researcher: "Agent",
+      coach: "Agent"
     } satisfies Record<AgentKind, string>
   }
 } satisfies Record<
@@ -97,9 +99,10 @@ const labels = {
     noSessions: string;
     noMessages: string;
     user: string;
+    assistant: string;
     tool: string;
-    taskCall: string;
-    toolCall: string;
+    thinking: string;
+    result: string;
     citations: string;
     status: Record<AgentSession["status"], string>;
     agents: Record<AgentKind, string>;
@@ -108,9 +111,9 @@ const labels = {
 
 const starterMap: Record<Language, string[]> = {
   "zh-CN": [
-    "分析一下最近版本里 carry 节奏容易断的关键时间点。",
-    "先让 Researcher 看版本和比赛，再让 Coach 给我一个 support 训练计划。",
-    "把我的问题拆成对线、节奏和团战三个阶段分别讲。"
+    "解释当前版本里，哪些时间窗最容易让 carry 节奏断掉。",
+    "结合最近补丁和赛事，说说 support 现在最该调整什么。",
+    "把我的问题拆成对线、节奏和团战三个阶段，告诉我每阶段应该复盘什么。"
   ],
   "en-US": [
     "Explain which timing windows usually break carry tempo in the current patch.",
@@ -153,8 +156,7 @@ function getSpeakerLabel(entry: ThreadEntry, locale: Language) {
   if (entry.message.role === "tool") {
     return copy.tool;
   }
-
-  return copy.agents[entry.session.agent];
+  return copy.assistant;
 }
 
 function getSpeakerTone(entry: ThreadEntry): string {
@@ -164,44 +166,17 @@ function getSpeakerTone(entry: ThreadEntry): string {
   if (entry.message.role === "tool") {
     return "tool";
   }
-
-  return entry.session.agent;
+  return "orchestrator";
 }
 
-function renderPartTitle(part: AgentMessagePart, locale: Language) {
-  const copy = labels[locale];
-  if (part.type === "task_call") {
-    return `${copy.taskCall} · ${copy.agents[part.subagent]}`;
+function formatToolName(tool: AgentToolName): string {
+  if (tool === "knowledge_search") {
+    return "Knowledge Search";
   }
-  if (part.type === "tool_call") {
-    return `${copy.toolCall} · ${part.tool}`;
+  if (tool === "dota_live_search") {
+    return "Dota Live Search";
   }
-  return null;
-}
-
-function formatPartTitle(part: AgentMessagePart, locale: Language) {
-  const copy = labels[locale];
-  if (part.type === "task_call") {
-    return `${copy.taskCall} · ${copy.agents[part.subagent]}`;
-  }
-  if (part.type === "tool_call") {
-    return `${copy.toolCall} · ${part.tool}`;
-  }
-  return null;
-}
-
-function formatStepLabel(step: number): string {
-  return `Step ${step}`;
-}
-
-function formatStepReason(reason: AgentStepFinishReason): string {
-  const labelsByReason: Record<AgentStepFinishReason, string> = {
-    tool_calls: "Tool calls",
-    completed: "Completed",
-    max_steps: "Max steps",
-    failed: "Failed"
-  };
-  return labelsByReason[reason];
+  return "Web Search";
 }
 
 export function ChatPage(props: { locale: Language; token: string | null }) {
@@ -449,41 +424,25 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
   }
 
   function renderMessagePart(part: AgentMessagePart, key: string): ReactNode {
-    const title = formatPartTitle(part, props.locale);
-
     if (part.type === "text") {
       return null;
     }
 
-    if (part.type === "step_start") {
+    if (part.type === "thinking") {
       return (
-        <div className="message-step-marker is-start" key={key}>
-          <span className="message-step-label">{formatStepLabel(part.step)}</span>
-          <span>{formatContentDateTime(part.startedAt, props.locale)}</span>
-        </div>
-      );
-    }
-
-    if (part.type === "step_finish") {
-      return (
-        <div className="message-step-marker is-finish" key={key}>
-          <span className="message-step-label">{formatStepLabel(part.step)}</span>
-          <span>{formatStepReason(part.reason)}</span>
-          <span>{formatContentDateTime(part.finishedAt, props.locale)}</span>
-        </div>
-      );
-    }
-
-    if (part.type === "tool_call") {
-      return (
-        <div className={`message-part-card part-${part.type}`} key={key}>
+        <div className={`message-part-card part-thinking${part.status === "running" ? " is-live" : ""}`} key={key}>
           <div className="message-part-head">
-            {title ? <strong>{title}</strong> : null}
+            <strong>{copy.thinking}</strong>
             <span className={`message-part-status is-${part.status}`}>{copy.status[part.status]}</span>
           </div>
-          {part.inputSummary ? <p className="message-part-note">{part.inputSummary}</p> : null}
-          {part.outputSummary ? <p>{part.outputSummary}</p> : null}
-          {renderCitations(part.citations)}
+          <p className="message-part-note">{part.summary}</p>
+          {part.status === "running" ? (
+            <div className="message-thinking-pulse" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+          ) : null}
         </div>
       );
     }
@@ -491,11 +450,12 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
     return (
       <div className={`message-part-card part-${part.type}`} key={key}>
         <div className="message-part-head">
-          {title ? <strong>{title}</strong> : null}
+          <strong>{formatToolName(part.tool)}</strong>
           <span className={`message-part-status is-${part.status}`}>{copy.status[part.status]}</span>
         </div>
-        <p>{part.summary}</p>
-        {part.instruction ? <p className="message-part-note">{part.instruction}</p> : null}
+        {part.inputSummary ? <p className="message-part-note">{part.inputSummary}</p> : null}
+        {part.outputSummary ? <p>{part.outputSummary}</p> : null}
+        {renderCitations(part.citations)}
       </div>
     );
   }
@@ -545,7 +505,6 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
         ) : null}
 
         <div className="agent-chat-main">
-
           {!isLoggedIn ? (
             <section className="agent-guest-note inline">
               <strong>{copy.guestTitle}</strong>
@@ -557,28 +516,32 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
             {threadEntries.length > 0 ? (
               <div className="agent-message-list">
                 {threadEntries.map((entry) => {
-                  const visibleParts = entry.message.parts.filter((part) => part.type !== "text");
-                  const speakerTone = getSpeakerTone(entry);
                   const isUser = entry.message.role === "user";
-                  const hasStructuredActivity = visibleParts.some(
-                    (part) => part.type === "tool_call" || part.type === "task_call"
+                  const visibleParts = entry.message.parts.filter((part) => part.type !== "text");
+                  const isAssistant = entry.message.role === "assistant";
+                  const hasActivity = visibleParts.length > 0;
+                  const resultText = entry.message.content.trim();
+                  const showPlainContent = !isAssistant || !hasActivity;
+                  const showResultBlock = isAssistant && hasActivity && resultText.length > 0;
+                  const isThinking = visibleParts.some(
+                    (part) => part.type === "thinking" && part.status === "running"
                   );
-                  const shouldShowContent =
-                    entry.message.content.trim().length > 0 &&
-                    (isUser || entry.message.role === "tool" || !hasStructuredActivity);
 
                   return (
-                    <article className={`agent-chat-message${isUser ? " is-user" : ""}`} key={entry.message.id}>
+                    <article
+                      className={`agent-chat-message${isUser ? " is-user" : ""}${isThinking ? " is-thinking" : ""}`}
+                      key={entry.message.id}
+                    >
                       <div className="agent-chat-bubble">
                         <div className="agent-chat-meta">
-                          <span className={`agent-speaker-pill tone-${speakerTone}`}>
+                          <span className={`agent-speaker-pill tone-${getSpeakerTone(entry)}`}>
                             {getSpeakerLabel(entry, props.locale)}
                           </span>
                           <span>{formatContentDateTime(entry.message.createdAt, props.locale)}</span>
                         </div>
 
-                        {shouldShowContent ? (
-                          <p className="agent-chat-content">{entry.message.content}</p>
+                        {showPlainContent && resultText ? (
+                          <p className="agent-chat-content">{resultText}</p>
                         ) : null}
 
                         {visibleParts.length > 0 ? (
@@ -586,6 +549,13 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
                             {visibleParts.map((part, index) =>
                               renderMessagePart(part, `${entry.message.id}-${index}`)
                             )}
+                          </div>
+                        ) : null}
+
+                        {showResultBlock ? (
+                          <div className="agent-result-block">
+                            <span className="agent-result-label">{copy.result}</span>
+                            <p className="agent-chat-content">{resultText}</p>
                           </div>
                         ) : null}
                       </div>

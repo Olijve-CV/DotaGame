@@ -135,19 +135,10 @@ export interface AgentTextPart {
   text: string;
 }
 
-export interface AgentStepStartPart {
-  type: "step_start";
-  step: number;
-  startedAt: string;
-}
-
-export type AgentStepFinishReason = "tool_calls" | "completed" | "max_steps" | "failed";
-
-export interface AgentStepFinishPart {
-  type: "step_finish";
-  step: number;
-  finishedAt: string;
-  reason: AgentStepFinishReason;
+export interface AgentThinkingPart {
+  type: "thinking";
+  status: AgentExecutionStatus;
+  summary: string;
 }
 
 export interface AgentToolCallPart {
@@ -160,22 +151,10 @@ export interface AgentToolCallPart {
   citations: ChatCitation[];
 }
 
-export interface AgentTaskCallPart {
-  type: "task_call";
-  taskId: string;
-  subagent: AgentKind;
-  status: AgentExecutionStatus;
-  childSessionId: string;
-  instruction: string;
-  summary: string;
-}
-
 export type AgentMessagePart =
   | AgentTextPart
-  | AgentStepStartPart
-  | AgentStepFinishPart
-  | AgentToolCallPart
-  | AgentTaskCallPart;
+  | AgentThinkingPart
+  | AgentToolCallPart;
 
 export interface AgentMessage {
   id: string;
