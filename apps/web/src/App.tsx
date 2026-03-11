@@ -14,6 +14,7 @@ import {
 } from "./lib/storage";
 import { ChatPage } from "./pages/ChatPage";
 import { DotaIntroPage } from "./pages/DotaIntroPage";
+import { HeroAtlasPage } from "./pages/HeroAtlasPage";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -21,6 +22,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 interface Copy {
   home: string;
   intro: string;
+  heroes: string;
   chat: string;
   profile: string;
   login: string;
@@ -31,24 +33,26 @@ interface Copy {
 
 const copyMap: Record<Language, Copy> = {
   "zh-CN": {
-    home: "情报台",
-    intro: "新手入门",
+    home: "情报首页",
+    intro: "新手指南",
+    heroes: "英雄图谱",
     chat: "智能问答",
     profile: "个人资料",
     login: "登录",
     logout: "退出登录",
     title: "Dota 2 情报台",
-    subtitle: "版本、入门和对局问答放进一个更紧凑的前台。"
+    subtitle: "把版本、入门知识、英雄图谱和对局问答收在同一个前台。"
   },
   "en-US": {
     home: "Intel Desk",
     intro: "Starter Guide",
+    heroes: "Hero Atlas",
     chat: "Agent Chat",
     profile: "Profile",
     login: "Login",
     logout: "Logout",
     title: "Dota 2 Intel Desk",
-    subtitle: "Patch, onboarding, and match Q&A in one tighter front desk."
+    subtitle: "Patch, onboarding, hero atlas, and match Q&A in one tighter front desk."
   }
 };
 
@@ -242,6 +246,9 @@ export function App() {
         <NavLink className={({ isActive }) => `nav-link${isActive ? " active" : ""}`} to="/intro">
           {copy.intro}
         </NavLink>
+        <NavLink className={({ isActive }) => `nav-link${isActive ? " active" : ""}`} to="/heroes">
+          {copy.heroes}
+        </NavLink>
         <NavLink className={({ isActive }) => `nav-link${isActive ? " active" : ""}`} to="/chat">
           {copy.chat}
         </NavLink>
@@ -254,10 +261,18 @@ export function App() {
             element={<HomePage locale={locale} token={token} onUserLoaded={handleUserLoaded} />}
           />
           <Route path="/intro" element={<DotaIntroPage locale={locale} />} />
+          <Route path="/heroes" element={<HeroAtlasPage locale={locale} />} />
           <Route path="/chat" element={<ChatPage locale={locale} token={token} />} />
           <Route
             path="/profile"
-            element={<ProfilePage locale={locale} token={token} user={user} onUserLoaded={handleUserLoaded} />}
+            element={
+              <ProfilePage
+                locale={locale}
+                token={token}
+                user={user}
+                onUserLoaded={handleUserLoaded}
+              />
+            }
           />
           <Route
             path="/login"

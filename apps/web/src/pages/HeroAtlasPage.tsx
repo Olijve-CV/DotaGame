@@ -1,0 +1,495 @@
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
+import { Link } from "react-router-dom";
+import type { HeroAvatarOption, HeroPrimaryAttribute, Language } from "@dotagame/contracts";
+import { copyMap as introCopyMap, HERO_IMAGE_FALLBACKS } from "../components/DotaIntroData";
+import { buildHeroAtlas } from "../components/heroAtlasCatalog";
+import { fetchHeroAvatars } from "../lib/api";
+
+type AttributeFilterKey = "allHeroes" | HeroPrimaryAttribute | "unknown";
+
+const FILTER_ORDER: AttributeFilterKey[] = ["allHeroes", "str", "agi", "int", "all", "unknown"];
+
+const attributeLabels: Record<Language, Record<HeroPrimaryAttribute, string>> = {
+  "zh-CN": {
+    str: "力量",
+    agi: "敏捷",
+    int: "智力",
+    all: "全才"
+  },
+  "en-US": {
+    str: "Strength",
+    agi: "Agility",
+    int: "Intelligence",
+    all: "Universal"
+  }
+};
+
+const attackLabels = {
+  "zh-CN": {
+    Melee: "近战",
+    Ranged: "远程"
+  },
+  "en-US": {
+    Melee: "Melee",
+    Ranged: "Ranged"
+  }
+} as const;
+
+const pageCopy = {
+  "zh-CN": {
+    kicker: "Hero Atlas",
+    title: "像官方英雄页一样浏览整套英雄池",
+    summary:
+      "把英雄页改成单独的沉浸式浏览器。先在上方聚焦当前英雄，再用属性筛选和海报墙快速切换目标，比原先按段落翻找更接近 Dota 2 官方英雄页的阅读方式。",
+    search: "搜索英雄名称",
+    loading: "正在载入英雄图谱...",
+    empty: "当前筛选下没有匹配的英雄。",
+    allHeroes: "全部英雄",
+    countLabel: "英雄总数",
+    visibleLabel: "当前结果",
+    attrLabel: "主属性",
+    attackLabel: "攻击方式",
+    roleLabel: "定位视角",
+    tagsLabel: "公开标签",
+    rosterTitle: "英雄矩阵",
+    rosterHint: "点击下方英雄卡切换聚焦内容。",
+    rolesTitle: "英雄身份",
+    skillsTitle: "核心技能",
+    overviewTitle: "英雄概览",
+    backIntro: "返回新手指南",
+    openChat: "打开智能问答",
+    filters: {
+      allHeroes: {
+        label: "全部",
+        hint: "浏览完整英雄池。"
+      },
+      str: {
+        label: "力量",
+        hint: "更偏前排、承伤、开团与强行接战。"
+      },
+      agi: {
+        label: "敏捷",
+        hint: "更偏持续输出、机动与成长型核心。"
+      },
+      int: {
+        label: "智力",
+        hint: "更偏技能驱动、控制、爆发和节奏。"
+      },
+      all: {
+        label: "全才",
+        hint: "属性成长更灵活，打法经常跨定位。"
+      },
+      unknown: {
+        label: "未标注",
+        hint: "接口暂未返回主属性的英雄。"
+      }
+    }
+  },
+  "en-US": {
+    kicker: "Hero Atlas",
+    title: "Browse the roster like the official heroes page",
+    summary:
+      "The page now works like a dedicated hero browser. Keep one hero in the spotlight, then switch quickly with attribute tabs and a dense hero wall instead of paging through separate grouped sections.",
+    search: "Search hero names",
+    loading: "Loading hero atlas...",
+    empty: "No heroes matched this filter.",
+    allHeroes: "All Heroes",
+    countLabel: "Total Heroes",
+    visibleLabel: "Visible Now",
+    attrLabel: "Primary Attribute",
+    attackLabel: "Attack Type",
+    roleLabel: "Atlas Lens",
+    tagsLabel: "Public Tags",
+    rosterTitle: "Hero Roster",
+    rosterHint: "Use the cards below to swap the spotlight hero instantly.",
+    rolesTitle: "Hero Identity",
+    skillsTitle: "Core Skills",
+    overviewTitle: "Overview",
+    backIntro: "Back to Starter Guide",
+    openChat: "Open Agent Chat",
+    filters: {
+      allHeroes: {
+        label: "All",
+        hint: "Browse the full hero pool."
+      },
+      str: {
+        label: "Strength",
+        hint: "Frontline pressure, initiation, and durability."
+      },
+      agi: {
+        label: "Agility",
+        hint: "Scaling damage, mobility, and farming cores."
+      },
+      int: {
+        label: "Intelligence",
+        hint: "Spell-heavy control, burst, and tempo."
+      },
+      all: {
+        label: "Universal",
+        hint: "Flexible stat lines that bend across jobs."
+      },
+      unknown: {
+        label: "Unclassified",
+        hint: "Heroes without a returned primary attribute."
+      }
+    }
+  }
+} satisfies Record<
+  Language,
+  {
+    kicker: string;
+    title: string;
+    summary: string;
+    search: string;
+    loading: string;
+    empty: string;
+    allHeroes: string;
+    countLabel: string;
+    visibleLabel: string;
+    attrLabel: string;
+    attackLabel: string;
+    roleLabel: string;
+    tagsLabel: string;
+    rosterTitle: string;
+    rosterHint: string;
+    rolesTitle: string;
+    skillsTitle: string;
+    overviewTitle: string;
+    backIntro: string;
+    openChat: string;
+    filters: Record<AttributeFilterKey, { label: string; hint: string }>;
+  }
+>;
+
+export function HeroAtlasPage(props: { locale: Language }) {
+  const pageText = pageCopy[props.locale];
+  const introText = introCopyMap[props.locale];
+  const [avatars, setAvatars] = useState<HeroAvatarOption[]>([]);
+  const [isLoadingAvatars, setIsLoadingAvatars] = useState(true);
+  const [query, setQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState<AttributeFilterKey>("allHeroes");
+  const [selectedHeroName, setSelectedHeroName] = useState("");
+  const deferredQuery = useDeferredValue(query);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoadingAvatars(true);
+    fetchHeroAvatars()
+      .then((items) => {
+        if (active) {
+          setAvatars(items);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setAvatars([]);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setIsLoadingAvatars(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const heroAtlas = useMemo(
+    () => buildHeroAtlas(props.locale, avatars, introText.heroSpotlights),
+    [avatars, introText.heroSpotlights, props.locale]
+  );
+
+  const heroCounts = useMemo(() => {
+    const counts = {
+      allHeroes: heroAtlas.length,
+      str: 0,
+      agi: 0,
+      int: 0,
+      all: 0,
+      unknown: 0
+    } satisfies Record<AttributeFilterKey, number>;
+
+    for (const hero of heroAtlas) {
+      const key = hero.primaryAttr ?? "unknown";
+      counts[key] += 1;
+    }
+
+    return counts;
+  }, [heroAtlas]);
+
+  const normalizedQuery = deferredQuery.trim().toLowerCase();
+
+  const visibleHeroes = useMemo(() => {
+    return heroAtlas.filter((hero) => {
+      const matchesFilter =
+        activeFilter === "allHeroes"
+          ? true
+          : activeFilter === "unknown"
+            ? !hero.primaryAttr
+            : hero.primaryAttr === activeFilter;
+
+      if (!matchesFilter) {
+        return false;
+      }
+
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      return hero.name.toLowerCase().includes(normalizedQuery);
+    });
+  }, [activeFilter, heroAtlas, normalizedQuery]);
+
+  useEffect(() => {
+    if (visibleHeroes.some((hero) => hero.name === selectedHeroName)) {
+      return;
+    }
+
+    setSelectedHeroName(visibleHeroes[0]?.name ?? heroAtlas[0]?.name ?? "");
+  }, [heroAtlas, selectedHeroName, visibleHeroes]);
+
+  const selectedHero =
+    visibleHeroes.find((hero) => hero.name === selectedHeroName) ??
+    visibleHeroes[0] ??
+    heroAtlas[0];
+
+  const selectedHeroImage = selectedHero
+    ? selectedHero.image ?? HERO_IMAGE_FALLBACKS[selectedHero.name]
+    : undefined;
+
+  const selectedFilter = pageText.filters[activeFilter];
+  const selectedHeroStyle = {
+    "--hero-accent": selectedHero?.accent ?? "#c1462f"
+  } as CSSProperties;
+
+  function getFilterTone(filterKey: AttributeFilterKey) {
+    return filterKey === "allHeroes" ? "pool" : filterKey;
+  }
+
+  return (
+    <section className="stack hero-atlas-page official-hero-browser">
+      <section className="panel hero-browser-hero">
+        <div className="hero-browser-hero-copy">
+          <p className="section-kicker">{pageText.kicker}</p>
+          <h2>{pageText.title}</h2>
+          <p className="hero-browser-summary">{pageText.summary}</p>
+
+          <div className="hero-browser-actions">
+            <Link className="ghost-btn" to="/intro">
+              {pageText.backIntro}
+            </Link>
+            <Link className="primary-btn" to="/chat">
+              {pageText.openChat}
+            </Link>
+          </div>
+        </div>
+
+        <div className="hero-browser-topline">
+          <article className="hero-browser-metric">
+            <span>{pageText.countLabel}</span>
+            <strong>{heroCounts.allHeroes}</strong>
+          </article>
+          <article className="hero-browser-metric">
+            <span>{pageText.visibleLabel}</span>
+            <strong>{visibleHeroes.length}</strong>
+          </article>
+          <article className="hero-browser-metric hero-browser-metric-wide">
+            <span>{selectedFilter.label}</span>
+            <strong>{selectedFilter.hint}</strong>
+          </article>
+        </div>
+      </section>
+
+      <section className="panel hero-browser-controls">
+        <div className="hero-browser-filter-row">
+          {FILTER_ORDER.map((filterKey) => (
+            <button
+              className={`hero-browser-filter tone-${getFilterTone(filterKey)}${activeFilter === filterKey ? " active" : ""}`}
+              key={filterKey}
+              onClick={() => setActiveFilter(filterKey)}
+              type="button"
+            >
+              <span className={`hero-browser-filter-icon tone-${getFilterTone(filterKey)}`} aria-hidden="true">
+                <span className={`hero-browser-filter-glyph glyph-${getFilterTone(filterKey)}`}>
+                  <span className="glyph-core" />
+                  <span className="glyph-orbit orbit-a" />
+                  <span className="glyph-orbit orbit-b" />
+                  <span className="glyph-orbit orbit-c" />
+                </span>
+              </span>
+              <span className="hero-browser-filter-copy">
+                <span>{pageText.filters[filterKey].label}</span>
+                <strong>{heroCounts[filterKey]}</strong>
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="hero-browser-search-row">
+          <input
+            className="hero-browser-search"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={pageText.search}
+            value={query}
+          />
+          <p className="hero-browser-search-hint">{selectedFilter.hint}</p>
+        </div>
+      </section>
+
+      {isLoadingAvatars && <p className="muted">{pageText.loading}</p>}
+
+      {selectedHero ? (
+        <section className="hero-browser-stage" style={selectedHeroStyle}>
+          <article className="hero-browser-stage-main panel">
+            <div className="hero-browser-stage-backdrop">
+              {selectedHeroImage ? (
+                <img
+                  alt=""
+                  aria-hidden="true"
+                  className="hero-browser-stage-bg"
+                  src={selectedHeroImage}
+                />
+              ) : null}
+              {selectedHeroImage ? (
+                <img alt={selectedHero.name} className="hero-browser-stage-art" src={selectedHeroImage} />
+              ) : (
+                <div className="hero-browser-stage-placeholder">{selectedHero.name.slice(0, 2)}</div>
+              )}
+            </div>
+
+            <div className="hero-browser-stage-overlay" />
+
+            <div className="hero-browser-stage-copy">
+              <p className="hero-browser-stage-kicker">{selectedHero.roleLabel}</p>
+              <h3>{selectedHero.name}</h3>
+
+              <div className="hero-browser-stage-badges">
+                <span className="hero-browser-badge">
+                  {pageText.attrLabel}:{" "}
+                  {selectedHero.primaryAttr
+                    ? attributeLabels[props.locale][selectedHero.primaryAttr]
+                    : pageText.filters.unknown.label}
+                </span>
+                {selectedHero.attackType ? (
+                  <span className="hero-browser-badge">
+                    {pageText.attackLabel}: {attackLabels[props.locale][selectedHero.attackType]}
+                  </span>
+                ) : null}
+                <span className="hero-browser-badge">
+                  {pageText.roleLabel}: {selectedHero.roleLabel}
+                </span>
+              </div>
+
+              <p className="hero-browser-stage-summary">{selectedHero.overview}</p>
+
+              <div className="hero-browser-identity-grid">
+                <article className="hero-browser-identity-card">
+                  <span>{introText.laneLabel}</span>
+                  <strong>{selectedHero.lane}</strong>
+                </article>
+                <article className="hero-browser-identity-card">
+                  <span>{introText.difficultyLabel}</span>
+                  <strong>{selectedHero.difficulty}</strong>
+                </article>
+                <article className="hero-browser-identity-card">
+                  <span>{introText.specialtyLabel}</span>
+                  <strong>{selectedHero.specialty}</strong>
+                </article>
+                <article className="hero-browser-identity-card">
+                  <span>{introText.timingLabel}</span>
+                  <strong>{selectedHero.timing}</strong>
+                </article>
+              </div>
+            </div>
+          </article>
+
+          <aside className="hero-browser-side">
+            <section className="panel hero-browser-side-panel">
+              <div className="hero-browser-side-head">
+                <p className="section-kicker">{pageText.rolesTitle}</p>
+                <h4>{pageText.overviewTitle}</h4>
+              </div>
+              <p className="hero-browser-side-copy">{selectedHero.overview}</p>
+
+              <div className="hero-browser-tag-row">
+                {selectedHero.roles.map((role) => (
+                  <span className="hero-browser-tag" key={`${selectedHero.name}-${role}`}>
+                    {role}
+                  </span>
+                ))}
+              </div>
+
+              <div className="hero-browser-side-meta">
+                <span>{pageText.tagsLabel}</span>
+                <strong>{selectedHero.roles.join(", ")}</strong>
+              </div>
+            </section>
+
+            <section className="panel hero-browser-side-panel">
+              <div className="hero-browser-side-head">
+                <p className="section-kicker">{pageText.skillsTitle}</p>
+                <h4>{introText.skillsLabel}</h4>
+              </div>
+
+              <div className="hero-browser-skill-list">
+                {selectedHero.skills.map((skill) => (
+                  <article className="hero-browser-skill-card" key={`${selectedHero.name}-${skill.name}`}>
+                    <strong>{skill.name}</strong>
+                    <p>{skill.detail}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </aside>
+        </section>
+      ) : (
+        !isLoadingAvatars && <p className="muted">{pageText.empty}</p>
+      )}
+
+      <section className="panel hero-browser-roster">
+        <div className="hero-browser-roster-head">
+          <div>
+            <p className="section-kicker">{pageText.kicker}</p>
+            <h3>{pageText.rosterTitle}</h3>
+          </div>
+          <p className="muted">{pageText.rosterHint}</p>
+        </div>
+
+        <div className="hero-browser-roster-grid">
+          {visibleHeroes.map((hero) => {
+            const heroImage = hero.image ?? HERO_IMAGE_FALLBACKS[hero.name];
+            const isSelected = hero.name === selectedHero?.name;
+            const cardStyle = {
+              "--hero-card-accent": hero.accent
+            } as CSSProperties;
+
+            return (
+              <button
+                className={`hero-browser-card${isSelected ? " selected" : ""}`}
+                key={hero.name}
+                onClick={() => setSelectedHeroName(hero.name)}
+                style={cardStyle}
+                type="button"
+              >
+                {heroImage ? (
+                  <img alt={hero.name} className="hero-browser-card-image" src={heroImage} />
+                ) : (
+                  <span className="hero-browser-card-placeholder">{hero.name.slice(0, 2)}</span>
+                )}
+                <span className="hero-browser-card-shadow" />
+                <span className={`hero-browser-card-mark tone-${getFilterTone(hero.primaryAttr ?? "unknown")}`} />
+                <span className="hero-browser-card-copy">
+                  <strong>{hero.name}</strong>
+                  <span>{hero.roleLabel}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    </section>
+  );
+}

@@ -215,10 +215,7 @@ function formatToolName(tool: AgentToolName): string {
   if (tool === "knowledge_search") {
     return "Knowledge Search";
   }
-  if (tool === "dota_live_search") {
-    return "Dota Live Search";
-  }
-  return "Web Search";
+  return "Websearch";
 }
 
 function formatDuration(durationMs: number | null, locale: Language): string {

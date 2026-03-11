@@ -42,8 +42,7 @@ sequenceDiagram
     participant O as OpenAI Chat
     participant T as Agent Tools
     participant K as knowledge_search
-    participant D as dota_live_search
-    participant G as web_search
+    participant G as websearch
 
     U->>W: Enter message and submit
 
@@ -110,11 +109,8 @@ sequenceDiagram
                 alt knowledge_search
                     T->>K: retrieveRagContext()
                     K-->>T: summary + citations
-                else dota_live_search
-                    T->>D: listArticles/listPatchNotes/listTournaments
-                    D-->>T: summary + citations
-                else web_search
-                    T->>G: OpenAI Responses web_search
+                else websearch
+                    T->>G: Exa MCP websearch
                     G-->>T: summary + citations
                 end
 
@@ -157,7 +153,7 @@ flowchart TD
     D --> E[Create assistant step_start]
     E --> F{Model decision}
     F -->|Answer directly| G[Write final answer]
-    F -->|Call tools| H[knowledge_search or dota_live_search or web_search]
+    F -->|Call tools| H[knowledge_search or websearch]
     H --> I[Write tool results into current assistant message]
     I --> E
     G --> J[Set session completed]
@@ -178,7 +174,7 @@ flowchart TD
 - Agent routes: `apps/api/src/routes/agentRoutes.ts`
 - Runtime loop: `apps/api/src/services/agent/agentRuntimeService.ts`
 - Tool implementations: `apps/api/src/services/agent/agentTools.ts`
-- OpenAI web search wrapper: `apps/api/src/services/agent/openAiWebSearchService.ts`
+- Websearch wrapper: `apps/api/src/services/agent/webSearchService.ts`
 - Event bus: `apps/api/src/services/agent/agentEventBus.ts`
 - In-memory session store: `apps/api/src/repo/agentStore.ts`
 - Frontend API client: `apps/web/src/lib/api.ts`

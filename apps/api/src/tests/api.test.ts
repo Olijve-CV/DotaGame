@@ -64,19 +64,11 @@ describe("API v1", () => {
                 content: "",
                 tool_calls: [
                   {
-                    id: "call-dota-live",
-                    type: "function",
-                    function: {
-                      name: "dota_live_search",
-                      arguments: JSON.stringify({ input: userMessage })
-                    }
-                  },
-                  {
                     id: "call-web",
                     type: "function",
                     function: {
-                      name: "web_search",
-                      arguments: JSON.stringify({ input: userMessage })
+                      name: "websearch",
+                      arguments: JSON.stringify({ query: `${userMessage} 2026`, type: "deep" })
                     }
                   }
                 ]
@@ -102,11 +94,11 @@ describe("API v1", () => {
                     }
                   },
                   {
-                    id: "call-dota-live",
+                    id: "call-web",
                     type: "function",
                     function: {
-                      name: "dota_live_search",
-                      arguments: JSON.stringify({ input: userMessage })
+                      name: "websearch",
+                      arguments: JSON.stringify({ query: `${userMessage} 2026`, numResults: 5 })
                     }
                   }
                 ]
@@ -137,17 +129,16 @@ describe("API v1", () => {
       });
     }
 
-    if (url.endsWith("/responses")) {
+    if (url.endsWith("/mcp")) {
       return jsonResponse({
-        output_text: "General web search found these sources:\n1. Recent support meta roundup (example.com)",
-        output: [
-          {
-            type: "web_search_call",
-            action: {
-              sources: [{ title: "Recent support meta roundup", url: "https://example.com/support-meta" }]
+        result: {
+          content: [
+            {
+              type: "text",
+              text: "Recent support meta roundup https://example.com/support-meta"
             }
-          }
-        ]
+          ]
+        }
       });
     }
 
@@ -340,7 +331,7 @@ describe("API v1", () => {
     ).toBe(true);
   });
 
-  it("runs web_search and dota_live_search in the main session for time-sensitive questions", async () => {
+  it("runs websearch in the main session for time-sensitive questions", async () => {
     const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
       language: "en-US"
     });
@@ -357,12 +348,7 @@ describe("API v1", () => {
 
     expect(
       completedResponse.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
-        (message.parts ?? []).some((part) => part.tool === "web_search")
-      )
-    ).toBe(true);
-    expect(
-      completedResponse.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
-        (message.parts ?? []).some((part) => part.tool === "dota_live_search")
+        (message.parts ?? []).some((part) => part.tool === "websearch")
       )
     ).toBe(true);
   });
@@ -389,7 +375,7 @@ describe("API v1", () => {
     ).toBe(true);
     expect(
       completedResponse.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
-        (message.parts ?? []).some((part) => part.tool === "web_search")
+        (message.parts ?? []).some((part) => part.tool === "websearch")
       )
     ).toBe(false);
     expect(completedResponse.body.children).toEqual([]);

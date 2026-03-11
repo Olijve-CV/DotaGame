@@ -7,11 +7,8 @@ export interface RagRuntimeConfig {
   openAiBaseUrl: string;
   embeddingModel: string;
   chatModel: string;
-  webSearchModel: string;
-  webSearchCountry: string | undefined;
-  webSearchCity: string | undefined;
-  webSearchRegion: string | undefined;
-  webSearchTimezone: string | undefined;
+  webSearchBaseUrl: string;
+  webSearchTimeoutMs: number;
 }
 
 export function getRagConfig(): RagRuntimeConfig {
@@ -24,10 +21,7 @@ export function getRagConfig(): RagRuntimeConfig {
     openAiBaseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
     embeddingModel: process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small",
     chatModel: process.env.OPENAI_CHAT_MODEL ?? "gpt-4.1-mini",
-    webSearchModel: process.env.OPENAI_WEB_SEARCH_MODEL ?? "o4-mini",
-    webSearchCountry: process.env.OPENAI_WEB_SEARCH_COUNTRY,
-    webSearchCity: process.env.OPENAI_WEB_SEARCH_CITY,
-    webSearchRegion: process.env.OPENAI_WEB_SEARCH_REGION,
-    webSearchTimezone: process.env.OPENAI_WEB_SEARCH_TIMEZONE
+    webSearchBaseUrl: process.env.WEBSEARCH_BASE_URL ?? "https://mcp.exa.ai",
+    webSearchTimeoutMs: Number(process.env.WEBSEARCH_TIMEOUT_MS ?? "25000")
   };
 }

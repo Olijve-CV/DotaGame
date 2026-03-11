@@ -96,7 +96,7 @@ export interface ChatSessionRecord {
 
 export type AgentKind = "orchestrator" | "researcher" | "coach";
 
-export type AgentToolName = "knowledge_search" | "web_search" | "dota_live_search";
+export type AgentToolName = "knowledge_search" | "websearch";
 
 export type AgentSessionStatus = "idle" | "running" | "completed" | "failed";
 

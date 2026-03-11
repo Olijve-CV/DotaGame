@@ -1,102 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
-import type { HeroAvatarOption, Language } from "@dotagame/contracts";
-import { fetchHeroAvatars } from "../lib/api";
-import { copyMap, HEROES_PER_PAGE, HERO_IMAGE_FALLBACKS, type RoleKey } from "./DotaIntroData";
-import { buildHeroAtlas } from "./heroAtlasCatalog";
+import { Link } from "react-router-dom";
+import type { Language } from "@dotagame/contracts";
+import { copyMap } from "./DotaIntroData";
 
 export function DotaIntroSection(props: { locale: Language }) {
   const copy = copyMap[props.locale];
-  const genericProfileLabel = props.locale === "zh-CN" ? "英雄档案" : "Hero Profile";
-  const genericProfileHint =
-    props.locale === "zh-CN"
-      ? "该条目当前展示完整英雄目录的基础资料；若命中精选英雄，会显示更深入的技能说明。"
-      : "This entry currently shows baseline catalog data from the full hero roster. Curated heroes still surface deeper spell-by-spell notes.";
-  const [avatars, setAvatars] = useState<HeroAvatarOption[]>([]);
-  const [isLoadingAvatars, setIsLoadingAvatars] = useState(true);
-  const [activeRole, setActiveRole] = useState<RoleKey>("all");
-  const [currentPage, setCurrentPage] = useState(0);
-  const [selectedHeroName, setSelectedHeroName] = useState(copy.heroSpotlights[0]?.name ?? "");
-
-  useEffect(() => {
-    let active = true;
-    setIsLoadingAvatars(true);
-    fetchHeroAvatars()
-      .then((items) => {
-        if (active) {
-          setAvatars(items);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setAvatars([]);
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setIsLoadingAvatars(false);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const heroAtlas = useMemo(
-    () => buildHeroAtlas(props.locale, avatars, copy.heroSpotlights),
-    [avatars, copy.heroSpotlights, props.locale]
-  );
-
-  const filteredHeroes = useMemo(() => {
-    if (activeRole === "all") {
-      return heroAtlas;
-    }
-
-    return heroAtlas.filter((hero) => hero.role === activeRole);
-  }, [activeRole, heroAtlas]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredHeroes.length / HEROES_PER_PAGE));
-  const safePage = Math.min(currentPage, totalPages - 1);
-
-  const pagedHeroes = useMemo(() => {
-    const start = safePage * HEROES_PER_PAGE;
-    return filteredHeroes.slice(start, start + HEROES_PER_PAGE);
-  }, [filteredHeroes, safePage]);
-
-  const avatarMap = useMemo(
-    () => new Map(avatars.map((item) => [item.name, item.image])),
-    [avatars]
-  );
-
-  useEffect(() => {
-    if (currentPage !== safePage) {
-      setCurrentPage(safePage);
-    }
-  }, [currentPage, safePage]);
-
-  useEffect(() => {
-    if (pagedHeroes.some((hero) => hero.name === selectedHeroName)) {
-      return;
-    }
-
-    setSelectedHeroName(pagedHeroes[0]?.name ?? heroAtlas[0]?.name ?? "");
-  }, [heroAtlas, pagedHeroes, selectedHeroName]);
-
-  const selectedHero =
-    pagedHeroes.find((hero) => hero.name === selectedHeroName) ??
-    pagedHeroes[0] ??
-    filteredHeroes[0] ??
-    heroAtlas[0];
-
-  const selectedHeroImage = selectedHero
-    ? selectedHero.image ?? avatarMap.get(selectedHero.name) ?? HERO_IMAGE_FALLBACKS[selectedHero.name]
-    : undefined;
-
-  function handleRoleFilter(role: RoleKey) {
-    setActiveRole(role);
-    setCurrentPage(0);
-  }
 
   return (
     <section className="dota-intro panel">
@@ -178,7 +85,7 @@ export function DotaIntroSection(props: { locale: Language }) {
           </div>
         </section>
 
-        <section className="dota-intro-block dota-atlas-block">
+        <section className="dota-intro-block">
           <div className="section-heading compact">
             <div>
               <p className="section-kicker">Hero Atlas</p>
@@ -187,133 +94,19 @@ export function DotaIntroSection(props: { locale: Language }) {
             <p className="dota-intro-summary compact">{copy.atlasSubtitle}</p>
           </div>
 
-          <div className="chip-row dota-role-filters">
-            {copy.roleFilters.map((filter) => (
-              <button
-                className={activeRole === filter.key ? "active" : ""}
-                key={filter.key}
-                onClick={() => handleRoleFilter(filter.key)}
-                type="button"
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="dota-atlas-toolbar">
-            <p className="dota-atlas-meta">
-              {copy.atlasHeroesLabel}: {filteredHeroes.length}
-            </p>
-            {totalPages > 1 && (
-              <div className="dota-atlas-pagination">
-                <button disabled={safePage === 0} onClick={() => setCurrentPage((page) => page - 1)} type="button">
-                  {copy.atlasPrevLabel}
-                </button>
-                <span>
-                  {copy.atlasPageLabel} {safePage + 1} / {totalPages}
-                </span>
-                <button
-                  disabled={safePage >= totalPages - 1}
-                  onClick={() => setCurrentPage((page) => page + 1)}
-                  type="button"
-                >
-                  {copy.atlasNextLabel}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {isLoadingAvatars && <p className="muted">{copy.atlasLoading}</p>}
-
-          {selectedHero && (
-            <div
-              className="dota-spotlight"
-              style={{ "--hero-accent": selectedHero.accent } as CSSProperties}
-            >
-              <article className="dota-spotlight-poster">
-                <div className="dota-spotlight-overlay" />
-                <div className="dota-spotlight-poster-head">
-                  <span>{selectedHero.roleLabel}</span>
-                  <h4>{selectedHero.name}</h4>
-                </div>
-
-                {selectedHeroImage ? (
-                  <img
-                    alt={selectedHero.name}
-                    className="dota-spotlight-image"
-                    src={selectedHeroImage}
-                  />
-                ) : (
-                  <div className="dota-spotlight-placeholder">{selectedHero.name.slice(0, 2)}</div>
-                )}
-
-                <div className="dota-spotlight-stats">
-                  <article>
-                    <span>{copy.laneLabel}</span>
-                    <strong>{selectedHero.lane}</strong>
-                  </article>
-                  <article>
-                    <span>{copy.difficultyLabel}</span>
-                    <strong>{selectedHero.difficulty}</strong>
-                  </article>
-                  <article>
-                    <span>{copy.specialtyLabel}</span>
-                    <strong>{selectedHero.specialty}</strong>
-                  </article>
-                  <article>
-                    <span>{copy.timingLabel}</span>
-                    <strong>{selectedHero.timing}</strong>
-                  </article>
-                </div>
-              </article>
-
-              <article className="dota-spotlight-details">
-                <div className="dota-spotlight-section">
-                  <span className="dota-spotlight-label">{copy.overviewLabel}</span>
-                  <p>{selectedHero.overview}</p>
-                </div>
-
-                <div className="dota-spotlight-section">
-                  <span className="dota-spotlight-label">
-                    {selectedHero.isCurated ? copy.skillsLabel : genericProfileLabel}
-                  </span>
-                  {!selectedHero.isCurated && <p>{genericProfileHint}</p>}
-                  <div className="dota-skill-detail-list">
-                    {selectedHero.skills.map((skill) => (
-                      <article className="dota-skill-detail-card" key={`${selectedHero.name}-${skill.name}`}>
-                        <strong>{skill.name}</strong>
-                        <p>{skill.detail}</p>
-                      </article>
-                    ))}
-                  </div>
-                </div>
-              </article>
+          <article className="dota-atlas-redirect-card">
+            <div>
+              <strong>{props.locale === "zh-CN" ? "英雄图谱已拆分为独立页面" : "The hero atlas now has its own page"}</strong>
+              <p>
+                {props.locale === "zh-CN"
+                  ? "按主属性浏览整套英雄池，会比在新手指南里分页翻找更直接。"
+                  : "Browse the roster by primary attribute instead of paging through it inside the guide."}
+              </p>
             </div>
-          )}
-
-          <div className="dota-gallery-grid">
-            {pagedHeroes.map((hero) => {
-              const heroImage = hero.image ?? avatarMap.get(hero.name) ?? HERO_IMAGE_FALLBACKS[hero.name];
-              const isSelected = hero.name === selectedHero?.name;
-
-              return (
-                <button
-                  className={`dota-gallery-card${isSelected ? " selected" : ""}`}
-                  key={hero.name}
-                  onClick={() => setSelectedHeroName(hero.name)}
-                  type="button"
-                >
-                  {heroImage ? (
-                    <img alt={hero.name} className="dota-gallery-card-image" src={heroImage} />
-                  ) : (
-                    <span className="dota-gallery-card-placeholder">{hero.name.slice(0, 2)}</span>
-                  )}
-                  <span className="dota-gallery-card-name">{hero.name}</span>
-                  <span className="dota-gallery-card-role">{hero.roleLabel}</span>
-                </button>
-              );
-            })}
-          </div>
+            <Link className="primary-btn" to="/heroes">
+              {props.locale === "zh-CN" ? "打开英雄图谱" : "Open Hero Atlas"}
+            </Link>
+          </article>
         </section>
       </div>
     </section>

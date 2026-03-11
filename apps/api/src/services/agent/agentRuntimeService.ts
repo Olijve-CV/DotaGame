@@ -20,7 +20,8 @@ import {
 import { addChatSession } from "../../repo/inMemoryStore.js";
 import { logger } from "../../lib/logger.js";
 import { publishAgentSessionEvent } from "./agentEventBus.js";
-import { runDotaLiveSearch, runKnowledgeSearch, runWebSearch } from "./agentTools.js";
+import { runKnowledgeSearch, runWebSearch } from "./agentTools.js";
+import type { WebSearchToolInput } from "./webSearchService.js";
 import { getRagConfig } from "../rag/config.js";
 import { buildApiUrl } from "../rag/http.js";
 
@@ -52,6 +53,7 @@ interface AgentStepResult {
     tool: AgentToolName;
     input: string;
     rawArguments: string;
+    webSearchInput: WebSearchToolInput | null;
   }>;
 }
 
@@ -59,6 +61,14 @@ interface ToolExecutionPacket {
   tool: AgentToolName;
   summary: string;
   citations: ChatCitation[];
+}
+
+function isWebSearchType(value: unknown): value is WebSearchToolInput["type"] {
+  return value === "auto" || value === "fast" || value === "deep";
+}
+
+function isWebSearchLivecrawl(value: unknown): value is WebSearchToolInput["livecrawl"] {
+  return value === "fallback" || value === "preferred";
 }
 
 const activeTurns = new Set<string>();
@@ -266,8 +276,58 @@ function normalizeToolInput(input: string): string {
   return input.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function buildToolCacheKey(tool: AgentToolName, input: string): string {
-  return `${tool}:${normalizeToolInput(input)}`;
+function normalizeWebSearchInput(input: WebSearchToolInput): WebSearchToolInput {
+  return {
+    query: normalizeToolInput(input.query),
+    numResults:
+      typeof input.numResults === "number" && Number.isFinite(input.numResults)
+        ? Math.max(1, Math.min(25, Math.round(input.numResults)))
+        : undefined,
+    livecrawl: isWebSearchLivecrawl(input.livecrawl) ? input.livecrawl : undefined,
+    type: isWebSearchType(input.type) ? input.type : undefined,
+    contextMaxCharacters:
+      typeof input.contextMaxCharacters === "number" && Number.isFinite(input.contextMaxCharacters)
+        ? Math.max(1_000, Math.min(40_000, Math.round(input.contextMaxCharacters)))
+        : undefined
+  };
+}
+
+function parseWebSearchInput(rawArguments: string, fallbackInput: string): WebSearchToolInput {
+  try {
+    const parsed = JSON.parse(rawArguments) as {
+      query?: string;
+      input?: string;
+      question?: string;
+      numResults?: number;
+      livecrawl?: string;
+      type?: string;
+      contextMaxCharacters?: number;
+    };
+
+    return {
+      query: parsed.query?.trim() || parsed.input?.trim() || parsed.question?.trim() || fallbackInput,
+      numResults: parsed.numResults,
+      livecrawl: isWebSearchLivecrawl(parsed.livecrawl) ? parsed.livecrawl : undefined,
+      type: isWebSearchType(parsed.type) ? parsed.type : undefined,
+      contextMaxCharacters: parsed.contextMaxCharacters
+    };
+  } catch {
+    return {
+      query: fallbackInput
+    };
+  }
+}
+
+function buildToolCacheKey(
+  tool: AgentToolName,
+  input: string,
+  webSearchInput?: WebSearchToolInput | null
+): string {
+  if (tool !== "websearch") {
+    return `${tool}:${normalizeToolInput(input)}`;
+  }
+
+  return `${tool}:${JSON.stringify(normalizeWebSearchInput(webSearchInput ?? { query: input }))}`;
 }
 
 function shouldSetSessionTitle(sessionId: string): boolean {
@@ -279,17 +339,21 @@ function shouldSetSessionTitle(sessionId: string): boolean {
   return !detail.messages.some((message) => message.role === "user");
 }
 
-async function executeTool(tool: AgentToolName, input: string, language: Language) {
+async function executeTool(
+  tool: AgentToolName,
+  input: string,
+  language: Language,
+  webSearchInput?: WebSearchToolInput | null
+) {
   if (tool === "knowledge_search") {
     return runKnowledgeSearch(input, language);
   }
-  if (tool === "dota_live_search") {
-    return runDotaLiveSearch(input, language);
-  }
-  return runWebSearch(input, language);
+  return runWebSearch(webSearchInput ?? { query: input }, language);
 }
 
 function getToolDefinitions() {
+  const currentYear = new Date().getFullYear();
+
   return [
     {
       type: "function",
@@ -312,35 +376,36 @@ function getToolDefinitions() {
     {
       type: "function",
       function: {
-        name: "dota_live_search",
+        name: "websearch",
         description:
-          "Search recent Dota-specific live sources such as patch, tournament, and current ecosystem content.",
+          `Search the web using Exa-style real-time web search. The current year is ${currentYear}; include it when searching for recent information.`,
         parameters: {
           type: "object",
           properties: {
-            input: {
+            query: {
               type: "string",
-              description: "The Dota-specific live search query."
+              description: "Websearch query."
+            },
+            numResults: {
+              type: "number",
+              description: "Number of search results to return. Default is 8."
+            },
+            livecrawl: {
+              type: "string",
+              enum: ["fallback", "preferred"],
+              description: "Live crawl mode. Use 'fallback' by default or 'preferred' for fresher crawling."
+            },
+            type: {
+              type: "string",
+              enum: ["auto", "fast", "deep"],
+              description: "Search mode. Use 'auto' by default, 'fast' for speed, or 'deep' for broader coverage."
+            },
+            contextMaxCharacters: {
+              type: "number",
+              description: "Maximum characters to return for LLM-oriented context."
             }
           },
-          required: ["input"]
-        }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "web_search",
-        description: "Search the broader web for recent or open-world information when local Dota data is not enough.",
-        parameters: {
-          type: "object",
-          properties: {
-            input: {
-              type: "string",
-              description: "The web search query."
-            }
-          },
-          required: ["input"]
+          required: ["query"]
         }
       }
     }
@@ -349,6 +414,15 @@ function getToolDefinitions() {
 
 function buildSystemPrompt(language: Language): string {
   if (language === "zh-CN") {
+    return [
+      "你是一个 Dota 2 agent。",
+      "按需使用工具，并且不要编造来源。",
+      "常青玩法、英雄理解、历史背景优先使用 knowledge_search。",
+      "涉及近期信息、开放互联网内容或最新动态时，使用 websearch。",
+      "当用户问“最新”“当前”“今天”之类问题时，把 2026 年写进搜索词。",
+      "一旦拿到足够证据，直接给出简洁回答。"
+    ].join("\n");
+
     return [
       "你是一个 Dota 2 智能体。",
       "需要时使用工具，不要编造来源。",
@@ -362,7 +436,8 @@ function buildSystemPrompt(language: Language): string {
     "You are a Dota 2 agent.",
     "Use tools when needed and never invent sources.",
     "Prefer knowledge_search for evergreen gameplay or historical context.",
-    "Use dota_live_search or web_search for current patches, tournaments, or recent trends.",
+    "Use websearch for current or open-web information.",
+    "When the user asks for recent information, include the current year 2026 in the search query.",
     "Once you have enough tool evidence, answer directly and concisely."
   ].join("\n");
 }
@@ -419,12 +494,23 @@ async function runOpenAiStep(
     content: typeof message.content === "string" ? message.content.trim() : "",
     toolCalls: (message.tool_calls ?? [])
       .filter((call) => call.type === "function")
-      .map((call) => ({
-        callId: call.id,
-        tool: call.function.name,
-        input: parseToolInput(call.function.arguments, ""),
-        rawArguments: call.function.arguments
-      }))
+      .map((call) => {
+        const webSearchInput =
+          call.function.name === "websearch"
+            ? parseWebSearchInput(call.function.arguments, "")
+            : null;
+
+        return {
+          callId: call.id,
+          tool: call.function.name,
+          input:
+            call.function.name === "websearch"
+              ? webSearchInput?.query ?? ""
+              : parseToolInput(call.function.arguments, ""),
+          rawArguments: call.function.arguments,
+          webSearchInput
+        };
+      })
   };
 }
 
@@ -589,7 +675,7 @@ async function runSessionTurn(sessionId: string): Promise<void> {
 
       for (const toolCall of stepResult.toolCalls) {
         const toolInput = toolCall.input || latestUserQuestion;
-        const cacheKey = buildToolCacheKey(toolCall.tool, toolInput);
+        const cacheKey = buildToolCacheKey(toolCall.tool, toolInput, toolCall.webSearchInput);
         const currentToolPart = assistantMessage.parts.find(
           (part) => part.type === "tool_call" && part.callId === toolCall.callId
         );
@@ -603,7 +689,12 @@ async function runSessionTurn(sessionId: string): Promise<void> {
                 summary: `${getReusedToolMessage(session.language)}\n${cachedPacket.summary}`.trim(),
                 citations: cachedPacket.citations
               }
-            : await executeTool(toolCall.tool, toolInput, session.language);
+            : await executeTool(
+                toolCall.tool,
+                toolInput,
+                session.language,
+                toolCall.webSearchInput
+              );
 
           if (!cachedPacket) {
             const freshPacket = {

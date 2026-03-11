@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import type { Language } from "@dotagame/contracts";
 import { DotaIntroManual } from "../components/DotaIntroManual";
 import { DotaIntroSection } from "../components/DotaIntroSection";
@@ -107,9 +108,9 @@ export function DotaIntroPage(props: { locale: Language }) {
             <a className="primary-btn" href="#research-manual">
               {copy.actions.primary}
             </a>
-            <a className="ghost-btn" href="#hero-atlas">
+            <Link className="ghost-btn" to="/heroes">
               {copy.actions.secondary}
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -153,9 +154,7 @@ export function DotaIntroPage(props: { locale: Language }) {
         <DotaIntroManual locale={props.locale} />
       </div>
 
-      <div className="intro-page-anchor" id="hero-atlas">
-        <DotaIntroSection locale={props.locale} />
-      </div>
+      <DotaIntroSection locale={props.locale} />
     </section>
   );
 }
