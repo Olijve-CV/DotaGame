@@ -3968,6 +3968,14 @@ button.active {
   text-transform: uppercase;
 }
 
+.hero-browser-stage-subtitle {
+  margin: -0.15rem 0 0;
+  color: rgba(243, 234, 220, 0.68);
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .hero-browser-stage-badges,
 .hero-browser-tag-row {
   display: flex;
@@ -3993,6 +4001,29 @@ button.active {
   color: rgba(243, 234, 220, 0.82);
   font-size: 1rem;
   line-height: 1.75;
+}
+
+.hero-browser-data-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.hero-browser-data-pill {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 8rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(229, 216, 196, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.hero-browser-data-pill span {
+  color: rgba(243, 234, 220, 0.56);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .hero-browser-identity-grid {
@@ -4046,6 +4077,96 @@ button.active {
   margin-top: 0.75rem;
 }
 
+.hero-browser-skill-tablist {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.hero-browser-skill-tab {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.72rem 0.8rem;
+  border: 1px solid rgba(229, 216, 196, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+  color: inherit;
+  text-align: left;
+}
+
+.hero-browser-skill-tab.active {
+  border-color: rgba(214, 103, 67, 0.3);
+  background:
+    linear-gradient(180deg, rgba(214, 103, 67, 0.12), rgba(255, 255, 255, 0.04));
+  box-shadow: inset 0 0 0 1px rgba(255, 186, 143, 0.08);
+}
+
+.hero-browser-skill-tab-icon,
+.hero-browser-skill-focus-icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid rgba(229, 216, 196, 0.12);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(214, 103, 67, 0.2), rgba(255, 255, 255, 0.04));
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(255, 240, 224, 0.94);
+  overflow: hidden;
+}
+
+.hero-browser-skill-tab-icon img,
+.hero-browser-skill-focus-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.hero-browser-skill-tab-copy {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.hero-browser-skill-tab-copy small,
+.hero-browser-skill-focus-head small {
+  color: rgba(243, 234, 220, 0.54);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero-browser-skill-focus {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(229, 216, 196, 0.1);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(214, 103, 67, 0.14), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+}
+
+.hero-browser-skill-focus-head {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.hero-browser-skill-focus p {
+  margin: 0;
+  color: rgba(243, 234, 220, 0.82);
+  line-height: 1.7;
+}
+
 .hero-browser-skill-card {
   padding: 0.85rem 0.9rem;
   border: 1px solid rgba(229, 216, 196, 0.1);
@@ -4094,6 +4215,8 @@ button.active {
     transform 220ms ease,
     border-color 220ms ease,
     box-shadow 220ms ease;
+  animation: heroRosterEnter 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--hero-enter-delay, 0ms);
 }
 
 .hero-browser-card-image,
@@ -4229,6 +4352,18 @@ button.active {
   }
 }
 
+@keyframes heroRosterEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .dota-atlas-redirect-card {
   display: grid;
   gap: 0.85rem;
@@ -4283,6 +4418,11 @@ button.active {
   .hero-browser-roster-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .hero-browser-skill-tab,
+  .hero-browser-skill-focus-head {
+    grid-template-columns: 2.8rem minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 640px) {
@@ -4297,6 +4437,15 @@ button.active {
 
   .hero-browser-card {
     min-height: 8.6rem;
+  }
+
+  .hero-browser-skill-tab {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-browser-skill-tab-icon {
+    width: 2.8rem;
+    height: 2.8rem;
   }
 }
 
@@ -4319,5 +4468,22 @@ button.active {
   .hero-browser-stage-art,
   .hero-browser-stage-placeholder {
     width: 56%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-browser-stage-backdrop::after,
+  .hero-browser-stage-art,
+  .hero-browser-stage-placeholder,
+  .hero-browser-card {
+    animation: none;
+  }
+
+  .hero-browser-card,
+  .hero-browser-card-image,
+  .hero-browser-card-video,
+  .hero-browser-card-copy,
+  .hero-browser-filter-icon {
+    transition: none;
   }
 }

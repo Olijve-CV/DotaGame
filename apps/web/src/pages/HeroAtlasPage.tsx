@@ -36,6 +36,33 @@ const attackLabels = {
   }
 } as const;
 
+function SkillIcon(props: {
+  iconUrl: string | null;
+  glyph: string;
+  className: string;
+}) {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [props.iconUrl]);
+
+  if (!props.iconUrl || hasError) {
+    return <span className={props.className}>{props.glyph}</span>;
+  }
+
+  return (
+    <span className={props.className}>
+      <img
+        alt=""
+        aria-hidden="true"
+        onError={() => setHasError(true)}
+        src={props.iconUrl}
+      />
+    </span>
+  );
+}
+
 const pageCopy = {
   "zh-CN": {
     kicker: "Hero Atlas",
@@ -57,6 +84,10 @@ const pageCopy = {
     rolesTitle: "英雄身份",
     skillsTitle: "核心技能",
     overviewTitle: "英雄概览",
+    subtitleLabel: "战斗档案",
+    skillCountLabel: "核心技能",
+    tagCountLabel: "公开标签",
+    combatLabel: "战斗类型",
     backIntro: "返回新手指南",
     openChat: "打开智能问答",
     filters: {
@@ -106,6 +137,10 @@ const pageCopy = {
     rolesTitle: "Hero Identity",
     skillsTitle: "Core Skills",
     overviewTitle: "Overview",
+    subtitleLabel: "Combat Profile",
+    skillCountLabel: "Core Skills",
+    tagCountLabel: "Public Tags",
+    combatLabel: "Combat Type",
     backIntro: "Back to Starter Guide",
     openChat: "Open Agent Chat",
     filters: {
@@ -156,6 +191,10 @@ const pageCopy = {
     rolesTitle: string;
     skillsTitle: string;
     overviewTitle: string;
+    subtitleLabel: string;
+    skillCountLabel: string;
+    tagCountLabel: string;
+    combatLabel: string;
     backIntro: string;
     openChat: string;
     filters: Record<AttributeFilterKey, { label: string; hint: string }>;
@@ -171,6 +210,7 @@ export function HeroAtlasPage(props: { locale: Language }) {
   const [activeFilter, setActiveFilter] = useState<AttributeFilterKey>("allHeroes");
   const [selectedHeroName, setSelectedHeroName] = useState("");
   const [hoveredHeroName, setHoveredHeroName] = useState("");
+  const [selectedSkillName, setSelectedSkillName] = useState("");
   const deferredQuery = useDeferredValue(query);
 
   useEffect(() => {
@@ -266,6 +306,19 @@ export function HeroAtlasPage(props: { locale: Language }) {
     "--hero-accent": selectedHero?.accent ?? "#c1462f"
   } as CSSProperties;
 
+  useEffect(() => {
+    if (!selectedHero) {
+      setSelectedSkillName("");
+      return;
+    }
+
+    if (selectedHero.skills.some((skill) => skill.name === selectedSkillName)) {
+      return;
+    }
+
+    setSelectedSkillName(selectedHero.skills[0]?.name ?? "");
+  }, [selectedHero, selectedSkillName]);
+
   function getFilterTone(filterKey: AttributeFilterKey) {
     return filterKey === "allHeroes" ? "pool" : filterKey;
   }
@@ -291,7 +344,58 @@ export function HeroAtlasPage(props: { locale: Language }) {
     return `https://cdn.cloudflare.steamstatic.com/apps/dota2/videos/dota_react/heroes/renders/${slug}.webm`;
   }
 
+  function getAbilitySlug(skillName: string) {
+    return skillName
+      .toLowerCase()
+      .replace(/['.]/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
+
+  function getSkillIconUrl(imageUrl: string | undefined, skillName: string) {
+    const heroSlug = getHeroAssetSlug(imageUrl);
+    const abilitySlug = getAbilitySlug(skillName);
+    if (!heroSlug || !abilitySlug) {
+      return null;
+    }
+
+    return `https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/${heroSlug}_${abilitySlug}.png`;
+  }
+
+  function getSkillGlyph(skillName: string) {
+    const normalized = skillName
+      .replace(/[^A-Za-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter(Boolean);
+
+    if (normalized.length === 0) {
+      return "SK";
+    }
+
+    if (normalized.length === 1) {
+      return normalized[0].slice(0, 2).toUpperCase();
+    }
+
+    return normalized
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("");
+  }
+
   const selectedHeroVideo = getHeroRenderVideoUrl(selectedHeroImage);
+  const selectedSkill =
+    selectedHero?.skills.find((skill) => skill.name === selectedSkillName) ??
+    selectedHero?.skills[0] ??
+    null;
+  const selectedHeroSubtitle = selectedHero
+    ? [
+        selectedHero.primaryAttr ? attributeLabels[props.locale][selectedHero.primaryAttr] : pageText.filters.unknown.label,
+        selectedHero.attackType ? attackLabels[props.locale][selectedHero.attackType] : null,
+        selectedHero.roleLabel
+      ]
+        .filter(Boolean)
+        .join(" / ")
+    : "";
 
   return (
     <section className="stack hero-atlas-page official-hero-browser">
@@ -404,6 +508,9 @@ export function HeroAtlasPage(props: { locale: Language }) {
             <div className="hero-browser-stage-copy">
               <p className="hero-browser-stage-kicker">{selectedHero.roleLabel}</p>
               <h3>{selectedHero.name}</h3>
+              <p className="hero-browser-stage-subtitle">
+                {pageText.subtitleLabel}: {selectedHeroSubtitle}
+              </p>
 
               <div className="hero-browser-stage-badges">
                 <span className="hero-browser-badge">
@@ -423,6 +530,25 @@ export function HeroAtlasPage(props: { locale: Language }) {
               </div>
 
               <p className="hero-browser-stage-summary">{selectedHero.overview}</p>
+
+              <div className="hero-browser-data-strip">
+                <article className="hero-browser-data-pill">
+                  <span>{pageText.skillCountLabel}</span>
+                  <strong>{selectedHero.skills.length}</strong>
+                </article>
+                <article className="hero-browser-data-pill">
+                  <span>{pageText.tagCountLabel}</span>
+                  <strong>{selectedHero.roles.length}</strong>
+                </article>
+                <article className="hero-browser-data-pill">
+                  <span>{pageText.combatLabel}</span>
+                  <strong>
+                    {selectedHero.attackType
+                      ? attackLabels[props.locale][selectedHero.attackType]
+                      : pageText.filters.unknown.label}
+                  </strong>
+                </article>
+              </div>
 
               <div className="hero-browser-identity-grid">
                 <article className="hero-browser-identity-card">
@@ -473,14 +599,49 @@ export function HeroAtlasPage(props: { locale: Language }) {
                 <h4>{introText.skillsLabel}</h4>
               </div>
 
-              <div className="hero-browser-skill-list">
-                {selectedHero.skills.map((skill) => (
-                  <article className="hero-browser-skill-card" key={`${selectedHero.name}-${skill.name}`}>
-                    <strong>{skill.name}</strong>
-                    <p>{skill.detail}</p>
-                  </article>
-                ))}
+              <div className="hero-browser-skill-tablist" role="tablist" aria-label={pageText.skillsTitle}>
+                {selectedHero.skills.map((skill, index) => {
+                  const isActive = selectedSkill?.name === skill.name;
+
+                  return (
+                    <button
+                      aria-selected={isActive}
+                      className={`hero-browser-skill-tab${isActive ? " active" : ""}`}
+                      key={`${selectedHero.name}-${skill.name}`}
+                      onClick={() => setSelectedSkillName(skill.name)}
+                      role="tab"
+                      type="button"
+                    >
+                      <SkillIcon
+                        className="hero-browser-skill-tab-icon"
+                        glyph={getSkillGlyph(skill.name)}
+                        iconUrl={getSkillIconUrl(selectedHeroImage, skill.name)}
+                      />
+                      <span className="hero-browser-skill-tab-copy">
+                        <small>{String(index + 1).padStart(2, "0")}</small>
+                        <strong>{skill.name}</strong>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
+
+              {selectedSkill && (
+                <article className="hero-browser-skill-focus" role="tabpanel">
+                  <div className="hero-browser-skill-focus-head">
+                    <SkillIcon
+                      className="hero-browser-skill-focus-icon"
+                      glyph={getSkillGlyph(selectedSkill.name)}
+                      iconUrl={getSkillIconUrl(selectedHeroImage, selectedSkill.name)}
+                    />
+                    <div>
+                      <small>{pageText.skillsTitle}</small>
+                      <strong>{selectedSkill.name}</strong>
+                    </div>
+                  </div>
+                  <p>{selectedSkill.detail}</p>
+                </article>
+              )}
             </section>
           </aside>
         </section>
@@ -498,13 +659,14 @@ export function HeroAtlasPage(props: { locale: Language }) {
         </div>
 
         <div className="hero-browser-roster-grid">
-          {visibleHeroes.map((hero) => {
+          {visibleHeroes.map((hero, index) => {
             const heroImage = hero.image ?? HERO_IMAGE_FALLBACKS[hero.name];
             const heroVideo = getHeroRenderVideoUrl(heroImage);
             const isSelected = hero.name === selectedHero?.name;
             const isPreviewing = hoveredHeroName === hero.name || isSelected;
             const cardStyle = {
-              "--hero-card-accent": hero.accent
+              "--hero-card-accent": hero.accent,
+              "--hero-enter-delay": `${Math.min(index, 15) * 45}ms`
             } as CSSProperties;
 
             return (
