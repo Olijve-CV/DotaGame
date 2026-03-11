@@ -129,6 +129,11 @@
 - Validation completed after item 1:
   - `npm test --workspace @dotagame/api`
   - `npm run build`
+- Completed TODO item 2, "英雄属性搜索不需要未标注选项 同时放到英雄矩阵上面一点":
+  - removed the `unknown` attribute chip from the public filter order
+  - moved the filter/search panel down into the hero roster header so controls sit directly above the matrix
+- Validation completed after item 2:
+  - `npm run build --workspace @dotagame/web`
 
 ## 2026-03-06
 - Started implementation from approved proposed plan.

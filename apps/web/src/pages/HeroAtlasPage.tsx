@@ -8,7 +8,7 @@ import { fetchHeroAvatars, fetchHeroDetail } from "../lib/api";
 
 type AttributeFilterKey = "allHeroes" | HeroPrimaryAttribute | "unknown";
 
-const FILTER_ORDER: AttributeFilterKey[] = ["allHeroes", "str", "agi", "int", "all", "unknown"];
+const FILTER_ORDER: AttributeFilterKey[] = ["allHeroes", "str", "agi", "int", "all"];
 
 const attributeLabels: Record<Language, Record<HeroPrimaryAttribute, string>> = {
   "zh-CN": {
@@ -497,42 +497,6 @@ export function HeroAtlasPage(props: { locale: Language }) {
         </div>
       </section>
 
-      <section className="panel hero-browser-controls">
-        <div className="hero-browser-filter-row">
-          {FILTER_ORDER.map((filterKey) => (
-            <button
-              className={`hero-browser-filter tone-${getFilterTone(filterKey)}${activeFilter === filterKey ? " active" : ""}`}
-              key={filterKey}
-              onClick={() => setActiveFilter(filterKey)}
-              type="button"
-            >
-              <span className={`hero-browser-filter-icon tone-${getFilterTone(filterKey)}`} aria-hidden="true">
-                <span className={`hero-browser-filter-glyph glyph-${getFilterTone(filterKey)}`}>
-                  <span className="glyph-core" />
-                  <span className="glyph-orbit orbit-a" />
-                  <span className="glyph-orbit orbit-b" />
-                  <span className="glyph-orbit orbit-c" />
-                </span>
-              </span>
-              <span className="hero-browser-filter-copy">
-                <span>{pageText.filters[filterKey].label}</span>
-                <strong>{heroCounts[filterKey]}</strong>
-              </span>
-            </button>
-          ))}
-        </div>
-
-        <div className="hero-browser-search-row">
-          <input
-            className="hero-browser-search"
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={pageText.search}
-            value={query}
-          />
-          <p className="hero-browser-search-hint">{selectedFilter.hint}</p>
-        </div>
-      </section>
-
       {isLoadingAvatars && <p className="muted">{pageText.loading}</p>}
 
       {selectedHero ? (
@@ -719,7 +683,44 @@ export function HeroAtlasPage(props: { locale: Language }) {
             <p className="section-kicker">{pageText.kicker}</p>
             <h3>{pageText.rosterTitle}</h3>
           </div>
-          <p className="muted">{pageText.rosterHint}</p>
+          <div className="hero-browser-roster-controls">
+            <p className="muted">{pageText.rosterHint}</p>
+            <section className="panel hero-browser-controls">
+              <div className="hero-browser-filter-row">
+                {FILTER_ORDER.map((filterKey) => (
+                  <button
+                    className={`hero-browser-filter tone-${getFilterTone(filterKey)}${activeFilter === filterKey ? " active" : ""}`}
+                    key={filterKey}
+                    onClick={() => setActiveFilter(filterKey)}
+                    type="button"
+                  >
+                    <span className={`hero-browser-filter-icon tone-${getFilterTone(filterKey)}`} aria-hidden="true">
+                      <span className={`hero-browser-filter-glyph glyph-${getFilterTone(filterKey)}`}>
+                        <span className="glyph-core" />
+                        <span className="glyph-orbit orbit-a" />
+                        <span className="glyph-orbit orbit-b" />
+                        <span className="glyph-orbit orbit-c" />
+                      </span>
+                    </span>
+                    <span className="hero-browser-filter-copy">
+                      <span>{pageText.filters[filterKey].label}</span>
+                      <strong>{heroCounts[filterKey]}</strong>
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="hero-browser-search-row">
+                <input
+                  className="hero-browser-search"
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={pageText.search}
+                  value={query}
+                />
+                <p className="hero-browser-search-hint">{selectedFilter.hint}</p>
+              </div>
+            </section>
+          </div>
         </div>
 
         <div className="hero-browser-roster-grid">
