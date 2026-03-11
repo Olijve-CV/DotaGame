@@ -150,6 +150,12 @@
 - Validation completed after item 5:
   - `npm run build --workspace @dotagame/web`
 
+- Completed TODO item 6, "智能问答不需要显示 运行概览框 和 工具足迹":
+  - removed the chat workspace overview panel above the feed
+  - removed tool-footprint chips from the thread list cards
+- Validation completed after item 6:
+  - `npm run build --workspace @dotagame/web`
+
 ## 2026-03-06
 - Started implementation from approved proposed plan.
 - Created planning files and initial folders.

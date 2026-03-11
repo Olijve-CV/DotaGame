@@ -250,10 +250,6 @@ function collectMessageCitations(parts: AgentMessagePart[]): ChatCitation[] {
   return citations;
 }
 
-function formatToolMix(summary: AgentSessionSummary): string[] {
-  return summary.insight.tools.slice(0, 3).map((item) => `${formatToolName(item.tool)} x${item.count}`);
-}
-
 function getSessionPreview(summary: AgentSessionSummary, copy: (typeof labels)["en-US"]) {
   return summary.insight.lastUserMessage || summary.lastMessage || copy.noMessages;
 }
@@ -566,8 +562,6 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
             <div className="agent-history-list">
               {rootSessions.length > 0 ? (
                 rootSessions.map((session) => {
-                  const toolMix = formatToolMix(session);
-
                   return (
                     <button
                       className={`agent-thread-card${rootDetail?.session.id === session.id ? " active" : ""}`}
@@ -594,15 +588,6 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
                           {session.insight.sourceCount} {copy.sourcesStat}
                         </span>
                       </div>
-                      {toolMix.length > 0 ? (
-                        <div className="agent-thread-tool-row">
-                          {toolMix.map((item) => (
-                            <span className="agent-tool-chip" key={`${session.id}-${item}`}>
-                              {item}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
                     </button>
                   );
                 })
@@ -623,74 +608,6 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
               <p>{copy.guestHint}</p>
             </section>
           ) : null}
-
-          <section className="agent-overview-panel">
-            <div className="agent-overview-heading">
-              <div>
-                <span className="section-kicker">{copy.overview}</span>
-                <h2>{rootSession?.title ?? copy.guestTitle}</h2>
-              </div>
-              <div className="agent-overview-badges">
-                <span className="agent-session-badge">{copy.status[rootSession?.status ?? "idle"]}</span>
-                {rootInsight?.activeTool ? (
-                  <span className="agent-session-badge accent">
-                    {copy.activeTool}: {formatToolName(rootInsight.activeTool)}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="agent-overview-stats">
-              <article className="agent-overview-card">
-                <span>{copy.messagesStat}</span>
-                <strong>{rootInsight?.messageCount ?? 0}</strong>
-              </article>
-              <article className="agent-overview-card">
-                <span>{copy.toolsStat}</span>
-                <strong>{rootInsight?.toolCallCount ?? 0}</strong>
-              </article>
-              <article className="agent-overview-card">
-                <span>{copy.sourcesStat}</span>
-                <strong>{rootInsight?.sourceCount ?? 0}</strong>
-              </article>
-            </div>
-
-            <div className="agent-overview-grid">
-              <article className="agent-overview-note">
-                <span>{copy.latestQuestion}</span>
-                <p>{rootInsight?.lastUserMessage || copy.noMessages}</p>
-              </article>
-              <article className="agent-overview-note">
-                <span>{copy.latestAnswer}</span>
-                <p>{rootInsight?.lastAnswerPreview || copy.noAnswer}</p>
-              </article>
-            </div>
-
-            <div className="agent-overview-footer">
-              <div className="agent-overview-tools">
-                <span>{copy.toolMix}</span>
-                <div className="agent-thread-tool-row">
-                  {rootInsight && rootInsight.tools.length > 0 ? (
-                    rootInsight.tools.slice(0, 4).map((tool) => (
-                      <span className="agent-tool-chip" key={tool.tool}>
-                        {formatToolName(tool.tool)} x{tool.count}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="agent-overview-empty">{copy.activeToolIdle}</span>
-                  )}
-                </div>
-              </div>
-              <div className="agent-overview-tools align-end">
-                <span>{copy.sessionScope}</span>
-                <div className="agent-thread-tool-row">
-                  <span className="agent-tool-chip subtle">
-                    {rootSession ? formatContentDateTime(rootSession.updatedAt, props.locale) : copy.noMessages}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </section>
 
           <section className="agent-chat-feed" ref={feedRef}>
             {threadEntries.length > 0 ? (

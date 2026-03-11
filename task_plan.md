@@ -21,7 +21,7 @@ Implement a full MVP for Dota2 news + Agent Chat platform with separated web and
 | 13. Simplify backend agent loop to OpenCode-style single-session execution | complete | Replaced planner/subagent loop with a single assistant/tool/result loop modeled after anomalyco/opencode; removed coach/research runtime from the active backend path and updated tests accordingly |
 | 14. Rework agent UX from step timeline to thinking-first runtime | complete | Removed step/task message parts, collapsed each turn into one assistant message with thinking + tool activity + final result, and updated the web chat surface to present modern agent behavior |
 | 15. Research 2026 agent patterns and optimize runtime + frontend | complete | Added research-backed runtime/session metadata, tool execution timing + duplicate-call reuse, a redesigned chat workspace, new tests, and a design note |
-| 16. Clear TODO backlog item-by-item | in_progress | Started with hero atlas localization; remaining TODO items still pending after the first checked-off task |
+| 16. Clear TODO backlog item-by-item | in_progress | Completed TODO items 1-6 sequentially with validation and commits; remaining items are intro-page relayout and timed homepage refresh |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |
