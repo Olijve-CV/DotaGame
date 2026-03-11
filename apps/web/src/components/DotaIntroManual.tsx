@@ -168,27 +168,27 @@ export function DotaIntroManual(props: { locale: Language }) {
         </div>
       </div>
 
-      <div className="research-manual-layout">
-        <section className="research-block">
-          <div className="section-heading">
-            <div>
-              <p className="section-kicker">Match Loop</p>
-              <h3>{copy.loopTitle}</h3>
-            </div>
+      <section className="research-block" id="match-loop">
+        <div className="section-heading">
+          <div>
+            <p className="section-kicker">Match Loop</p>
+            <h3>{copy.loopTitle}</h3>
           </div>
+        </div>
 
-          <div className="research-loop-grid">
-            {copy.loop.map((item) => (
-              <article className="research-loop-card" key={item.step}>
-                <span>{item.step}</span>
-                <h4>{item.title}</h4>
-                <p>{item.detail}</p>
-              </article>
-            ))}
-          </div>
-        </section>
+        <div className="research-loop-grid">
+          {copy.loop.map((item) => (
+            <article className="research-loop-card" key={item.step}>
+              <span>{item.step}</span>
+              <h4>{item.title}</h4>
+              <p>{item.detail}</p>
+            </article>
+          ))}
+        </div>
+      </section>
 
-        <section className="research-block">
+      <div className="research-manual-layout research-manual-layout-main">
+        <section className="research-block" id="system-pillars">
           <div className="section-heading">
             <div>
               <p className="section-kicker">System Pillars</p>
@@ -205,28 +205,8 @@ export function DotaIntroManual(props: { locale: Language }) {
             ))}
           </div>
         </section>
-      </div>
 
-      <div className="research-manual-layout research-manual-layout-lower">
-        <section className="research-block">
-          <div className="section-heading">
-            <div>
-              <p className="section-kicker">Audience</p>
-              <h3>{copy.segmentsTitle}</h3>
-            </div>
-          </div>
-
-          <div className="research-segment-grid">
-            {copy.segments.map((item) => (
-              <article className="research-segment-card" key={item.title}>
-                <h4>{item.title}</h4>
-                <p>{item.detail}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="research-block">
+        <section className="research-block" id="practice-track">
           <div className="section-heading">
             <div>
               <p className="section-kicker">First Games</p>
@@ -248,22 +228,42 @@ export function DotaIntroManual(props: { locale: Language }) {
         </section>
       </div>
 
-      <section className="research-block">
-        <div className="section-heading">
-          <div>
-            <p className="section-kicker">Agent Prompts</p>
-            <h3>{copy.promptsTitle}</h3>
+      <div className="research-manual-layout research-manual-layout-secondary">
+        <section className="research-block" id="audience-map">
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">Audience</p>
+              <h3>{copy.segmentsTitle}</h3>
+            </div>
           </div>
-        </div>
 
-        <div className="research-prompt-grid">
-          {copy.prompts.map((prompt) => (
-            <article className="research-prompt-card" key={prompt}>
-              <p>{prompt}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+          <div className="research-segment-grid">
+            {copy.segments.map((item) => (
+              <article className="research-segment-card" key={item.title}>
+                <h4>{item.title}</h4>
+                <p>{item.detail}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="research-block" id="agent-prompts">
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">Agent Prompts</p>
+              <h3>{copy.promptsTitle}</h3>
+            </div>
+          </div>
+
+          <div className="research-prompt-grid">
+            {copy.prompts.map((prompt) => (
+              <article className="research-prompt-card" key={prompt}>
+                <p>{prompt}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
     </section>
   );
 }

@@ -155,6 +155,11 @@
   - removed tool-footprint chips from the thread list cards
 - Validation completed after item 6:
   - `npm run build --workspace @dotagame/web`
+- Completed TODO item 7, "新手指南整个要再重新布局下":
+  - rebuilt `/intro` into a single reading flow with a command deck, anchor route, focus-track band, and a side rail that bridges into agent chat
+  - re-ordered the field manual sections so match loop, practice path, audience map, and prompt blocks read as one guide instead of separate panels
+- Validation completed after item 7:
+  - `npm run build --workspace @dotagame/web`
 
 ## 2026-03-06
 - Started implementation from approved proposed plan.

@@ -1760,6 +1760,219 @@ button.active {
   align-items: center;
 }
 
+.intro-guide-page {
+  gap: 1.2rem;
+}
+
+.intro-command-deck {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(320px, 0.82fr);
+  gap: 1rem;
+  padding: 1.45rem;
+  background:
+    radial-gradient(circle at 12% 16%, rgba(210, 108, 59, 0.22), transparent 28%),
+    radial-gradient(circle at 84% 14%, rgba(63, 140, 132, 0.14), transparent 22%),
+    linear-gradient(180deg, rgba(22, 27, 35, 0.99), rgba(14, 17, 23, 0.96));
+}
+
+.intro-command-main,
+.intro-command-copy,
+.intro-command-rail,
+.intro-guide-band,
+.intro-support-points,
+.intro-side-list {
+  display: grid;
+  gap: 0.95rem;
+}
+
+.intro-command-copy {
+  align-content: start;
+}
+
+.intro-page-card-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.intro-mission-card,
+.intro-support-card,
+.intro-anchor-card,
+.intro-track-card,
+.intro-side-card {
+  border: 1px solid rgba(216, 205, 184, 0.12);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(31, 37, 47, 0.96), rgba(18, 22, 30, 0.92));
+  box-shadow: 0 16px 32px rgba(7, 10, 14, 0.24);
+}
+
+.intro-mission-card,
+.intro-support-card {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem 1.05rem;
+}
+
+.intro-mission-card h3,
+.intro-support-card h3,
+.intro-track-card h4 {
+  margin: 0;
+}
+
+.intro-mission-card p,
+.intro-support-card > p,
+.intro-support-point p,
+.intro-track-card p,
+.intro-side-card p {
+  margin: 0;
+  color: #d7cbb9;
+  line-height: 1.65;
+}
+
+.intro-mission-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.intro-mission-list li {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.intro-mission-list span {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(240, 176, 123, 0.24);
+  border-radius: 14px;
+  color: #f0c89e;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.84rem;
+  letter-spacing: 0.08em;
+}
+
+.intro-support-points {
+  gap: 0.7rem;
+}
+
+.intro-support-point {
+  padding: 0.85rem 0.9rem;
+  border: 1px solid rgba(216, 205, 184, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.intro-guide-band {
+  gap: 1rem;
+}
+
+.intro-anchor-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.intro-anchor-card {
+  min-height: 168px;
+  padding: 1rem 1.05rem;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.intro-anchor-card strong {
+  font-size: 1.04rem;
+}
+
+.intro-anchor-card p {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.intro-anchor-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(240, 176, 123, 0.26);
+  box-shadow: 0 18px 34px rgba(7, 10, 14, 0.28);
+}
+
+.intro-track-band {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  background:
+    radial-gradient(circle at top right, rgba(210, 108, 59, 0.14), transparent 22%),
+    radial-gradient(circle at bottom left, rgba(63, 140, 132, 0.1), transparent 24%),
+    linear-gradient(180deg, rgba(20, 24, 31, 0.98), rgba(15, 18, 25, 0.95));
+}
+
+.intro-track-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.intro-track-card {
+  display: grid;
+  gap: 0.7rem;
+  min-height: 188px;
+  padding: 1rem 1.05rem;
+}
+
+.intro-guide-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.22fr) minmax(280px, 0.78fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.intro-side-rail {
+  display: grid;
+  gap: 1rem;
+  padding: 1.2rem;
+  position: sticky;
+  top: 1rem;
+  background:
+    radial-gradient(circle at top right, rgba(210, 108, 59, 0.12), transparent 20%),
+    linear-gradient(180deg, rgba(20, 24, 31, 0.98), rgba(14, 17, 23, 0.94));
+}
+
+.intro-side-summary {
+  margin: 0;
+  color: #d7cbb9;
+  line-height: 1.65;
+}
+
+.intro-side-card {
+  padding: 0.95rem 1rem;
+}
+
+.intro-side-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.intro-atlas-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(240px, 0.85fr);
+  gap: 1rem;
+  align-items: center;
+  padding: 1.25rem;
+  background:
+    radial-gradient(circle at 8% 24%, rgba(210, 108, 59, 0.14), transparent 18%),
+    linear-gradient(180deg, rgba(21, 25, 33, 0.98), rgba(14, 17, 23, 0.94));
+}
+
+.intro-atlas-actions {
+  justify-content: flex-end;
+  align-items: center;
+}
+
 .intro-page-hero {
   position: relative;
   overflow: hidden;
@@ -1899,8 +2112,12 @@ button.active {
   grid-template-columns: minmax(0, 1.18fr) minmax(0, 0.82fr);
 }
 
-.research-manual-layout-lower {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.research-manual-layout-main {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+}
+
+.research-manual-layout-secondary {
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
 }
 
 .research-block {
@@ -1943,6 +2160,10 @@ button.active {
 .research-prompt-grid {
   display: grid;
   gap: 0.75rem;
+}
+
+.research-pillar-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .research-segment-grid,
@@ -2065,11 +2286,15 @@ button.active {
 @media (max-width: 1080px) {
   .home-command,
   .home-feed-layout,
+  .intro-command-deck,
+  .intro-guide-layout,
+  .intro-atlas-head,
   .intro-page-hero,
   .intro-page-outline-grid,
   .research-manual-hero,
   .research-manual-layout,
-  .research-manual-layout-lower,
+  .research-manual-layout-main,
+  .research-manual-layout-secondary,
   .dota-intro-hero,
   .dota-intro-grid,
   .dota-intro-grid.lower,
@@ -2079,7 +2304,10 @@ button.active {
   }
 
   .home-story-grid,
+  .intro-anchor-grid,
+  .intro-track-grid,
   .research-loop-grid,
+  .research-pillar-grid,
   .dota-timeline,
   .dota-gallery-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2126,7 +2354,10 @@ button.active {
   .home-stat-grid,
   .intro-page-card-grid,
   .intro-page-outline-grid,
+  .intro-anchor-grid,
+  .intro-track-grid,
   .research-overview-grid,
+  .research-pillar-grid,
   .research-segment-grid,
   .research-prompt-grid,
   .home-story-grid,
@@ -2151,8 +2382,13 @@ button.active {
     grid-template-columns: 1fr;
   }
 
+  .intro-side-rail {
+    position: static;
+  }
+
   .home-command h2,
   .intro-page-copy h2,
+  .intro-command-copy h2,
   .research-manual-copy h2,
   .dota-intro h2 {
     max-width: none;
