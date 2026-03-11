@@ -145,6 +145,10 @@
 - Validation completed after item 4:
   - `npm test --workspace @dotagame/api`
   - `npm run build`
+- Completed TODO item 5, "header不需要显示 Dota 2 情报台 ...":
+  - removed the top-level title and subtitle block from the app header
+- Validation completed after item 5:
+  - `npm run build --workspace @dotagame/web`
 
 ## 2026-03-06
 - Started implementation from approved proposed plan.

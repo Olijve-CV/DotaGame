@@ -164,10 +164,6 @@ export function App() {
       <header className="topbar app-header-shell">
         <div className="app-brand-shell">
           <p className="brand-kicker">DotaPulse</p>
-          <div>
-            <h1>{copy.title}</h1>
-            <p className="subtitle">{copy.subtitle}</p>
-          </div>
         </div>
 
         <div className="topbar-controls app-header-controls">
