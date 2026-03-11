@@ -3863,6 +3863,7 @@ button.active {
   min-height: 34rem;
   display: grid;
   align-items: end;
+  isolation: isolate;
 }
 
 .hero-browser-stage-backdrop,
@@ -3873,6 +3874,7 @@ button.active {
 
 .hero-browser-stage-backdrop {
   position: relative;
+  z-index: 0;
   min-height: 34rem;
   background:
     radial-gradient(circle at 20% 18%, color-mix(in srgb, var(--hero-accent) 18%, transparent), transparent 28%),
@@ -3880,13 +3882,13 @@ button.active {
 }
 
 .hero-browser-stage-bg,
-.hero-browser-stage-video,
 .hero-browser-stage-backdrop::after {
   position: absolute;
   inset: 0;
 }
 
 .hero-browser-stage-bg {
+  z-index: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -3896,18 +3898,9 @@ button.active {
   transform: scale(1.16);
 }
 
-.hero-browser-stage-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 62% center;
-  opacity: 0.26;
-  mix-blend-mode: screen;
-  filter: saturate(1.06) contrast(1.06);
-}
-
 .hero-browser-stage-backdrop::after {
   content: "";
+  z-index: 3;
   background:
     radial-gradient(circle at 78% 36%, color-mix(in srgb, var(--hero-accent) 20%, transparent), transparent 26%),
     linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.06) 45%, transparent 58%);
@@ -3916,17 +3909,38 @@ button.active {
   pointer-events: none;
 }
 
-.hero-browser-stage-art,
-.hero-browser-stage-placeholder {
+.hero-browser-stage-figure {
   position: absolute;
-  right: 0;
+  z-index: 2;
+  left: 50%;
   bottom: 0;
+  transform: translateX(-50%);
   width: min(62%, 34rem);
   height: 100%;
-  object-fit: cover;
+  pointer-events: none;
+}
+
+.hero-browser-stage-video,
+.hero-browser-stage-placeholder {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-position: center;
+}
+
+.hero-browser-stage-placeholder {
+  z-index: 0;
+  object-fit: cover;
   filter: drop-shadow(0 22px 42px rgba(0, 0, 0, 0.42));
   animation: heroArtFloat 6.8s ease-in-out infinite;
+}
+
+.hero-browser-stage-video {
+  z-index: 1;
+  object-fit: contain;
+  object-position: center center;
+  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.32)) saturate(1.06) contrast(1.04);
 }
 
 .hero-browser-stage-placeholder {
@@ -3939,6 +3953,8 @@ button.active {
 }
 
 .hero-browser-stage-overlay {
+  z-index: 4;
+  pointer-events: none;
   background:
     linear-gradient(90deg, rgba(6, 8, 12, 0.96) 0%, rgba(8, 10, 14, 0.84) 38%, rgba(8, 10, 14, 0.34) 70%, rgba(8, 10, 14, 0.18) 100%),
     linear-gradient(180deg, rgba(7, 9, 13, 0.18) 0%, rgba(7, 9, 13, 0.22) 34%, rgba(7, 9, 13, 0.92) 100%),
@@ -3947,7 +3963,7 @@ button.active {
 
 .hero-browser-stage-copy {
   position: relative;
-  z-index: 1;
+  z-index: 5;
   display: grid;
   gap: 0.95rem;
   max-width: min(42rem, 72%);
@@ -4409,9 +4425,12 @@ button.active {
     padding: 1.4rem;
   }
 
-  .hero-browser-stage-art,
-  .hero-browser-stage-placeholder {
+  .hero-browser-stage-figure {
     width: min(58%, 24rem);
+  }
+
+  .hero-browser-stage-placeholder,
+  .hero-browser-stage-video {
     opacity: 0.6;
   }
 
@@ -4465,15 +4484,13 @@ button.active {
     grid-template-columns: 1fr;
   }
 
-  .hero-browser-stage-art,
-  .hero-browser-stage-placeholder {
+  .hero-browser-stage-figure {
     width: 56%;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-browser-stage-backdrop::after,
-  .hero-browser-stage-art,
   .hero-browser-stage-placeholder,
   .hero-browser-card {
     animation: none;

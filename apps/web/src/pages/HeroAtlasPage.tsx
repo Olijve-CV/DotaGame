@@ -502,26 +502,24 @@ export function HeroAtlasPage(props: { locale: Language }) {
                   src={selectedHeroImage}
                 />
               ) : null}
-              {selectedHeroVideo ? (
-                <video
-                  aria-hidden="true"
-                  autoPlay
-                  className="hero-browser-stage-video"
-                  key={selectedHeroVideo}
-                  loop
-                  muted
-                  playsInline
-                  poster={selectedHeroImage}
-                  preload="auto"
-                >
-                  <source src={selectedHeroVideo} type="video/webm" />
-                </video>
-              ) : null}
-              {selectedHeroImage ? (
-                <img alt={selectedHero.name} className="hero-browser-stage-art" src={selectedHeroImage} />
-              ) : (
-                <div className="hero-browser-stage-placeholder">{selectedHero.name.slice(0, 2)}</div>
-              )}
+              <div aria-hidden="true" className="hero-browser-stage-figure">
+                {selectedHeroVideo ? (
+                  <video
+                    autoPlay
+                    className="hero-browser-stage-video"
+                    key={selectedHeroVideo}
+                    loop
+                    muted
+                    playsInline
+                    poster={selectedHeroImage}
+                    preload="auto"
+                  >
+                    <source src={selectedHeroVideo} type="video/webm" />
+                  </video>
+                ) : (
+                  <div className="hero-browser-stage-placeholder">{selectedHero.name.slice(0, 2)}</div>
+                )}
+              </div>
             </div>
 
             <div className="hero-browser-stage-overlay" />
