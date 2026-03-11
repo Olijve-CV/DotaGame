@@ -36,6 +36,13 @@ const attackLabels = {
   }
 } as const;
 
+const attributeSearchAliases: Record<HeroPrimaryAttribute, string[]> = {
+  str: ["str", "strength", "tank", "frontline", "力量"],
+  agi: ["agi", "agility", "carry", "damage", "敏捷"],
+  int: ["int", "intelligence", "caster", "support", "智力"],
+  all: ["all", "universal", "hybrid", "全才", "全属性"]
+};
+
 function SkillIcon(props: {
   iconUrl: string | null;
   glyph: string;
@@ -69,7 +76,7 @@ const pageCopy = {
     title: "像官方英雄页一样浏览整套英雄池",
     summary:
       "把英雄页改成单独的沉浸式浏览器。先在上方聚焦当前英雄，再用属性筛选和海报墙快速切换目标，比原先按段落翻找更接近 Dota 2 官方英雄页的阅读方式。",
-    search: "搜索英雄名称",
+    search: "搜索英雄名称或属性",
     loading: "正在载入英雄图谱...",
     empty: "当前筛选下没有匹配的英雄。",
     allHeroes: "全部英雄",
@@ -122,7 +129,7 @@ const pageCopy = {
     title: "Browse the roster like the official heroes page",
     summary:
       "The page now works like a dedicated hero browser. Keep one hero in the spotlight, then switch quickly with attribute tabs and a dense hero wall instead of paging through separate grouped sections.",
-    search: "Search hero names",
+    search: "Search hero names or attributes",
     loading: "Loading hero atlas...",
     empty: "No heroes matched this filter.",
     allHeroes: "All Heroes",
@@ -280,9 +287,23 @@ export function HeroAtlasPage(props: { locale: Language }) {
         return true;
       }
 
-      return hero.name.toLowerCase().includes(normalizedQuery);
+      const attrAliases = hero.primaryAttr ? attributeSearchAliases[hero.primaryAttr] : ["unknown", "unclassified", "未标注"];
+      const localizedAttrLabel = hero.primaryAttr ? attributeLabels[props.locale][hero.primaryAttr] : pageText.filters.unknown.label;
+      const attackLabel = hero.attackType ? attackLabels[props.locale][hero.attackType] : "";
+      const searchableText = [
+        hero.name,
+        hero.roleLabel,
+        localizedAttrLabel,
+        ...attrAliases,
+        attackLabel,
+        ...(hero.roles ?? [])
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return searchableText.includes(normalizedQuery);
     });
-  }, [activeFilter, heroAtlas, normalizedQuery]);
+  }, [activeFilter, heroAtlas, normalizedQuery, pageText.filters.unknown.label, props.locale]);
 
   useEffect(() => {
     if (visibleHeroes.some((hero) => hero.name === selectedHeroName)) {
