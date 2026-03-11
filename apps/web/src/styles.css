@@ -3927,6 +3927,7 @@ button.active {
   max-width: 100%;
   max-height: calc(100% - 1.5rem);
   object-position: center;
+  transform: translateY(-4%);
 }
 
 .hero-browser-stage-placeholder {
