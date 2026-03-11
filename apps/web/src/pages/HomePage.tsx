@@ -10,6 +10,7 @@ import {
 } from "../lib/contentFormatting";
 
 type CategoryFilter = "news" | "guide" | "tournament" | undefined;
+const HOME_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 
 const labels = {
   "zh-CN": {
@@ -108,28 +109,38 @@ export function HomePage(props: {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    Promise.all([
-      fetchArticles({ language: props.locale, category, query }),
-      fetchPatchNotes(props.locale),
-      fetchTournaments(props.locale)
-    ])
-      .then(([articleItems, patchItems, tournamentItems]) => {
+    const loadContent = async (options?: { silent?: boolean }) => {
+      if (!options?.silent) {
+        setLoading(true);
+      }
+
+      try {
+        const [articleItems, patchItems, tournamentItems] = await Promise.all([
+          fetchArticles({ language: props.locale, category, query }),
+          fetchPatchNotes(props.locale),
+          fetchTournaments(props.locale)
+        ]);
         if (!active) {
           return;
         }
         setArticles(articleItems);
         setPatchNotes(patchItems);
         setTournaments(tournamentItems);
-      })
-      .finally(() => {
-        if (active) {
+      } finally {
+        if (active && !options?.silent) {
           setLoading(false);
         }
-      });
+      }
+    };
+
+    void loadContent();
+    const refreshTimer = window.setInterval(() => {
+      void loadContent({ silent: true });
+    }, HOME_REFRESH_INTERVAL_MS);
 
     return () => {
       active = false;
+      window.clearInterval(refreshTimer);
     };
   }, [props.locale, category, query]);
 

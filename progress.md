@@ -160,6 +160,11 @@
   - re-ordered the field manual sections so match loop, practice path, audience map, and prompt blocks read as one guide instead of separate panels
 - Validation completed after item 7:
   - `npm run build --workspace @dotagame/web`
+- Completed TODO item 8, "情报首页 应该定时去获取信息（十分钟一次）":
+  - extracted the home feed request into a reusable loader
+  - added a silent 10-minute polling interval so the homepage refreshes live content without interrupting the current view
+- Validation completed after item 8:
+  - `npm run build --workspace @dotagame/web`
 
 ## 2026-03-06
 - Started implementation from approved proposed plan.
