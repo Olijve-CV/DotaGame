@@ -269,9 +269,20 @@ describe("API v1", () => {
     expect(turnResponse.status).toBe(202);
     const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id);
     const assistantMessage = findLastAssistantMessage(completedResponse.body.messages);
+    const completedToolPart = (assistantMessage?.parts ?? []).find(
+      (part: { type?: string; status?: string }) => part.type === "tool_call" && part.status === "completed"
+    ) as
+      | {
+          startedAt?: string;
+          completedAt?: string | null;
+          durationMs?: number | null;
+        }
+      | undefined;
 
     expect(completedResponse.body.session.status).toBe("completed");
     expect(completedResponse.body.children).toEqual([]);
+    expect(completedResponse.body.insight.toolCallCount).toBeGreaterThan(0);
+    expect(completedResponse.body.insight.messageCount).toBeGreaterThanOrEqual(2);
     expect(assistantMessage).toBeTruthy();
     expect(
       (assistantMessage?.parts ?? []).some((part: { type?: string }) => part.type === "thinking")
@@ -279,6 +290,9 @@ describe("API v1", () => {
     expect(
       (assistantMessage?.parts ?? []).some((part: { type?: string }) => part.type === "tool_call")
     ).toBe(true);
+    expect(completedToolPart?.startedAt).toBeTruthy();
+    expect(completedToolPart?.completedAt).toBeTruthy();
+    expect(completedToolPart?.durationMs).not.toBeNull();
     expect(Boolean(assistantMessage?.content?.trim())).toBe(true);
   });
 
@@ -379,6 +393,34 @@ describe("API v1", () => {
       )
     ).toBe(false);
     expect(completedResponse.body.children).toEqual([]);
+  });
+
+  it("keeps the session title anchored to the first user prompt", async () => {
+    const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
+      language: "en-US"
+    });
+
+    await request(app)
+      .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
+      .send({
+        message: "Explain the latest patch trend for carry timings.",
+        language: "en-US"
+      });
+
+    await waitForSessionCompletion(sessionResponse.body.session.id);
+
+    await request(app)
+      .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
+      .send({
+        message: "Now summarize the same issue for support players.",
+        language: "en-US"
+      });
+
+    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id);
+
+    expect(completedResponse.body.session.title).toContain("Explain the latest patch trend");
+    expect(completedResponse.body.session.title).not.toContain("Now summarize the same issue");
+    expect(completedResponse.body.insight.lastUserMessage).toContain("support players");
   });
 
 

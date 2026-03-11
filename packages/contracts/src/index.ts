@@ -128,6 +128,7 @@ export interface AgentSessionSummary {
   status: AgentSessionStatus;
   lastMessage: string;
   childCount: number;
+  insight: AgentSessionInsight;
 }
 
 export interface AgentTextPart {
@@ -149,6 +150,25 @@ export interface AgentToolCallPart {
   inputSummary: string;
   outputSummary: string;
   citations: ChatCitation[];
+  startedAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+}
+
+export interface AgentToolUsage {
+  tool: AgentToolName;
+  count: number;
+}
+
+export interface AgentSessionInsight {
+  lastUserMessage: string;
+  lastAnswerPreview: string;
+  messageCount: number;
+  assistantTurnCount: number;
+  toolCallCount: number;
+  sourceCount: number;
+  activeTool: AgentToolName | null;
+  tools: AgentToolUsage[];
 }
 
 export type AgentMessagePart =
@@ -170,6 +190,7 @@ export interface AgentSessionDetail {
   session: AgentSession;
   messages: AgentMessage[];
   children: AgentSessionSummary[];
+  insight: AgentSessionInsight;
 }
 
 export type AgentSessionEventType =

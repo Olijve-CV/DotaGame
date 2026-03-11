@@ -86,6 +86,24 @@
   - `npm test`
 
 ## 2026-03-11
+- Started a research-driven optimization pass for the active agent runtime and frontend workspace:
+  - re-read planning files and current runtime design notes
+  - scoped the task around contemporary agent implementation patterns and product-level UX gaps
+- Researched current agent implementation patterns from primary sources:
+  - OpenAI Responses/Conversations/Agents SDK docs
+  - Anthropic tool-use documentation
+  - LangGraph production feature docs
+  - Gemini function-calling / tools docs
+- Implemented the research-backed optimization pass:
+  - extended shared contracts with session `insight` metadata and tool timing fields
+  - derived richer session summaries/details in `agentStore`
+  - added same-turn duplicate tool-result reuse and stabilized session titles in `agentRuntimeService`
+  - rebuilt `apps/web/src/pages/ChatPage.tsx` into a richer session/history/overview/feed workspace
+  - refreshed the agent-specific CSS to support the new information hierarchy
+- Added validation and documentation:
+  - updated API tests for insight/timing/title behavior
+  - added `docs/plans/2026-03-11-agent-runtime-optimization-design.md`
+  - verified with `npm test --workspace @dotagame/api` and `npm run build`
 - Reworked the active agent protocol from step-oriented to thinking-oriented:
   - removed `step_start`, `step_finish`, and `task_call` from the shared `AgentMessagePart` union
   - added a `thinking` part with `running/completed/failed` status

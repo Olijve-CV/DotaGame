@@ -9,6 +9,7 @@ import type {
   AgentSessionEvent,
   AgentSessionSummary,
   AgentToolName,
+  ChatCitation,
   Language
 } from "@dotagame/contracts";
 import {
@@ -28,24 +29,38 @@ interface ThreadEntry {
 const labels = {
   "zh-CN": {
     history: "会话历史",
-    historyHint: "登录后会自动保存会话，并可从历史中继续查看。",
+    historyHint: "登录后会保存聊天记录，并且可以继续在原会话上追问。",
     guestTitle: "临时会话",
-    guestHint: "未登录状态下，对话只保留在当前页面会话中，不会写入账号历史。",
+    guestHint: "游客模式只在当前页面保留上下文，不会写入账号历史。",
     newSession: "新建会话",
-    placeholder: "例如：结合最近补丁、赛事和通用思路，解释我为什么在 18 分钟左右 carry 节奏会断。",
+    placeholder:
+      "例如：结合最近版本、赛事和公开信息，解释为什么我玩 carry 常在 18 分钟后断节奏。",
     submit: "发送",
-    sending: "思考中...",
-    noSessions: "还没有已保存的会话。",
-    noMessages: "发送第一条消息来开始对话。",
+    sending: "正在执行...",
+    noSessions: "还没有保存的会话。",
+    noMessages: "发出第一条问题，开始一次完整 agent 回合。",
     user: "你",
     assistant: "Agent",
     tool: "工具",
-    thinking: "Thinking",
-    result: "结果",
-    citations: "来源",
+    thinking: "思考中",
+    result: "最终答复",
+    citations: "参考来源",
+    overview: "运行概览",
+    latestQuestion: "最近问题",
+    latestAnswer: "最近答复",
+    noAnswer: "当前还没有生成答复。",
+    messagesStat: "消息",
+    toolsStat: "工具调用",
+    sourcesStat: "来源",
+    activeTool: "当前工具",
+    activeToolIdle: "当前没有工具在执行",
+    toolMix: "工具足迹",
+    sessionScope: "会话状态",
+    starterTitle: "可以这样开始",
+    duration: "耗时",
     status: {
       idle: "空闲",
-      running: "思考中",
+      running: "执行中",
       completed: "已完成",
       failed: "失败"
     },
@@ -57,25 +72,38 @@ const labels = {
   },
   "en-US": {
     history: "Saved Chats",
-    historyHint: "Signed-in sessions are saved and can be reopened from history.",
+    historyHint: "Signed-in sessions stay in history and can be resumed from the same thread.",
     guestTitle: "Temporary Chat",
-    guestHint: "Guest conversations stay available only in this page session and are not saved to account history.",
+    guestHint: "Guest conversations stay only in this page session and are not written to account history.",
     newSession: "New Chat",
     placeholder:
-      "Example: Use recent patches, tournaments, and general context to explain why my carry tempo collapses around minute 18.",
+      "Example: Use recent patches, tournaments, and open-web context to explain why my carry tempo collapses around minute 18.",
     submit: "Send",
-    sending: "Thinking...",
+    sending: "Running...",
     noSessions: "No saved chats yet.",
-    noMessages: "Send the first message to start the conversation.",
+    noMessages: "Send the first message to start a full agent turn.",
     user: "You",
     assistant: "Agent",
     tool: "Tool",
     thinking: "Thinking",
-    result: "Result",
+    result: "Final answer",
     citations: "Sources",
+    overview: "Run Overview",
+    latestQuestion: "Latest question",
+    latestAnswer: "Latest answer",
+    noAnswer: "No answer yet.",
+    messagesStat: "Messages",
+    toolsStat: "Tool calls",
+    sourcesStat: "Sources",
+    activeTool: "Active tool",
+    activeToolIdle: "No tool is currently running",
+    toolMix: "Tool footprint",
+    sessionScope: "Session status",
+    starterTitle: "Try one of these",
+    duration: "Duration",
     status: {
       idle: "Idle",
-      running: "Thinking",
+      running: "Running",
       completed: "Completed",
       failed: "Failed"
     },
@@ -104,6 +132,19 @@ const labels = {
     thinking: string;
     result: string;
     citations: string;
+    overview: string;
+    latestQuestion: string;
+    latestAnswer: string;
+    noAnswer: string;
+    messagesStat: string;
+    toolsStat: string;
+    sourcesStat: string;
+    activeTool: string;
+    activeToolIdle: string;
+    toolMix: string;
+    sessionScope: string;
+    starterTitle: string;
+    duration: string;
     status: Record<AgentSession["status"], string>;
     agents: Record<AgentKind, string>;
   }
@@ -111,9 +152,9 @@ const labels = {
 
 const starterMap: Record<Language, string[]> = {
   "zh-CN": [
-    "解释当前版本里，哪些时间窗最容易让 carry 节奏断掉。",
-    "结合最近补丁和赛事，说说 support 现在最该调整什么。",
-    "把我的问题拆成对线、节奏和团战三个阶段，告诉我每阶段应该复盘什么。"
+    "结合最近版本和比赛，说说当前 carry 为什么会在中期丢节奏。",
+    "用版本、赛事和公开资料解释 support 现在最该改的三个习惯。",
+    "把我的问题拆成对线、节奏、团战三个阶段，各给我一个复盘框架。"
   ],
   "en-US": [
     "Explain which timing windows usually break carry tempo in the current patch.",
@@ -134,7 +175,8 @@ function toSummary(detail: AgentSessionDetail): AgentSessionSummary {
     updatedAt: detail.session.updatedAt,
     status: detail.session.status,
     lastMessage: detail.messages[detail.messages.length - 1]?.content ?? "",
-    childCount: detail.children.length
+    childCount: detail.children.length,
+    insight: detail.insight
   };
 }
 
@@ -179,6 +221,46 @@ function formatToolName(tool: AgentToolName): string {
   return "Web Search";
 }
 
+function formatDuration(durationMs: number | null, locale: Language): string {
+  if (durationMs == null) {
+    return locale === "zh-CN" ? "进行中" : "Running";
+  }
+  if (durationMs < 1000) {
+    return locale === "zh-CN" ? `${durationMs} 毫秒` : `${durationMs}ms`;
+  }
+  return `${(durationMs / 1000).toFixed(durationMs >= 10000 ? 0 : 1)}s`;
+}
+
+function collectMessageCitations(parts: AgentMessagePart[]): ChatCitation[] {
+  const seen = new Set<string>();
+  const citations: ChatCitation[] = [];
+
+  for (const part of parts) {
+    if (part.type !== "tool_call") {
+      continue;
+    }
+
+    for (const citation of part.citations) {
+      const key = `${citation.sourceUrl}:${citation.title}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      citations.push(citation);
+    }
+  }
+
+  return citations;
+}
+
+function formatToolMix(summary: AgentSessionSummary): string[] {
+  return summary.insight.tools.slice(0, 3).map((item) => `${formatToolName(item.tool)} x${item.count}`);
+}
+
+function getSessionPreview(summary: AgentSessionSummary, copy: (typeof labels)["en-US"]) {
+  return summary.insight.lastUserMessage || summary.lastMessage || copy.noMessages;
+}
+
 export function ChatPage(props: { locale: Language; token: string | null }) {
   const copy = useMemo(() => labels[props.locale], [props.locale]);
   const starters = useMemo(() => starterMap[props.locale], [props.locale]);
@@ -193,6 +275,7 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
 
   const rootSession = rootDetail?.session ?? null;
   const rootSessionId = rootDetail?.session.id ?? null;
+  const rootInsight = rootDetail?.insight ?? null;
 
   const threadEntries = useMemo(() => {
     if (!rootDetail) {
@@ -401,22 +484,17 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
     void submitMission();
   }
 
-  function renderCitations(
-    citations: Array<{
-      id: string;
-      source: string;
-      sourceUrl: string;
-    }>
-  ) {
+  function renderCitationLinks(citations: ChatCitation[]) {
     if (citations.length === 0) {
       return null;
     }
 
     return (
       <div className="message-part-links">
-        {citations.slice(0, 3).map((citation) => (
-          <a href={citation.sourceUrl} key={citation.id} rel="noreferrer" target="_blank">
-            {citation.source}
+        {citations.slice(0, 4).map((citation) => (
+          <a href={citation.sourceUrl} key={`${citation.id}-${citation.sourceUrl}`} rel="noreferrer" target="_blank">
+            <span>{citation.source}</span>
+            <strong>{citation.title}</strong>
           </a>
         ))}
       </div>
@@ -450,12 +528,23 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
     return (
       <div className={`message-part-card part-${part.type}`} key={key}>
         <div className="message-part-head">
-          <strong>{formatToolName(part.tool)}</strong>
+          <div className="message-part-title">
+            <strong>{formatToolName(part.tool)}</strong>
+            <span className="message-part-meta">
+              {copy.duration}: {formatDuration(part.durationMs, props.locale)}
+            </span>
+          </div>
           <span className={`message-part-status is-${part.status}`}>{copy.status[part.status]}</span>
         </div>
         {part.inputSummary ? <p className="message-part-note">{part.inputSummary}</p> : null}
         {part.outputSummary ? <p>{part.outputSummary}</p> : null}
-        {renderCitations(part.citations)}
+        <div className="message-tool-footnote">
+          <span>
+            {part.citations.length} {copy.citations}
+          </span>
+          {part.completedAt ? <span>{formatContentDateTime(part.completedAt, props.locale)}</span> : null}
+        </div>
+        {renderCitationLinks(part.citations)}
       </div>
     );
   }
@@ -479,21 +568,47 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
 
             <div className="agent-history-list">
               {rootSessions.length > 0 ? (
-                rootSessions.map((session) => (
-                  <button
-                    className={`agent-thread-card${rootDetail?.session.id === session.id ? " active" : ""}`}
-                    key={session.id}
-                    onClick={() => void openRootSession(session.id)}
-                    type="button"
-                  >
-                    <span className="agent-thread-status">{copy.status[session.status]}</span>
-                    <strong>{session.title}</strong>
-                    <p>{session.lastMessage || copy.noMessages}</p>
-                    <span className="agent-thread-time">
-                      {formatContentDateTime(session.updatedAt, props.locale)}
-                    </span>
-                  </button>
-                ))
+                rootSessions.map((session) => {
+                  const toolMix = formatToolMix(session);
+
+                  return (
+                    <button
+                      className={`agent-thread-card${rootDetail?.session.id === session.id ? " active" : ""}`}
+                      key={session.id}
+                      onClick={() => void openRootSession(session.id)}
+                      type="button"
+                    >
+                      <div className="agent-thread-topline">
+                        <span className="agent-thread-status">{copy.status[session.status]}</span>
+                        <span className="agent-thread-time">
+                          {formatContentDateTime(session.updatedAt, props.locale)}
+                        </span>
+                      </div>
+                      <strong>{session.title}</strong>
+                      <p>{getSessionPreview(session, copy)}</p>
+                      <div className="agent-thread-metrics">
+                        <span>
+                          {session.insight.messageCount} {copy.messagesStat}
+                        </span>
+                        <span>
+                          {session.insight.toolCallCount} {copy.toolsStat}
+                        </span>
+                        <span>
+                          {session.insight.sourceCount} {copy.sourcesStat}
+                        </span>
+                      </div>
+                      {toolMix.length > 0 ? (
+                        <div className="agent-thread-tool-row">
+                          {toolMix.map((item) => (
+                            <span className="agent-tool-chip" key={`${session.id}-${item}`}>
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </button>
+                  );
+                })
               ) : (
                 <div className="agent-guest-note">
                   <strong>{copy.noSessions}</strong>
@@ -512,6 +627,74 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
             </section>
           ) : null}
 
+          <section className="agent-overview-panel">
+            <div className="agent-overview-heading">
+              <div>
+                <span className="section-kicker">{copy.overview}</span>
+                <h2>{rootSession?.title ?? copy.guestTitle}</h2>
+              </div>
+              <div className="agent-overview-badges">
+                <span className="agent-session-badge">{copy.status[rootSession?.status ?? "idle"]}</span>
+                {rootInsight?.activeTool ? (
+                  <span className="agent-session-badge accent">
+                    {copy.activeTool}: {formatToolName(rootInsight.activeTool)}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="agent-overview-stats">
+              <article className="agent-overview-card">
+                <span>{copy.messagesStat}</span>
+                <strong>{rootInsight?.messageCount ?? 0}</strong>
+              </article>
+              <article className="agent-overview-card">
+                <span>{copy.toolsStat}</span>
+                <strong>{rootInsight?.toolCallCount ?? 0}</strong>
+              </article>
+              <article className="agent-overview-card">
+                <span>{copy.sourcesStat}</span>
+                <strong>{rootInsight?.sourceCount ?? 0}</strong>
+              </article>
+            </div>
+
+            <div className="agent-overview-grid">
+              <article className="agent-overview-note">
+                <span>{copy.latestQuestion}</span>
+                <p>{rootInsight?.lastUserMessage || copy.noMessages}</p>
+              </article>
+              <article className="agent-overview-note">
+                <span>{copy.latestAnswer}</span>
+                <p>{rootInsight?.lastAnswerPreview || copy.noAnswer}</p>
+              </article>
+            </div>
+
+            <div className="agent-overview-footer">
+              <div className="agent-overview-tools">
+                <span>{copy.toolMix}</span>
+                <div className="agent-thread-tool-row">
+                  {rootInsight && rootInsight.tools.length > 0 ? (
+                    rootInsight.tools.slice(0, 4).map((tool) => (
+                      <span className="agent-tool-chip" key={tool.tool}>
+                        {formatToolName(tool.tool)} x{tool.count}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="agent-overview-empty">{copy.activeToolIdle}</span>
+                  )}
+                </div>
+              </div>
+              <div className="agent-overview-tools align-end">
+                <span>{copy.sessionScope}</span>
+                <div className="agent-thread-tool-row">
+                  <span className="agent-tool-chip subtle">
+                    {rootSession ? formatContentDateTime(rootSession.updatedAt, props.locale) : copy.noMessages}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section className="agent-chat-feed" ref={feedRef}>
             {threadEntries.length > 0 ? (
               <div className="agent-message-list">
@@ -526,6 +709,7 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
                   const isThinking = visibleParts.some(
                     (part) => part.type === "thinking" && part.status === "running"
                   );
+                  const messageCitations = collectMessageCitations(entry.message.parts);
 
                   return (
                     <article
@@ -538,6 +722,11 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
                             {getSpeakerLabel(entry, props.locale)}
                           </span>
                           <span>{formatContentDateTime(entry.message.createdAt, props.locale)}</span>
+                          {messageCitations.length > 0 ? (
+                            <span className="agent-chat-meta-badge">
+                              {messageCitations.length} {copy.citations}
+                            </span>
+                          ) : null}
                         </div>
 
                         {showPlainContent && resultText ? (
@@ -558,6 +747,13 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
                             <p className="agent-chat-content">{resultText}</p>
                           </div>
                         ) : null}
+
+                        {isAssistant && messageCitations.length > 0 ? (
+                          <div className="agent-source-strip">
+                            <span className="agent-result-label">{copy.citations}</span>
+                            {renderCitationLinks(messageCitations)}
+                          </div>
+                        ) : null}
                       </div>
                     </article>
                   );
@@ -565,6 +761,10 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
               </div>
             ) : (
               <div className="agent-empty-state">
+                <div className="agent-empty-copy">
+                  <span className="section-kicker">{copy.starterTitle}</span>
+                  <h3>{copy.noMessages}</h3>
+                </div>
                 <div className="agent-starter-list">
                   {starters.map((starter) => (
                     <button key={starter} onClick={() => void submitMission(starter)} type="button">
@@ -591,6 +791,9 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
               <div className="agent-compose-actions">
                 <div className="agent-compose-hint">
                   <span className="agent-session-badge">{copy.status[rootSession?.status ?? "idle"]}</span>
+                  {rootInsight?.activeTool ? (
+                    <span className="agent-session-badge accent">{formatToolName(rootInsight.activeTool)}</span>
+                  ) : null}
                 </div>
                 <button
                   className="primary-btn chat-submit"

@@ -113,6 +113,12 @@ function buildSessionTitle(message: string, language: Language): string {
   return trimmed.slice(0, 52);
 }
 
+function getReusedToolMessage(language: Language): string {
+  return language === "zh-CN"
+    ? "复用了本轮里相同工具查询的已有结果。"
+    : "Reused the earlier result for the same tool query.";
+}
+
 function publishDetailEvent(sessionId: string): void {
   const detail = buildAgentSessionDetail(sessionId);
   if (!detail) {
@@ -254,6 +260,23 @@ function parseToolInput(rawArguments: string, fallbackInput: string): string {
   } catch {
     return fallbackInput;
   }
+}
+
+function normalizeToolInput(input: string): string {
+  return input.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function buildToolCacheKey(tool: AgentToolName, input: string): string {
+  return `${tool}:${normalizeToolInput(input)}`;
+}
+
+function shouldSetSessionTitle(sessionId: string): boolean {
+  const detail = buildAgentSessionDetail(sessionId);
+  if (!detail) {
+    return true;
+  }
+
+  return !detail.messages.some((message) => message.role === "user");
 }
 
 async function executeTool(tool: AgentToolName, input: string, language: Language) {
@@ -449,6 +472,7 @@ async function runSessionTurn(sessionId: string): Promise<void> {
   const maxSteps = Number(process.env.AGENT_MAX_STEPS ?? DEFAULT_MAX_STEPS);
   const conversation = buildConversationSeed(sessionId);
   const packets: ToolExecutionPacket[] = [];
+  const toolResultCache = new Map<string, ToolExecutionPacket>();
   const copy = getCopy(session.language);
   const latestUserQuestion = (() => {
     const messages = buildAgentSessionDetail(sessionId)?.messages ?? [];
@@ -529,7 +553,10 @@ async function runSessionTurn(sessionId: string): Promise<void> {
         status: "running" as const,
         inputSummary: toolCall.input || latestUserQuestion,
         outputSummary: "",
-        citations: []
+        citations: [],
+        startedAt: new Date().toISOString(),
+        completedAt: null,
+        durationMs: null
       }));
 
       assistantMessage = {
@@ -561,18 +588,38 @@ async function runSessionTurn(sessionId: string): Promise<void> {
       });
 
       for (const toolCall of stepResult.toolCalls) {
-        try {
-          const result = await executeTool(
-            toolCall.tool,
-            toolCall.input || latestUserQuestion,
-            session.language
-          );
+        const toolInput = toolCall.input || latestUserQuestion;
+        const cacheKey = buildToolCacheKey(toolCall.tool, toolInput);
+        const currentToolPart = assistantMessage.parts.find(
+          (part) => part.type === "tool_call" && part.callId === toolCall.callId
+        );
+        const toolStartedAt =
+          currentToolPart?.type === "tool_call" ? currentToolPart.startedAt : new Date().toISOString();
 
-          packets.push({
-            tool: toolCall.tool,
-            summary: result.summary,
-            citations: result.citations
-          });
+        try {
+          const cachedPacket = toolResultCache.get(cacheKey);
+          const result = cachedPacket
+            ? {
+                summary: `${getReusedToolMessage(session.language)}\n${cachedPacket.summary}`.trim(),
+                citations: cachedPacket.citations
+              }
+            : await executeTool(toolCall.tool, toolInput, session.language);
+
+          if (!cachedPacket) {
+            const freshPacket = {
+              tool: toolCall.tool,
+              summary: result.summary,
+              citations: result.citations
+            };
+            packets.push(freshPacket);
+            toolResultCache.set(cacheKey, freshPacket);
+          }
+
+          const completedAt = new Date().toISOString();
+          const durationMs = Math.max(
+            0,
+            new Date(completedAt).getTime() - new Date(toolStartedAt).getTime()
+          );
 
           assistantMessage = {
             ...assistantMessage,
@@ -582,7 +629,9 @@ async function runSessionTurn(sessionId: string): Promise<void> {
                     ...part,
                     status: "completed",
                     outputSummary: result.summary,
-                    citations: result.citations
+                    citations: result.citations,
+                    completedAt,
+                    durationMs
                   }
                 : part
             )
@@ -601,6 +650,11 @@ async function runSessionTurn(sessionId: string): Promise<void> {
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : "TOOL_FAILED";
+          const completedAt = new Date().toISOString();
+          const durationMs = Math.max(
+            0,
+            new Date(completedAt).getTime() - new Date(toolStartedAt).getTime()
+          );
           assistantMessage = {
             ...assistantMessage,
             parts: assistantMessage.parts.map((part) =>
@@ -609,7 +663,9 @@ async function runSessionTurn(sessionId: string): Promise<void> {
                     ...part,
                     status: "failed",
                     outputSummary: message,
-                    citations: []
+                    citations: [],
+                    completedAt,
+                    durationMs
                   }
                 : part
             )
@@ -743,7 +799,9 @@ export async function sendMessageToSession(input: {
     language: input.language,
     status: "running"
   });
-  updateAgentSessionTitle(input.sessionId, buildSessionTitle(trimmedMessage, input.language));
+  if (shouldSetSessionTitle(input.sessionId)) {
+    updateAgentSessionTitle(input.sessionId, buildSessionTitle(trimmedMessage, input.language));
+  }
 
   addAgentMessage({
     sessionId: input.sessionId,

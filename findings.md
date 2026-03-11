@@ -121,6 +121,24 @@
 - This gives the repo the most important OpenCode behavior without pulling in its full provider, permission, compaction, or patch-tracking subsystems.
 
 ## 2026-03-11
+- A new gap analysis is warranted after the thinking-first rewrite:
+  - the repo now matches the visible "assistant thinks, calls tools, answers" pattern
+  - it still lacks several capabilities common in 2026 agent products, especially durable session metadata, clearer per-turn state, richer tool provenance, and a more deliberate operator-facing chat layout
+- Research pass against current primary sources shows a fairly stable 2026 pattern:
+  - OpenAI is converging on `Conversations` + `Responses`, with tool loops managed explicitly and conversation state treated as streams of items rather than flat messages.
+  - OpenAI Agents SDK positions sessions as persistent memory, traces/spans as first-class production telemetry, and tool/handoff streaming as standard runtime behavior.
+  - Anthropic's current guidance emphasizes detailed tool descriptions and interleaved thinking between tool calls, not just one initial planning step.
+  - LangGraph continues to frame durable execution, streaming, and human-in-the-loop as the core orchestration requirements for production agents.
+  - Gemini exposes explicit function-calling modes and native multi-tool combinations, reinforcing that controlled tool policy is now a product boundary, not an implementation detail.
+- Immediate implications for this repo:
+  - the current single-session loop is directionally correct
+  - the biggest missing layer is not "more subagents", but better turn state, session memory metadata, tool visibility, and resumable/inspectable UX
+- The implemented optimization pass translated those findings into concrete repo changes:
+  - `AgentSessionSummary` and `AgentSessionDetail` now expose an `insight` block derived from message history
+  - `tool_call` parts now carry timing metadata (`startedAt`, `completedAt`, `durationMs`)
+  - identical same-turn tool calls are now served from a normalized in-memory result cache instead of re-hitting the provider path
+  - session titles now stay anchored to the first user prompt, which is a better memory/product boundary than renaming the thread on every turn
+  - the web chat UI now has a real run overview layer and exposes tool/source provenance much more clearly
 - The remaining UX mismatch after the OpenCode-style backend rewrite was not the loop itself, but the message-part protocol exposed to the client:
   - the server still emitted `step_start` / `step_finish`
   - the frontend rendered those internal control markers directly

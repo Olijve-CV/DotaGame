@@ -4,8 +4,10 @@ import type {
   AgentMessagePart,
   AgentSession,
   AgentSessionDetail,
+  AgentSessionInsight,
   AgentSessionStatus,
   AgentSessionSummary,
+  AgentToolUsage,
   Language
 } from "@dotagame/contracts";
 import { randomUUID } from "node:crypto";
@@ -32,6 +34,39 @@ function cloneMessage(message: AgentMessage): AgentMessage {
   return {
     ...message,
     parts: message.parts.map(cloneMessagePart)
+  };
+}
+
+function buildSessionInsight(sessionId: string): AgentSessionInsight {
+  const messages = messagesBySession.get(sessionId) ?? [];
+  const lastUserMessage =
+    [...messages].reverse().find((message) => message.role === "user")?.content.trim() ?? "";
+  const lastAnswerPreview =
+    [...messages].reverse().find((message) => message.role === "assistant")?.content.trim() ?? "";
+  const toolCalls = messages.flatMap((message) =>
+    message.parts.filter(
+      (part): part is Extract<AgentMessagePart, { type: "tool_call" }> => part.type === "tool_call"
+    )
+  );
+  const citations = toolCalls.flatMap((part) => part.citations);
+  const toolCountMap = new Map<AgentToolUsage["tool"], number>();
+
+  for (const toolCall of toolCalls) {
+    toolCountMap.set(toolCall.tool, (toolCountMap.get(toolCall.tool) ?? 0) + 1);
+  }
+
+  return {
+    lastUserMessage,
+    lastAnswerPreview,
+    messageCount: messages.length,
+    assistantTurnCount: messages.filter((message) => message.role === "assistant").length,
+    toolCallCount: toolCalls.length,
+    sourceCount: new Set(citations.map((citation) => `${citation.sourceUrl}:${citation.title}`)).size,
+    activeTool:
+      [...toolCalls].reverse().find((toolCall) => toolCall.status === "running")?.tool ?? null,
+    tools: [...toolCountMap.entries()]
+      .map(([tool, count]) => ({ tool, count }))
+      .sort((left, right) => right.count - left.count || left.tool.localeCompare(right.tool))
   };
 }
 
@@ -190,7 +225,8 @@ export function buildAgentSessionDetail(sessionId: string): AgentSessionDetail |
   return {
     session: { ...session },
     messages: (messagesBySession.get(sessionId) ?? []).map(cloneMessage),
-    children: listChildSessionSummaries(sessionId)
+    children: listChildSessionSummaries(sessionId),
+    insight: buildSessionInsight(sessionId)
   };
 }
 
@@ -207,6 +243,7 @@ function toSessionSummary(session: AgentSession): AgentSessionSummary {
     updatedAt: session.updatedAt,
     status: session.status,
     lastMessage: messages[messages.length - 1]?.content ?? "",
-    childCount: [...sessions.values()].filter((item) => item.parentSessionId === session.id).length
+    childCount: [...sessions.values()].filter((item) => item.parentSessionId === session.id).length,
+    insight: buildSessionInsight(session.id)
   };
 }
