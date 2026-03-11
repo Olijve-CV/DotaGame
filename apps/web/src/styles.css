@@ -3880,6 +3880,7 @@ button.active {
 }
 
 .hero-browser-stage-bg,
+.hero-browser-stage-video,
 .hero-browser-stage-backdrop::after {
   position: absolute;
   inset: 0;
@@ -3893,6 +3894,16 @@ button.active {
   opacity: 0.38;
   filter: blur(24px) saturate(1.14);
   transform: scale(1.16);
+}
+
+.hero-browser-stage-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 62% center;
+  opacity: 0.26;
+  mix-blend-mode: screen;
+  filter: saturate(1.06) contrast(1.06);
 }
 
 .hero-browser-stage-backdrop::after {
@@ -4086,6 +4097,7 @@ button.active {
 }
 
 .hero-browser-card-image,
+.hero-browser-card-video,
 .hero-browser-card-placeholder,
 .hero-browser-card-shadow,
 .hero-browser-card-copy {
@@ -4093,6 +4105,7 @@ button.active {
 }
 
 .hero-browser-card-image,
+.hero-browser-card-video,
 .hero-browser-card-placeholder {
   width: 100%;
   height: 100%;
@@ -4116,6 +4129,12 @@ button.active {
     linear-gradient(180deg, transparent 34%, rgba(7, 9, 13, 0.88) 100%),
     linear-gradient(180deg, rgba(214, 103, 67, 0.06), transparent 44%);
   transition: opacity 220ms ease, background 220ms ease;
+}
+
+.hero-browser-card-video {
+  opacity: 0;
+  transition: opacity 220ms ease, transform 260ms ease, filter 260ms ease;
+  filter: saturate(1.08);
 }
 
 .hero-browser-card-mark {
@@ -4161,11 +4180,18 @@ button.active {
 }
 
 .hero-browser-card:hover .hero-browser-card-image,
+.hero-browser-card:hover .hero-browser-card-video,
 .hero-browser-card:hover .hero-browser-card-placeholder,
 .hero-browser-card.selected .hero-browser-card-image,
+.hero-browser-card.selected .hero-browser-card-video,
 .hero-browser-card.selected .hero-browser-card-placeholder {
   transform: scale(1.06);
   filter: saturate(1.06);
+}
+
+.hero-browser-card:hover .hero-browser-card-video,
+.hero-browser-card.selected .hero-browser-card-video {
+  opacity: 1;
 }
 
 .hero-browser-card:hover .hero-browser-card-copy,

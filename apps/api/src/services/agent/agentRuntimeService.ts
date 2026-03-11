@@ -1,7 +1,12 @@
 import type {
+  AgentMessage,
   AgentMessagePart,
+  AgentSession,
+  AgentSessionDetail,
+  AgentSessionSummary,
   AgentThinkingPart,
   AgentToolName,
+  AgentToolCallPart,
   ChatCitation,
   Language
 } from "@dotagame/contracts";
@@ -46,15 +51,17 @@ interface OpenAiToolCall {
   };
 }
 
+interface AgentToolCallRequest {
+  callId: string;
+  tool: AgentToolName;
+  input: string;
+  rawArguments: string;
+  webSearchInput: WebSearchToolInput | null;
+}
+
 interface AgentStepResult {
   content: string;
-  toolCalls: Array<{
-    callId: string;
-    tool: AgentToolName;
-    input: string;
-    rawArguments: string;
-    webSearchInput: WebSearchToolInput | null;
-  }>;
+  toolCalls: AgentToolCallRequest[];
 }
 
 interface ToolExecutionPacket {
@@ -544,6 +551,93 @@ function buildToolConversationPayload(packet: ToolExecutionPacket): string {
   });
 }
 
+function getLatestUserQuestion(sessionId: string): string {
+  const messages = buildAgentSessionDetail(sessionId)?.messages ?? [];
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role === "user") {
+      return messages[index].content;
+    }
+  }
+  return "";
+}
+
+function buildRunningToolPart(
+  toolCall: AgentToolCallRequest,
+  latestUserQuestion: string
+): AgentToolCallPart {
+  return {
+    type: "tool_call",
+    callId: toolCall.callId,
+    tool: toolCall.tool,
+    status: "running",
+    inputSummary: toolCall.input || latestUserQuestion,
+    outputSummary: "",
+    citations: [],
+    startedAt: new Date().toISOString(),
+    completedAt: null,
+    durationMs: null
+  };
+}
+
+function buildOpenAiToolCall(toolCall: AgentToolCallRequest): OpenAiToolCall {
+  return {
+    id: toolCall.callId,
+    type: "function",
+    function: {
+      name: toolCall.tool,
+      arguments: toolCall.rawArguments
+    }
+  };
+}
+
+function getToolStartedAt(parts: AgentMessagePart[], callId: string): string {
+  const toolPart = parts.find(
+    (part): part is AgentToolCallPart => part.type === "tool_call" && part.callId === callId
+  );
+
+  return toolPart?.startedAt ?? new Date().toISOString();
+}
+
+function getDurationMs(startedAt: string, completedAt: string): number {
+  return Math.max(0, new Date(completedAt).getTime() - new Date(startedAt).getTime());
+}
+
+function updateToolCallPart(
+  message: AgentMessage,
+  callId: string,
+  patch: Pick<
+    AgentToolCallPart,
+    "status" | "outputSummary" | "citations" | "completedAt" | "durationMs"
+  >
+): AgentMessage {
+  return {
+    ...message,
+    parts: message.parts.map((part) =>
+      part.type === "tool_call" && part.callId === callId
+        ? {
+            ...part,
+            ...patch
+          }
+        : part
+    )
+  };
+}
+
+function publishSessionCompleted(sessionId: string): void {
+  const completedDetail = buildAgentSessionDetail(sessionId);
+  if (!completedDetail) {
+    return;
+  }
+
+  publishAgentSessionEvent({
+    type: "session.completed",
+    sessionId,
+    rootSessionId: completedDetail.session.rootSessionId,
+    detail: completedDetail,
+    timestamp: new Date().toISOString()
+  });
+}
+
 async function runSessionTurn(sessionId: string): Promise<void> {
   if (activeTurns.has(sessionId)) {
     return;
@@ -560,15 +654,7 @@ async function runSessionTurn(sessionId: string): Promise<void> {
   const packets: ToolExecutionPacket[] = [];
   const toolResultCache = new Map<string, ToolExecutionPacket>();
   const copy = getCopy(session.language);
-  const latestUserQuestion = (() => {
-    const messages = buildAgentSessionDetail(sessionId)?.messages ?? [];
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      if (messages[index].role === "user") {
-        return messages[index].content;
-      }
-    }
-    return "";
-  })();
+  const latestUserQuestion = getLatestUserQuestion(sessionId);
 
   let assistantMessage = addAgentMessage({
     sessionId,
@@ -619,31 +705,13 @@ async function runSessionTurn(sessionId: string): Promise<void> {
           });
         }
 
-        const completedDetail = buildAgentSessionDetail(sessionId);
-        if (completedDetail) {
-          publishAgentSessionEvent({
-            type: "session.completed",
-            sessionId,
-            rootSessionId: completedDetail.session.rootSessionId,
-            detail: completedDetail,
-            timestamp: new Date().toISOString()
-          });
-        }
+        publishSessionCompleted(sessionId);
         return;
       }
 
-      const toolParts: AgentMessagePart[] = stepResult.toolCalls.map((toolCall) => ({
-        type: "tool_call" as const,
-        callId: toolCall.callId,
-        tool: toolCall.tool,
-        status: "running" as const,
-        inputSummary: toolCall.input || latestUserQuestion,
-        outputSummary: "",
-        citations: [],
-        startedAt: new Date().toISOString(),
-        completedAt: null,
-        durationMs: null
-      }));
+      const toolParts: AgentMessagePart[] = stepResult.toolCalls.map((toolCall) =>
+        buildRunningToolPart(toolCall, latestUserQuestion)
+      );
 
       assistantMessage = {
         ...assistantMessage,
@@ -658,14 +726,7 @@ async function runSessionTurn(sessionId: string): Promise<void> {
       updateAgentMessage(assistantMessage);
       publishRoot(sessionId);
 
-      const openAiToolCalls: OpenAiToolCall[] = stepResult.toolCalls.map((toolCall) => ({
-        id: toolCall.callId,
-        type: "function",
-        function: {
-          name: toolCall.tool,
-          arguments: toolCall.rawArguments
-        }
-      }));
+      const openAiToolCalls: OpenAiToolCall[] = stepResult.toolCalls.map(buildOpenAiToolCall);
 
       conversation.push({
         role: "assistant",
@@ -676,11 +737,7 @@ async function runSessionTurn(sessionId: string): Promise<void> {
       for (const toolCall of stepResult.toolCalls) {
         const toolInput = toolCall.input || latestUserQuestion;
         const cacheKey = buildToolCacheKey(toolCall.tool, toolInput, toolCall.webSearchInput);
-        const currentToolPart = assistantMessage.parts.find(
-          (part) => part.type === "tool_call" && part.callId === toolCall.callId
-        );
-        const toolStartedAt =
-          currentToolPart?.type === "tool_call" ? currentToolPart.startedAt : new Date().toISOString();
+        const toolStartedAt = getToolStartedAt(assistantMessage.parts, toolCall.callId);
 
         try {
           const cachedPacket = toolResultCache.get(cacheKey);
@@ -707,26 +764,15 @@ async function runSessionTurn(sessionId: string): Promise<void> {
           }
 
           const completedAt = new Date().toISOString();
-          const durationMs = Math.max(
-            0,
-            new Date(completedAt).getTime() - new Date(toolStartedAt).getTime()
-          );
+          const durationMs = getDurationMs(toolStartedAt, completedAt);
 
-          assistantMessage = {
-            ...assistantMessage,
-            parts: assistantMessage.parts.map((part) =>
-              part.type === "tool_call" && part.callId === toolCall.callId
-                ? {
-                    ...part,
-                    status: "completed",
-                    outputSummary: result.summary,
-                    citations: result.citations,
-                    completedAt,
-                    durationMs
-                  }
-                : part
-            )
-          };
+          assistantMessage = updateToolCallPart(assistantMessage, toolCall.callId, {
+            status: "completed",
+            outputSummary: result.summary,
+            citations: result.citations,
+            completedAt,
+            durationMs
+          });
           updateAgentMessage(assistantMessage);
           publishRoot(sessionId);
 
@@ -742,25 +788,14 @@ async function runSessionTurn(sessionId: string): Promise<void> {
         } catch (error) {
           const message = error instanceof Error ? error.message : "TOOL_FAILED";
           const completedAt = new Date().toISOString();
-          const durationMs = Math.max(
-            0,
-            new Date(completedAt).getTime() - new Date(toolStartedAt).getTime()
-          );
-          assistantMessage = {
-            ...assistantMessage,
-            parts: assistantMessage.parts.map((part) =>
-              part.type === "tool_call" && part.callId === toolCall.callId
-                ? {
-                    ...part,
-                    status: "failed",
-                    outputSummary: message,
-                    citations: [],
-                    completedAt,
-                    durationMs
-                  }
-                : part
-            )
-          };
+          const durationMs = getDurationMs(toolStartedAt, completedAt);
+          assistantMessage = updateToolCallPart(assistantMessage, toolCall.callId, {
+            status: "failed",
+            outputSummary: message,
+            citations: [],
+            completedAt,
+            durationMs
+          });
           updateAgentMessage(assistantMessage);
           publishRoot(sessionId);
 
@@ -788,16 +823,7 @@ async function runSessionTurn(sessionId: string): Promise<void> {
     updateAgentSessionStatus(sessionId, "completed");
     publishRoot(sessionId);
 
-    const completedDetail = buildAgentSessionDetail(sessionId);
-    if (completedDetail) {
-      publishAgentSessionEvent({
-        type: "session.completed",
-        sessionId,
-        rootSessionId: completedDetail.session.rootSessionId,
-        detail: completedDetail,
-        timestamp: new Date().toISOString()
-      });
-    }
+    publishSessionCompleted(sessionId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "AGENT_SESSION_FAILED";
     assistantMessage = {
@@ -839,7 +865,7 @@ export function createSession(input: {
   userId: string | null;
   language: Language;
   title?: string;
-}) {
+}): AgentSession {
   return createAgentSession({
     userId: input.userId,
     parentSessionId: null,
@@ -851,15 +877,15 @@ export function createSession(input: {
   });
 }
 
-export function getSessionDetail(sessionId: string) {
+export function getSessionDetail(sessionId: string): AgentSessionDetail | null {
   return buildAgentSessionDetail(sessionId);
 }
 
-export function listSessions(userId: string) {
+export function listSessions(userId: string): AgentSessionSummary[] {
   return listAgentSessionSummaries(userId);
 }
 
-export function listChildren(sessionId: string) {
+export function listChildren(sessionId: string): AgentSessionSummary[] {
   return listChildSessionSummaries(sessionId);
 }
 
@@ -868,7 +894,7 @@ export async function sendMessageToSession(input: {
   userId: string | null;
   message: string;
   language: Language;
-}) {
+}): Promise<AgentSessionDetail> {
   const session = getAgentSession(input.sessionId);
   if (!session) {
     throw new Error("SESSION_NOT_FOUND");

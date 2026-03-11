@@ -170,6 +170,7 @@ export function HeroAtlasPage(props: { locale: Language }) {
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<AttributeFilterKey>("allHeroes");
   const [selectedHeroName, setSelectedHeroName] = useState("");
+  const [hoveredHeroName, setHoveredHeroName] = useState("");
   const deferredQuery = useDeferredValue(query);
 
   useEffect(() => {
@@ -269,6 +270,29 @@ export function HeroAtlasPage(props: { locale: Language }) {
     return filterKey === "allHeroes" ? "pool" : filterKey;
   }
 
+  function getHeroAssetSlug(imageUrl: string | undefined) {
+    if (!imageUrl) {
+      return null;
+    }
+
+    const normalizedUrl = imageUrl.split("?")[0];
+    const segments = normalizedUrl.split("/");
+    const fileName = segments[segments.length - 1];
+    const dotIndex = fileName.lastIndexOf(".");
+    return dotIndex >= 0 ? fileName.slice(0, dotIndex) : fileName;
+  }
+
+  function getHeroRenderVideoUrl(imageUrl: string | undefined) {
+    const slug = getHeroAssetSlug(imageUrl);
+    if (!slug) {
+      return null;
+    }
+
+    return `https://cdn.cloudflare.steamstatic.com/apps/dota2/videos/dota_react/heroes/renders/${slug}.webm`;
+  }
+
+  const selectedHeroVideo = getHeroRenderVideoUrl(selectedHeroImage);
+
   return (
     <section className="stack hero-atlas-page official-hero-browser">
       <section className="panel hero-browser-hero">
@@ -352,6 +376,21 @@ export function HeroAtlasPage(props: { locale: Language }) {
                   className="hero-browser-stage-bg"
                   src={selectedHeroImage}
                 />
+              ) : null}
+              {selectedHeroVideo ? (
+                <video
+                  aria-hidden="true"
+                  autoPlay
+                  className="hero-browser-stage-video"
+                  key={selectedHeroVideo}
+                  loop
+                  muted
+                  playsInline
+                  poster={selectedHeroImage}
+                  preload="auto"
+                >
+                  <source src={selectedHeroVideo} type="video/webm" />
+                </video>
               ) : null}
               {selectedHeroImage ? (
                 <img alt={selectedHero.name} className="hero-browser-stage-art" src={selectedHeroImage} />
@@ -461,7 +500,9 @@ export function HeroAtlasPage(props: { locale: Language }) {
         <div className="hero-browser-roster-grid">
           {visibleHeroes.map((hero) => {
             const heroImage = hero.image ?? HERO_IMAGE_FALLBACKS[hero.name];
+            const heroVideo = getHeroRenderVideoUrl(heroImage);
             const isSelected = hero.name === selectedHero?.name;
+            const isPreviewing = hoveredHeroName === hero.name || isSelected;
             const cardStyle = {
               "--hero-card-accent": hero.accent
             } as CSSProperties;
@@ -470,6 +511,10 @@ export function HeroAtlasPage(props: { locale: Language }) {
               <button
                 className={`hero-browser-card${isSelected ? " selected" : ""}`}
                 key={hero.name}
+                onBlur={() => setHoveredHeroName((current) => (current === hero.name ? "" : current))}
+                onFocus={() => setHoveredHeroName(hero.name)}
+                onMouseEnter={() => setHoveredHeroName(hero.name)}
+                onMouseLeave={() => setHoveredHeroName((current) => (current === hero.name ? "" : current))}
                 onClick={() => setSelectedHeroName(hero.name)}
                 style={cardStyle}
                 type="button"
@@ -479,6 +524,21 @@ export function HeroAtlasPage(props: { locale: Language }) {
                 ) : (
                   <span className="hero-browser-card-placeholder">{hero.name.slice(0, 2)}</span>
                 )}
+                {heroVideo && isPreviewing ? (
+                  <video
+                    aria-hidden="true"
+                    autoPlay
+                    className="hero-browser-card-video"
+                    key={`${hero.name}-${isPreviewing ? "preview" : "idle"}`}
+                    loop
+                    muted
+                    playsInline
+                    poster={heroImage}
+                    preload="metadata"
+                  >
+                    <source src={heroVideo} type="video/webm" />
+                  </video>
+                ) : null}
                 <span className="hero-browser-card-shadow" />
                 <span className={`hero-browser-card-mark tone-${getFilterTone(hero.primaryAttr ?? "unknown")}`} />
                 <span className="hero-browser-card-copy">
