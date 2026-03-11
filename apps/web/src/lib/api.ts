@@ -8,6 +8,7 @@ import type {
   CreateAgentSessionRequest,
   FavoriteRecord,
   HeroAvatarOption,
+  HeroDetail,
   Language,
   PatchNote,
   SendAgentMessageRequest,
@@ -63,9 +64,14 @@ export async function fetchTournaments(language: Language): Promise<Tournament[]
   return data.items;
 }
 
-export async function fetchHeroAvatars(): Promise<HeroAvatarOption[]> {
-  const data = await http<{ items: HeroAvatarOption[] }>("/hero-avatars");
+export async function fetchHeroAvatars(language: Language): Promise<HeroAvatarOption[]> {
+  const data = await http<{ items: HeroAvatarOption[] }>(`/hero-avatars?language=${language}`);
   return data.items;
+}
+
+export async function fetchHeroDetail(heroId: number, language: Language): Promise<HeroDetail> {
+  const data = await http<{ hero: HeroDetail }>(`/heroes/${heroId}?language=${language}`);
+  return data.hero;
 }
 
 export async function register(input: {

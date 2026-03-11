@@ -119,6 +119,17 @@
   - `npm test --workspace @dotagame/api`
   - `npm run build`
 
+## 2026-03-12
+- Started clearing `docs/TODO.md` sequentially instead of treating it as a single frontend pass.
+- Completed TODO item 1, "英雄名称和技能名称要支持中文版":
+  - extended shared hero contracts with localized roster/detail fields
+  - merged official Dota `herolist` metadata into `/hero-avatars`
+  - added `/heroes/:id` for localized official hero detail payloads
+  - updated `HeroAtlasPage`, login, and profile flows to request locale-aware hero data
+- Validation completed after item 1:
+  - `npm test --workspace @dotagame/api`
+  - `npm run build`
+
 ## 2026-03-06
 - Started implementation from approved proposed plan.
 - Created planning files and initial folders.

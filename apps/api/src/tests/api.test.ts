@@ -24,6 +24,80 @@ describe("API v1", () => {
       }>;
     };
 
+    if (url.includes("dota2.com/datafeed/herolist")) {
+      return jsonResponse({
+        result: {
+          data: {
+            heroes: [
+              {
+                id: 1,
+                name_loc: "敌法师",
+                name_english_loc: "Anti-Mage",
+                complexity: 1
+              },
+              {
+                id: 8,
+                name_loc: "主宰",
+                name_english_loc: "Juggernaut",
+                complexity: 1
+              }
+            ]
+          }
+        }
+      });
+    }
+
+    if (url.includes("dota2.com/datafeed/herodata")) {
+      return jsonResponse({
+        result: {
+          status: 1,
+          data: {
+            heroes: [
+              {
+                id: 8,
+                name: "npc_dota_hero_juggernaut",
+                name_loc: "主宰",
+                npe_desc_loc: "精准的出招在敌阵之中斩击",
+                hype_loc: "一阵刀光剑影过后，主宰的敌人就已被他斩落。",
+                bio_loc: "没有人见过主宰尤涅若面具下的真面目。",
+                complexity: 1,
+                primary_attr: 1,
+                attack_capability: 1,
+                role_levels: [2, 0, 0, 0, 0, 0, 1, 1, 0],
+                abilities: [
+                  {
+                    id: 5028,
+                    name: "juggernaut_blade_fury",
+                    name_loc: "剑刃风暴",
+                    desc_loc: "舞起具有破坏性力量的剑刃风暴。",
+                    lore_loc: "无论是战士还是法师，都害怕尤涅若的武士刀剑技。",
+                    notes_loc: ["剑刃风暴期间可以使用物品。"],
+                    type: 0
+                  },
+                  {
+                    id: 5030,
+                    name: "juggernaut_omni_slash",
+                    name_loc: "无敌斩",
+                    desc_loc: "主宰挥剑跃向敌方目标单位。",
+                    lore_loc: "自律已有成果；勤练带来力量。",
+                    notes_loc: [],
+                    type: 1
+                  }
+                ],
+                facets: [
+                  {
+                    name: "juggernaut_bladestorm",
+                    title_loc: "刀剑风暴",
+                    description_loc: "剑刃风暴现在可以根据剑舞的等级触发致命一击。"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      });
+    }
+
     if (url.endsWith("/chat/completions")) {
       if (payload.response_format?.type === "json_object") {
         return jsonResponse({
@@ -473,4 +547,14 @@ describe("API v1", () => {
     expect(updateResponse.status).toBe(200);
     expect(updateResponse.body.user.avatar.id).toBe(nextAvatarId);
   }, 15000);
+
+  it("returns localized hero detail data", async () => {
+    const response = await request(app).get("/api/v1/heroes/8?language=zh-CN");
+
+    expect(response.status).toBe(200);
+    expect(response.body.hero.displayName).toBe("主宰");
+    expect(response.body.hero.localizedName).toBe("主宰");
+    expect(response.body.hero.abilities[0].displayName).toBe("剑刃风暴");
+    expect(response.body.hero.facets[0].displayName).toBe("刀剑风暴");
+  });
 });

@@ -7,9 +7,12 @@ export type AtlasHero = IntroHero & {
   id: number | null;
   image?: string;
   isCurated: boolean;
+  localizedName?: string;
+  displayName?: string;
   roles: string[];
   primaryAttr?: HeroPrimaryAttribute;
   attackType?: HeroAttackType;
+  complexity?: number;
 };
 
 const ROLE_LABELS: Record<Language, Record<AtlasRole, string>> = {
@@ -104,9 +107,12 @@ export function buildHeroAtlas(
         id: avatar.id,
         image: avatar.image,
         isCurated: true,
+        localizedName: avatar.localizedName,
+        displayName: avatar.displayName,
         roles: avatar.roles ?? [],
         primaryAttr: avatar.primaryAttr,
-        attackType: avatar.attackType
+        attackType: avatar.attackType,
+        complexity: avatar.complexity
       };
     }
 
@@ -119,9 +125,12 @@ export function buildHeroAtlas(
       id: null,
       image: undefined,
       isCurated: true,
+      localizedName: undefined,
+      displayName: hero.name,
       roles: [],
       primaryAttr: undefined,
-      attackType: undefined
+      attackType: undefined,
+      complexity: undefined
     }));
   }
 
@@ -132,9 +141,12 @@ export function buildHeroAtlas(
         id: null,
         image: undefined,
         isCurated: true,
+        localizedName: undefined,
+        displayName: hero.name,
         roles: [],
         primaryAttr: undefined,
-        attackType: undefined
+        attackType: undefined,
+        complexity: undefined
       });
     }
   }
@@ -164,9 +176,12 @@ function createGeneratedHero(locale: Language, hero: HeroAvatarOption): AtlasHer
     skills: buildProfileCards(locale, roleLabel, primaryAttr, attackType, roleTags),
     image: hero.image,
     isCurated: false,
+    localizedName: hero.localizedName,
+    displayName: hero.displayName,
     roles: roleTags,
     primaryAttr,
-    attackType
+    attackType,
+    complexity: hero.complexity
   };
 }
 

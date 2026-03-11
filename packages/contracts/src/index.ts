@@ -64,9 +64,49 @@ export interface HeroAvatarOption {
   id: number;
   name: string;
   image: string;
+  localizedName?: string;
+  displayName?: string;
   primaryAttr?: HeroPrimaryAttribute;
   attackType?: HeroAttackType;
   roles?: string[];
+  complexity?: number;
+}
+
+export interface HeroAbilityDetail {
+  id: number;
+  name: string;
+  localizedName?: string;
+  displayName: string;
+  description: string;
+  lore?: string;
+  notes: string[];
+  isInnate: boolean;
+  isGrantedByScepter: boolean;
+  isGrantedByShard: boolean;
+}
+
+export interface HeroFacetDetail {
+  name: string;
+  localizedName?: string;
+  displayName: string;
+  description: string;
+}
+
+export interface HeroDetail {
+  id: number;
+  name: string;
+  localizedName?: string;
+  displayName: string;
+  shortDescription: string;
+  overview: string;
+  biography: string;
+  primaryAttr?: HeroPrimaryAttribute;
+  attackType?: HeroAttackType;
+  complexity: number;
+  roles: string[];
+  roleLevels: number[];
+  abilities: HeroAbilityDetail[];
+  facets: HeroFacetDetail[];
 }
 
 export interface UserProfile {

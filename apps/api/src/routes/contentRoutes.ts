@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { logger } from "../lib/logger.js";
-import { listHeroAvatars } from "../services/heroAvatarService.js";
+import { getHeroDetail, listHeroAvatars } from "../services/heroAvatarService.js";
 import { listArticles, listPatchNotes, listTournaments } from "../services/contentService.js";
 
 const querySchema = z.object({
@@ -78,15 +78,45 @@ contentRouter.get("/tournaments", async (req, res) => {
   }
 });
 
-contentRouter.get("/hero-avatars", async (_req, res) => {
+contentRouter.get("/hero-avatars", async (req, res) => {
+  const language = req.query.language;
+  const parsedLanguage = language === "zh-CN" || language === "en-US" ? language : "en-US";
   try {
-    res.json({ items: await listHeroAvatars() });
+    res.json({ items: await listHeroAvatars(parsedLanguage) });
   } catch (error) {
     logContentRouteFailure(
       "content.hero_avatars.failed",
       "failed to load hero avatars",
-      error
+      error,
+      { language: parsedLanguage }
     );
+    res.status(502).json({ message: "CONTENT_SOURCE_ERROR" });
+  }
+});
+
+contentRouter.get("/heroes/:heroId", async (req, res) => {
+  const heroId = Number(req.params.heroId);
+  const language = req.query.language;
+  const parsedLanguage = language === "zh-CN" || language === "en-US" ? language : "en-US";
+
+  if (!Number.isInteger(heroId) || heroId <= 0) {
+    res.status(400).json({ message: "INVALID_HERO_ID" });
+    return;
+  }
+
+  try {
+    const hero = await getHeroDetail(heroId, parsedLanguage);
+    if (!hero) {
+      res.status(404).json({ message: "HERO_NOT_FOUND" });
+      return;
+    }
+
+    res.json({ hero });
+  } catch (error) {
+    logContentRouteFailure("content.hero_detail.failed", "failed to load hero detail", error, {
+      heroId,
+      language: parsedLanguage
+    });
     res.status(502).json({ message: "CONTENT_SOURCE_ERROR" });
   }
 });

@@ -198,7 +198,7 @@ export function LoginPage(props: {
 
     let active = true;
     setIsLoadingAvatars(true);
-    fetchHeroAvatars()
+    fetchHeroAvatars(props.locale)
       .then((items) => {
         if (active) {
           setAvatarOptions(items);

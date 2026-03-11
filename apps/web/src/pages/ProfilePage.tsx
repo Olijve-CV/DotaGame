@@ -166,7 +166,7 @@ export function ProfilePage(props: {
   useEffect(() => {
     let active = true;
 
-    fetchHeroAvatars()
+      fetchHeroAvatars(props.locale)
       .then((items) => {
         if (active) {
           setAvatarOptions(items);
