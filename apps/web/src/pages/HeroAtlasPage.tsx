@@ -736,7 +736,7 @@ export function HeroAtlasPage(props: { locale: Language }) {
 
             return (
               <button
-                className={`hero-browser-card${isSelected ? " selected" : ""}`}
+                className={`hero-browser-card${isSelected ? " selected" : ""}${isPreviewing ? " previewing" : ""}`}
                 key={hero.name}
                 onBlur={() => setHoveredHeroName((current) => (current === hero.name ? "" : current))}
                 onFocus={() => setHoveredHeroName(hero.name)}

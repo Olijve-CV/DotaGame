@@ -134,6 +134,11 @@
   - moved the filter/search panel down into the hero roster header so controls sit directly above the matrix
 - Validation completed after item 2:
   - `npm run build --workspace @dotagame/web`
+- Completed TODO item 3, "英雄矩阵鼠标移动到英雄上时显示有问题":
+  - converted roster preview emphasis from vertical lift to horizontal protrusion
+  - kept the hovered/selected card visually dominant without changing row height
+- Validation completed after item 3:
+  - `npm run build --workspace @dotagame/web`
 
 ## 2026-03-06
 - Started implementation from approved proposed plan.

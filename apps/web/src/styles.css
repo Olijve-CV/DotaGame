@@ -4229,9 +4229,11 @@ button.active {
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0.8rem;
   margin-top: 1rem;
+  overflow: visible;
 }
 
 .hero-browser-card {
+  display: grid;
   position: relative;
   overflow: hidden;
   min-height: 10.5rem;
@@ -4239,6 +4241,7 @@ button.active {
   border-radius: 18px;
   isolation: isolate;
   text-align: left;
+  transform-origin: center center;
   transition:
     transform 220ms ease,
     border-color 220ms ease,
@@ -4321,36 +4324,38 @@ button.active {
     inset 0 0 0 1px rgba(255, 210, 184, 0.12),
     0 0 0 2px color-mix(in srgb, var(--hero-card-accent) 26%, transparent),
     0 18px 28px rgba(0, 0, 0, 0.28);
-  transform: translateY(-2px);
 }
 
-.hero-browser-card:hover {
-  border-color: rgba(255, 211, 187, 0.22);
-  transform: translateY(-4px);
-  box-shadow: 0 18px 28px rgba(0, 0, 0, 0.24);
+.hero-browser-card.previewing {
+  z-index: 2;
+  border-color: color-mix(in srgb, var(--hero-card-accent) 56%, #ffd9c0);
+  transform: translateX(-0.2rem) scaleX(1.06);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 210, 184, 0.12),
+    0 18px 28px rgba(0, 0, 0, 0.24);
 }
 
-.hero-browser-card:hover .hero-browser-card-image,
-.hero-browser-card:hover .hero-browser-card-video,
-.hero-browser-card:hover .hero-browser-card-placeholder,
+.hero-browser-card.previewing .hero-browser-card-image,
+.hero-browser-card.previewing .hero-browser-card-video,
+.hero-browser-card.previewing .hero-browser-card-placeholder,
 .hero-browser-card.selected .hero-browser-card-image,
 .hero-browser-card.selected .hero-browser-card-video,
 .hero-browser-card.selected .hero-browser-card-placeholder {
-  transform: scale(1.06);
+  transform: scaleX(1.08);
   filter: saturate(1.06);
 }
 
-.hero-browser-card:hover .hero-browser-card-video,
+.hero-browser-card.previewing .hero-browser-card-video,
 .hero-browser-card.selected .hero-browser-card-video {
   opacity: 1;
 }
 
-.hero-browser-card:hover .hero-browser-card-copy,
+.hero-browser-card.previewing .hero-browser-card-copy,
 .hero-browser-card.selected .hero-browser-card-copy {
-  transform: translateY(-3px);
+  transform: translateX(0.2rem);
 }
 
-.hero-browser-card:hover .hero-browser-card-shadow,
+.hero-browser-card.previewing .hero-browser-card-shadow,
 .hero-browser-card.selected .hero-browser-card-shadow {
   background:
     linear-gradient(180deg, transparent 24%, rgba(7, 9, 13, 0.9) 100%),
