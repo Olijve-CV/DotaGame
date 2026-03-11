@@ -92,6 +92,11 @@ export interface HeroFacetDetail {
   description: string;
 }
 
+export interface HeroAttributeDetail {
+  base: number;
+  gain: number;
+}
+
 export interface HeroDetail {
   id: number;
   name: string;
@@ -105,6 +110,11 @@ export interface HeroDetail {
   complexity: number;
   roles: string[];
   roleLevels: number[];
+  attributes: {
+    str: HeroAttributeDetail;
+    agi: HeroAttributeDetail;
+    int: HeroAttributeDetail;
+  } | null;
   abilities: HeroAbilityDetail[];
   facets: HeroFacetDetail[];
 }

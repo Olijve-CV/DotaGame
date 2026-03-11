@@ -168,6 +168,12 @@ interface DotaOfficialHeroRecord {
   complexity?: number;
   primary_attr?: number;
   attack_capability?: number;
+  str_base?: number;
+  str_gain?: number;
+  agi_base?: number;
+  agi_gain?: number;
+  int_base?: number;
+  int_gain?: number;
   role_levels?: number[];
   abilities?: DotaOfficialAbilityRecord[];
   facets?: DotaOfficialFacetRecord[];
@@ -248,6 +254,7 @@ export async function getHeroDetail(heroId: number, language: Language): Promise
     complexity: clampComplexity(officialHero.complexity ?? avatar?.complexity),
     roles: avatar?.roles ?? [],
     roleLevels: Array.isArray(officialHero.role_levels) ? officialHero.role_levels : [],
+    attributes: buildHeroAttributes(officialHero),
     abilities,
     facets
   };
@@ -485,4 +492,34 @@ function clampComplexity(value: number | undefined): number {
   }
 
   return 1;
+}
+
+function buildHeroAttributes(
+  hero: DotaOfficialHeroRecord
+): HeroDetail["attributes"] {
+  if (
+    typeof hero.str_base !== "number" ||
+    typeof hero.str_gain !== "number" ||
+    typeof hero.agi_base !== "number" ||
+    typeof hero.agi_gain !== "number" ||
+    typeof hero.int_base !== "number" ||
+    typeof hero.int_gain !== "number"
+  ) {
+    return null;
+  }
+
+  return {
+    str: {
+      base: hero.str_base,
+      gain: hero.str_gain
+    },
+    agi: {
+      base: hero.agi_base,
+      gain: hero.agi_gain
+    },
+    int: {
+      base: hero.int_base,
+      gain: hero.int_gain
+    }
+  };
 }

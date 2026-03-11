@@ -4026,6 +4026,12 @@ button.active {
   gap: 0.65rem;
 }
 
+.hero-browser-official-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
 .hero-browser-data-pill {
   display: grid;
   gap: 0.12rem;
@@ -4041,6 +4047,62 @@ button.active {
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.hero-browser-data-pill-pips strong {
+  display: none;
+}
+
+.hero-browser-complexity {
+  display: flex;
+  gap: 0.32rem;
+  align-items: center;
+}
+
+.hero-browser-complexity-dot {
+  width: 0.58rem;
+  height: 0.58rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hero-browser-complexity-dot.active {
+  background: color-mix(in srgb, var(--hero-accent) 72%, #ffd8b9);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--hero-accent) 28%, transparent);
+}
+
+.hero-browser-story-grid,
+.hero-browser-attribute-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.hero-browser-story-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hero-browser-attribute-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.hero-browser-story-card,
+.hero-browser-facet-card {
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(229, 216, 196, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.hero-browser-story-card span,
+.hero-browser-facet-card strong {
+  color: rgba(243, 234, 220, 0.74);
+}
+
+.hero-browser-story-card p,
+.hero-browser-facet-card p {
+  margin: 0.45rem 0 0;
+  line-height: 1.7;
 }
 
 .hero-browser-identity-grid {
@@ -4088,6 +4150,11 @@ button.active {
   gap: 0.18rem;
   padding-top: 0.2rem;
   border-top: 1px solid rgba(229, 216, 196, 0.08);
+}
+
+.hero-browser-facet-list {
+  display: grid;
+  gap: 0.8rem;
 }
 
 .hero-browser-skill-list {
@@ -4182,6 +4249,22 @@ button.active {
   margin: 0;
   color: rgba(243, 234, 220, 0.82);
   line-height: 1.7;
+}
+
+.hero-browser-skill-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.hero-browser-skill-note-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.hero-browser-skill-note-list p {
+  margin: 0;
+  color: rgba(243, 234, 220, 0.72);
 }
 
 .hero-browser-skill-card {

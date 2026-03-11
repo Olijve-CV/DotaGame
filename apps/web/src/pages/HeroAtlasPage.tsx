@@ -360,12 +360,20 @@ export function HeroAtlasPage(props: { locale: Language }) {
         ? selectedHeroDetail.abilities.map((ability) => ({
             key: ability.name,
             name: ability.displayName,
-            detail: formatAbilityDetail(ability)
+            detail: formatAbilityDetail(ability),
+            notes: ability.notes,
+            isInnate: ability.isInnate,
+            isGrantedByScepter: ability.isGrantedByScepter,
+            isGrantedByShard: ability.isGrantedByShard
           }))
         : (selectedHero?.skills ?? []).map((skill) => ({
             key: skill.name,
             name: skill.name,
-            detail: skill.detail
+            detail: skill.detail,
+            notes: [],
+            isInnate: false,
+            isGrantedByScepter: false,
+            isGrantedByShard: false
           })),
     [selectedHero?.skills, selectedHeroDetail?.abilities]
   );
@@ -453,6 +461,36 @@ export function HeroAtlasPage(props: { locale: Language }) {
     null;
   const selectedHeroDisplayName =
     selectedHeroDetail?.displayName ?? selectedHero?.displayName ?? selectedHero?.localizedName ?? selectedHero?.name ?? "";
+  const detailCopy =
+    props.locale === "zh-CN"
+      ? {
+          biographyTitle: "英雄背景",
+          profileTitle: "官方档案",
+          attributesTitle: "属性成长",
+          facetsTitle: "命石",
+          facetsEmpty: "该英雄当前没有额外命石说明。",
+          complexityLabel: "复杂度",
+          innateLabel: "先天技能",
+          scepterLabel: "神杖",
+          shardLabel: "魔晶"
+        }
+      : {
+          biographyTitle: "Biography",
+          profileTitle: "Official Profile",
+          attributesTitle: "Attributes",
+          facetsTitle: "Facets",
+          facetsEmpty: "No facet details are available for this hero right now.",
+          complexityLabel: "Complexity",
+          innateLabel: "Innate",
+          scepterLabel: "Scepter",
+          shardLabel: "Shard"
+        };
+  const selectedHeroLead = selectedHeroDetail?.shortDescription || selectedHero?.overview || "";
+  const selectedHeroOverview = selectedHeroDetail?.overview || selectedHero?.overview || "";
+  const selectedHeroBiography = selectedHeroDetail?.biography || selectedHero?.overview || "";
+  const selectedHeroRoles = selectedHeroDetail?.roles.length ? selectedHeroDetail.roles : selectedHero?.roles ?? [];
+  const selectedHeroComplexity = selectedHeroDetail?.complexity ?? selectedHero?.complexity ?? 1;
+  const selectedHeroAttributes = selectedHeroDetail?.attributes ?? null;
   const selectedHeroSubtitle = selectedHero
     ? [
         selectedHero.primaryAttr ? attributeLabels[props.locale][selectedHero.primaryAttr] : pageText.filters.unknown.label,
@@ -541,61 +579,99 @@ export function HeroAtlasPage(props: { locale: Language }) {
               </p>
 
               <div className="hero-browser-stage-badges">
-                <span className="hero-browser-badge">
-                  {pageText.attrLabel}:{" "}
-                  {selectedHero.primaryAttr
-                    ? attributeLabels[props.locale][selectedHero.primaryAttr]
-                    : pageText.filters.unknown.label}
-                </span>
-                {selectedHero.attackType ? (
-                  <span className="hero-browser-badge">
-                    {pageText.attackLabel}: {attackLabels[props.locale][selectedHero.attackType]}
+                {selectedHeroRoles.map((role) => (
+                  <span className="hero-browser-badge" key={`${selectedHero.name}-${role}`}>
+                    {role}
                   </span>
-                ) : null}
-                <span className="hero-browser-badge">
-                  {pageText.roleLabel}: {selectedHero.roleLabel}
-                </span>
+                ))}
               </div>
 
-              <p className="hero-browser-stage-summary">{selectedHero.overview}</p>
+              <p className="hero-browser-stage-summary">{selectedHeroLead}</p>
 
-              <div className="hero-browser-data-strip">
+              <div className="hero-browser-official-metrics">
                 <article className="hero-browser-data-pill">
-                  <span>{pageText.skillCountLabel}</span>
-                  <strong>{resolvedSkills.length}</strong>
+                  <span>{pageText.attrLabel}</span>
+                  <strong>
+                    {selectedHero.primaryAttr
+                      ? attributeLabels[props.locale][selectedHero.primaryAttr]
+                      : pageText.filters.unknown.label}
+                  </strong>
                 </article>
                 <article className="hero-browser-data-pill">
-                  <span>{pageText.tagCountLabel}</span>
-                  <strong>{selectedHero.roles.length}</strong>
-                </article>
-                <article className="hero-browser-data-pill">
-                  <span>{pageText.combatLabel}</span>
+                  <span>{pageText.attackLabel}</span>
                   <strong>
                     {selectedHero.attackType
                       ? attackLabels[props.locale][selectedHero.attackType]
                       : pageText.filters.unknown.label}
                   </strong>
                 </article>
+                <article className="hero-browser-data-pill hero-browser-data-pill-pips">
+                  <span>{detailCopy.complexityLabel}</span>
+                  <div
+                    aria-label={`${detailCopy.complexityLabel}: ${selectedHeroComplexity}`}
+                    className="hero-browser-complexity"
+                  >
+                    {[1, 2, 3].map((level) => (
+                      <span
+                        aria-hidden="true"
+                        className={`hero-browser-complexity-dot${level <= selectedHeroComplexity ? " active" : ""}`}
+                        key={level}
+                      />
+                    ))}
+                  </div>
+                </article>
+                <article className="hero-browser-data-pill">
+                  <span>{pageText.skillCountLabel}</span>
+                  <strong>{resolvedSkills.length}</strong>
+                </article>
               </div>
 
-              <div className="hero-browser-identity-grid">
-                <article className="hero-browser-identity-card">
-                  <span>{introText.laneLabel}</span>
-                  <strong>{selectedHero.lane}</strong>
+              <div className="hero-browser-story-grid">
+                <article className="hero-browser-story-card">
+                  <span>{pageText.overviewTitle}</span>
+                  <p>{selectedHeroOverview}</p>
                 </article>
-                <article className="hero-browser-identity-card">
-                  <span>{introText.difficultyLabel}</span>
-                  <strong>{selectedHero.difficulty}</strong>
-                </article>
-                <article className="hero-browser-identity-card">
-                  <span>{introText.specialtyLabel}</span>
-                  <strong>{selectedHero.specialty}</strong>
-                </article>
-                <article className="hero-browser-identity-card">
-                  <span>{introText.timingLabel}</span>
-                  <strong>{selectedHero.timing}</strong>
+                <article className="hero-browser-story-card">
+                  <span>{detailCopy.biographyTitle}</span>
+                  <p>{selectedHeroBiography}</p>
                 </article>
               </div>
+
+              {selectedHeroAttributes ? (
+                <div className="hero-browser-attribute-grid">
+                  <article className="hero-browser-identity-card">
+                    <span>{attributeLabels[props.locale].str}</span>
+                    <strong>{selectedHeroAttributes.str.base} + {selectedHeroAttributes.str.gain}</strong>
+                  </article>
+                  <article className="hero-browser-identity-card">
+                    <span>{attributeLabels[props.locale].agi}</span>
+                    <strong>{selectedHeroAttributes.agi.base} + {selectedHeroAttributes.agi.gain}</strong>
+                  </article>
+                  <article className="hero-browser-identity-card">
+                    <span>{attributeLabels[props.locale].int}</span>
+                    <strong>{selectedHeroAttributes.int.base} + {selectedHeroAttributes.int.gain}</strong>
+                  </article>
+                </div>
+              ) : (
+                <div className="hero-browser-identity-grid">
+                  <article className="hero-browser-identity-card">
+                    <span>{introText.laneLabel}</span>
+                    <strong>{selectedHero.lane}</strong>
+                  </article>
+                  <article className="hero-browser-identity-card">
+                    <span>{introText.difficultyLabel}</span>
+                    <strong>{selectedHero.difficulty}</strong>
+                  </article>
+                  <article className="hero-browser-identity-card">
+                    <span>{introText.specialtyLabel}</span>
+                    <strong>{selectedHero.specialty}</strong>
+                  </article>
+                  <article className="hero-browser-identity-card">
+                    <span>{introText.timingLabel}</span>
+                    <strong>{selectedHero.timing}</strong>
+                  </article>
+                </div>
+              )}
             </div>
           </article>
 
@@ -603,12 +679,11 @@ export function HeroAtlasPage(props: { locale: Language }) {
             <section className="panel hero-browser-side-panel">
               <div className="hero-browser-side-head">
                 <p className="section-kicker">{pageText.rolesTitle}</p>
-                <h4>{pageText.overviewTitle}</h4>
+                <h4>{detailCopy.profileTitle}</h4>
               </div>
-              <p className="hero-browser-side-copy">{selectedHero.overview}</p>
 
               <div className="hero-browser-tag-row">
-                {selectedHero.roles.map((role) => (
+                {selectedHeroRoles.map((role) => (
                   <span className="hero-browser-tag" key={`${selectedHero.name}-${role}`}>
                     {role}
                   </span>
@@ -616,8 +691,29 @@ export function HeroAtlasPage(props: { locale: Language }) {
               </div>
 
               <div className="hero-browser-side-meta">
-                <span>{pageText.tagsLabel}</span>
-                <strong>{selectedHero.roles.join(", ")}</strong>
+                <span>{detailCopy.complexityLabel}</span>
+                <strong>{selectedHeroComplexity} / 3</strong>
+              </div>
+              <div className="hero-browser-side-meta">
+                <span>{pageText.combatLabel}</span>
+                <strong>{selectedHeroSubtitle}</strong>
+              </div>
+
+              <div className="hero-browser-facet-list">
+                <div className="hero-browser-side-head">
+                  <p className="section-kicker">{detailCopy.facetsTitle}</p>
+                  <h4>{detailCopy.attributesTitle}</h4>
+                </div>
+                {selectedHeroDetail?.facets.length ? (
+                  selectedHeroDetail.facets.map((facet) => (
+                    <article className="hero-browser-facet-card" key={facet.name}>
+                      <strong>{facet.displayName}</strong>
+                      <p>{facet.description}</p>
+                    </article>
+                  ))
+                ) : (
+                  <p className="hero-browser-side-copy">{detailCopy.facetsEmpty}</p>
+                )}
               </div>
             </section>
 
@@ -668,6 +764,22 @@ export function HeroAtlasPage(props: { locale: Language }) {
                     </div>
                   </div>
                   <p>{selectedSkill.detail}</p>
+                  <div className="hero-browser-skill-flags">
+                    {selectedSkill.isInnate ? <span className="hero-browser-tag">{detailCopy.innateLabel}</span> : null}
+                    {selectedSkill.isGrantedByScepter ? (
+                      <span className="hero-browser-tag">{detailCopy.scepterLabel}</span>
+                    ) : null}
+                    {selectedSkill.isGrantedByShard ? (
+                      <span className="hero-browser-tag">{detailCopy.shardLabel}</span>
+                    ) : null}
+                  </div>
+                  {selectedSkill.notes.length > 0 ? (
+                    <div className="hero-browser-skill-note-list">
+                      {selectedSkill.notes.map((note) => (
+                        <p key={`${selectedSkill.key}-${note}`}>{note}</p>
+                      ))}
+                    </div>
+                  ) : null}
                 </article>
               )}
             </section>

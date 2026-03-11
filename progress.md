@@ -139,6 +139,12 @@
   - kept the hovered/selected card visually dominant without changing row height
 - Validation completed after item 3:
   - `npm run build --workspace @dotagame/web`
+- Completed TODO item 4, "单个英雄的展示 ... 要跟这个一致":
+  - restructured the hero spotlight into a more official hero dossier
+  - surfaced official biography, lead text, complexity, attribute growth, facets, and richer skill metadata
+- Validation completed after item 4:
+  - `npm test --workspace @dotagame/api`
+  - `npm run build`
 
 ## 2026-03-06
 - Started implementation from approved proposed plan.
