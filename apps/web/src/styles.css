@@ -3911,21 +3911,21 @@ button.active {
 
 .hero-browser-stage-figure {
   position: absolute;
+  inset: 0;
   z-index: 2;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: min(62%, 34rem);
-  height: 100%;
+  display: grid;
+  place-items: center;
+  --hero-stage-figure-width: min(62%, 34rem);
   pointer-events: none;
 }
 
 .hero-browser-stage-video,
 .hero-browser-stage-placeholder {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  position: relative;
+  width: var(--hero-stage-figure-width);
+  height: min(92%, 34rem);
+  max-width: 100%;
+  max-height: calc(100% - 1.5rem);
   object-position: center;
 }
 
@@ -4426,7 +4426,7 @@ button.active {
   }
 
   .hero-browser-stage-figure {
-    width: min(58%, 24rem);
+    --hero-stage-figure-width: min(58%, 24rem);
   }
 
   .hero-browser-stage-placeholder,
@@ -4485,7 +4485,7 @@ button.active {
   }
 
   .hero-browser-stage-figure {
-    width: 56%;
+    --hero-stage-figure-width: 56%;
   }
 }
 
