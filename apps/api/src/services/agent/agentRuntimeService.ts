@@ -899,6 +899,12 @@ export async function sendMessageToSession(input: {
   if (!session) {
     throw new Error("SESSION_NOT_FOUND");
   }
+  if (!input.userId) {
+    throw new Error("UNAUTHORIZED");
+  }
+  if (session.userId !== input.userId) {
+    throw new Error("FORBIDDEN");
+  }
   if (session.kind !== "primary") {
     throw new Error("SUBAGENT_SESSION_READ_ONLY");
   }

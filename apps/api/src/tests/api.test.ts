@@ -6,6 +6,7 @@ describe("API v1", () => {
   const originalOpenAiApiKey = process.env.OPENAI_API_KEY;
   const app = createApp();
   const fetchMock = vi.fn(mockOpenAiFetch);
+  let authCounter = 0;
 
   function jsonResponse(payload: unknown, status = 200): Response {
     return new Response(JSON.stringify(payload), {
@@ -238,9 +239,22 @@ describe("API v1", () => {
     vi.unstubAllGlobals();
   });
 
-  async function waitForSessionStatus(sessionId: string, statuses: string[]) {
+  async function createAuthToken(prefix = "player") {
+    authCounter += 1;
+    const registerResponse = await request(app).post("/api/v1/auth/register").send({
+      email: `${prefix}-${authCounter}@example.com`,
+      password: "secret12"
+    });
+
+    expect(registerResponse.status).toBe(201);
+    return registerResponse.body.token as string;
+  }
+
+  async function waitForSessionStatus(sessionId: string, statuses: string[], token: string) {
     for (let attempt = 0; attempt < 30; attempt += 1) {
-      const response = await request(app).get(`/api/v1/agent/sessions/${sessionId}`);
+      const response = await request(app)
+        .get(`/api/v1/agent/sessions/${sessionId}`)
+        .set("Authorization", `Bearer ${token}`);
       if (statuses.includes(response.body.session?.status)) {
         return response;
       }
@@ -250,8 +264,8 @@ describe("API v1", () => {
     throw new Error(`session ${sessionId} did not reach expected status in time`);
   }
 
-  async function waitForSessionCompletion(sessionId: string) {
-    return waitForSessionStatus(sessionId, ["completed", "failed"]);
+  async function waitForSessionCompletion(sessionId: string, token: string) {
+    return waitForSessionStatus(sessionId, ["completed", "failed"], token);
   }
 
   function findLastAssistantMessage(
@@ -288,12 +302,34 @@ describe("API v1", () => {
     }
   });
 
+  it("never returns placeholder source URLs in article content", async () => {
+    const response = await request(app).get("/api/v1/articles?language=en-US");
+
+    expect(response.status).toBe(200);
+    for (const item of response.body.items) {
+      expect(item.sourceUrl).not.toContain("example.com");
+    }
+  });
+
+  it("never returns placeholder source URLs in tournaments", async () => {
+    const response = await request(app).get("/api/v1/tournaments?language=en-US");
+
+    expect(response.status).toBe(200);
+    for (const item of response.body.items) {
+      expect(item.sourceUrl).not.toContain("example.com");
+    }
+  });
+
   it("supports chat responses with citations", async () => {
-    const response = await request(app).post("/api/v1/chat").send({
+    const token = await createAuthToken("chat-citations");
+    const response = await request(app)
+      .post("/api/v1/chat")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
       question: "How to improve laning for carry hero?",
       mode: "coach",
       language: "en-US"
-    });
+      });
 
     expect(response.status).toBe(200);
     expect(response.body.answer).toContain("Coaching plan:");
@@ -301,8 +337,10 @@ describe("API v1", () => {
   });
 
   it("accepts chat payloads sent as text/plain JSON", async () => {
+    const token = await createAuthToken("chat-text");
     const response = await request(app)
       .post("/api/v1/chat")
+      .set("Authorization", `Bearer ${token}`)
       .set("Content-Type", "text/plain")
       .send(
         JSON.stringify({
@@ -317,22 +355,38 @@ describe("API v1", () => {
     expect(response.body.followUps.length).toBeGreaterThan(0);
   });
 
-  it("runs the agent loop inside a single root session", async () => {
-    const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
+  it("requires authentication for chat", async () => {
+    const response = await request(app).post("/api/v1/chat").send({
+      question: "How do I fix my lane?",
+      mode: "coach",
       language: "en-US"
     });
+
+    expect(response.status).toBe(401);
+    expect(response.body.message).toBe("UNAUTHORIZED");
+  });
+
+  it("runs the agent loop inside a single root session", async () => {
+    const token = await createAuthToken("agent-root");
+    const sessionResponse = await request(app)
+      .post("/api/v1/agent/sessions")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        language: "en-US"
+      });
 
     expect(sessionResponse.status).toBe(201);
 
     const turnResponse = await request(app)
       .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
+      .set("Authorization", `Bearer ${token}`)
       .send({
         message: "What is the latest patch trend for carry timings?",
         language: "en-US"
       });
 
     expect(turnResponse.status).toBe(202);
-    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id);
+    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id, token);
     const assistantMessage = findLastAssistantMessage(completedResponse.body.messages);
     const completedToolPart = (assistantMessage?.parts ?? []).find(
       (part: { type?: string; status?: string }) => part.type === "tool_call" && part.status === "completed"
@@ -371,19 +425,24 @@ describe("API v1", () => {
       return mockOpenAiFetch(input, init);
     });
 
-    const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
-      language: "en-US"
-    });
+    const token = await createAuthToken("agent-fail");
+    const sessionResponse = await request(app)
+      .post("/api/v1/agent/sessions")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        language: "en-US"
+      });
 
     const turnResponse = await request(app)
       .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
+      .set("Authorization", `Bearer ${token}`)
       .send({
         message: "What is the latest patch trend for carry timings?",
         language: "en-US"
       });
 
     expect(turnResponse.status).toBe(202);
-    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id);
+    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id, token);
     const assistantMessage = findLastAssistantMessage(completedResponse.body.messages);
 
     expect(completedResponse.body.session.status).toBe("failed");
@@ -406,19 +465,24 @@ describe("API v1", () => {
   });
 
   it("runs websearch in the main session for time-sensitive questions", async () => {
-    const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
-      language: "en-US"
-    });
+    const token = await createAuthToken("agent-web");
+    const sessionResponse = await request(app)
+      .post("/api/v1/agent/sessions")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        language: "en-US"
+      });
 
     const turnResponse = await request(app)
       .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
+      .set("Authorization", `Bearer ${token}`)
       .send({
         message: "What is the latest tournament meta for supports right now?",
         language: "en-US"
       });
 
     expect(turnResponse.status).toBe(202);
-    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id);
+    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id, token);
 
     expect(
       completedResponse.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
@@ -428,19 +492,24 @@ describe("API v1", () => {
   });
 
   it("skips live web tools for evergreen coaching questions", async () => {
-    const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
-      language: "en-US"
-    });
+    const token = await createAuthToken("agent-evergreen");
+    const sessionResponse = await request(app)
+      .post("/api/v1/agent/sessions")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        language: "en-US"
+      });
 
     const turnResponse = await request(app)
       .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
+      .set("Authorization", `Bearer ${token}`)
       .send({
         message: "How should I improve my laning fundamentals as a carry player?",
         language: "en-US"
       });
 
     expect(turnResponse.status).toBe(202);
-    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id);
+    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id, token);
 
     expect(
       completedResponse.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
@@ -456,31 +525,46 @@ describe("API v1", () => {
   });
 
   it("keeps the session title anchored to the first user prompt", async () => {
-    const sessionResponse = await request(app).post("/api/v1/agent/sessions").send({
-      language: "en-US"
-    });
+    const token = await createAuthToken("agent-title");
+    const sessionResponse = await request(app)
+      .post("/api/v1/agent/sessions")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        language: "en-US"
+      });
 
     await request(app)
       .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
+      .set("Authorization", `Bearer ${token}`)
       .send({
         message: "Explain the latest patch trend for carry timings.",
         language: "en-US"
       });
 
-    await waitForSessionCompletion(sessionResponse.body.session.id);
+    await waitForSessionCompletion(sessionResponse.body.session.id, token);
 
     await request(app)
       .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
+      .set("Authorization", `Bearer ${token}`)
       .send({
         message: "Now summarize the same issue for support players.",
         language: "en-US"
       });
 
-    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id);
+    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id, token);
 
     expect(completedResponse.body.session.title).toContain("Explain the latest patch trend");
     expect(completedResponse.body.session.title).not.toContain("Now summarize the same issue");
     expect(completedResponse.body.insight.lastUserMessage).toContain("support players");
+  });
+
+  it("requires authentication for agent sessions", async () => {
+    const response = await request(app).post("/api/v1/agent/sessions").send({
+      language: "en-US"
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.body.message).toBe("UNAUTHORIZED");
   });
 
 

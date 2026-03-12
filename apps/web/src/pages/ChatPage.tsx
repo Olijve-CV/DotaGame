@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import type { FormEvent } from "react";
+import { Link } from "react-router-dom";
 import type {
   AgentKind,
   AgentMessage,
@@ -8,7 +9,6 @@ import type {
   AgentSessionDetail,
   AgentSessionEvent,
   AgentSessionSummary,
-  AgentToolName,
   ChatCitation,
   Language
 } from "@dotagame/contracts";
@@ -29,35 +29,29 @@ interface ThreadEntry {
 const labels = {
   "zh-CN": {
     history: "会话历史",
-    historyHint: "登录后会保存聊天记录，并且可以继续在原会话上追问。",
-    guestTitle: "临时会话",
-    guestHint: "游客模式只在当前页面保留上下文，不会写入账号历史。",
+    historyHint: "登录后，问答会自动落到账号里，之后可以从同一条会话继续追问。",
+    workspaceTitle: "对局问答工作台",
+    workspaceHint: "保留最终回答和引用来源，把过程折叠掉，让复盘更聚焦。",
+    loginRequiredTitle: "登录后才能使用智能问答",
+    loginRequiredHint: "问答记录会写入你的账号历史，便于后续继续追问和复盘。",
+    loginAction: "前往登录",
+    loginPreviewTitle: "登录后你可以直接这样问",
     newSession: "新建会话",
-    placeholder:
-      "例如：结合最近版本、赛事和公开信息，解释为什么我玩 carry 常在 18 分钟后断节奏。",
+    placeholder: "例如：结合最近版本和比赛，解释我玩 carry 为什么总在 18 分钟后断节奏。",
     submit: "发送",
     sending: "正在执行...",
-    noSessions: "还没有保存的会话。",
-    noMessages: "发出第一条问题，开始一次完整 agent 回合。",
+    noSessions: "还没有保存过会话。",
+    noMessages: "发出第一条问题，开始一次新的分析。",
     user: "你",
     assistant: "Agent",
-    tool: "工具",
-    thinking: "思考中",
     result: "最终答复",
     citations: "参考来源",
-    overview: "运行概览",
-    latestQuestion: "最近问题",
-    latestAnswer: "最近答复",
-    noAnswer: "当前还没有生成答复。",
     messagesStat: "消息",
-    toolsStat: "工具调用",
     sourcesStat: "来源",
-    activeTool: "当前工具",
-    activeToolIdle: "当前没有工具在执行",
-    toolMix: "工具足迹",
-    sessionScope: "会话状态",
     starterTitle: "可以这样开始",
-    duration: "耗时",
+    thinking: "正在整理证据和结论",
+    thinkingFailed: "本轮执行失败",
+    statusLabel: "会话状态",
     status: {
       idle: "空闲",
       running: "执行中",
@@ -72,35 +66,29 @@ const labels = {
   },
   "en-US": {
     history: "Saved Chats",
-    historyHint: "Signed-in sessions stay in history and can be resumed from the same thread.",
-    guestTitle: "Temporary Chat",
-    guestHint: "Guest conversations stay only in this page session and are not written to account history.",
+    historyHint: "Signed-in chats stay attached to your account so you can continue the same thread later.",
+    workspaceTitle: "Match Review Workspace",
+    workspaceHint: "Keep the final answer and sources visible while the tool process stays out of the way.",
+    loginRequiredTitle: "Sign in to use Agent Chat",
+    loginRequiredHint: "Chat runs are saved to your account so you can return to the same review thread later.",
+    loginAction: "Go to login",
+    loginPreviewTitle: "After signing in, try prompts like these",
     newSession: "New Chat",
-    placeholder:
-      "Example: Use recent patches, tournaments, and open-web context to explain why my carry tempo collapses around minute 18.",
+    placeholder: "Example: Use recent patches and tournaments to explain why my carry tempo collapses around minute 18.",
     submit: "Send",
     sending: "Running...",
     noSessions: "No saved chats yet.",
-    noMessages: "Send the first message to start a full agent turn.",
+    noMessages: "Send the first message to start a new review.",
     user: "You",
     assistant: "Agent",
-    tool: "Tool",
-    thinking: "Thinking",
     result: "Final answer",
     citations: "Sources",
-    overview: "Run Overview",
-    latestQuestion: "Latest question",
-    latestAnswer: "Latest answer",
-    noAnswer: "No answer yet.",
     messagesStat: "Messages",
-    toolsStat: "Tool calls",
     sourcesStat: "Sources",
-    activeTool: "Active tool",
-    activeToolIdle: "No tool is currently running",
-    toolMix: "Tool footprint",
-    sessionScope: "Session status",
     starterTitle: "Try one of these",
-    duration: "Duration",
+    thinking: "Working through the question",
+    thinkingFailed: "This run failed",
+    statusLabel: "Session status",
     status: {
       idle: "Idle",
       running: "Running",
@@ -118,8 +106,12 @@ const labels = {
   {
     history: string;
     historyHint: string;
-    guestTitle: string;
-    guestHint: string;
+    workspaceTitle: string;
+    workspaceHint: string;
+    loginRequiredTitle: string;
+    loginRequiredHint: string;
+    loginAction: string;
+    loginPreviewTitle: string;
     newSession: string;
     placeholder: string;
     submit: string;
@@ -128,23 +120,14 @@ const labels = {
     noMessages: string;
     user: string;
     assistant: string;
-    tool: string;
-    thinking: string;
     result: string;
     citations: string;
-    overview: string;
-    latestQuestion: string;
-    latestAnswer: string;
-    noAnswer: string;
     messagesStat: string;
-    toolsStat: string;
     sourcesStat: string;
-    activeTool: string;
-    activeToolIdle: string;
-    toolMix: string;
-    sessionScope: string;
     starterTitle: string;
-    duration: string;
+    thinking: string;
+    thinkingFailed: string;
+    statusLabel: string;
     status: Record<AgentSession["status"], string>;
     agents: Record<AgentKind, string>;
   }
@@ -153,7 +136,7 @@ const labels = {
 const starterMap: Record<Language, string[]> = {
   "zh-CN": [
     "结合最近版本和比赛，说说当前 carry 为什么会在中期丢节奏。",
-    "用版本、赛事和公开资料解释 support 现在最该改的三个习惯。",
+    "用版本和公开信息解释 support 现在最该改的三个习惯。",
     "把我的问题拆成对线、节奏、团战三个阶段，各给我一个复盘框架。"
   ],
   "en-US": [
@@ -191,41 +174,11 @@ function sortThreadEntries(left: ThreadEntry, right: ThreadEntry) {
 }
 
 function getSpeakerLabel(entry: ThreadEntry, locale: Language) {
-  const copy = labels[locale];
-  if (entry.message.role === "user") {
-    return copy.user;
-  }
-  if (entry.message.role === "tool") {
-    return copy.tool;
-  }
-  return copy.assistant;
+  return entry.message.role === "user" ? labels[locale].user : labels[locale].assistant;
 }
 
 function getSpeakerTone(entry: ThreadEntry): string {
-  if (entry.message.role === "user") {
-    return "user";
-  }
-  if (entry.message.role === "tool") {
-    return "tool";
-  }
-  return "orchestrator";
-}
-
-function formatToolName(tool: AgentToolName): string {
-  if (tool === "knowledge_search") {
-    return "Knowledge Search";
-  }
-  return "Websearch";
-}
-
-function formatDuration(durationMs: number | null, locale: Language): string {
-  if (durationMs == null) {
-    return locale === "zh-CN" ? "进行中" : "Running";
-  }
-  if (durationMs < 1000) {
-    return locale === "zh-CN" ? `${durationMs} 毫秒` : `${durationMs}ms`;
-  }
-  return `${(durationMs / 1000).toFixed(durationMs >= 10000 ? 0 : 1)}s`;
+  return entry.message.role === "user" ? "user" : "orchestrator";
 }
 
 function collectMessageCitations(parts: AgentMessagePart[]): ChatCitation[] {
@@ -250,8 +203,17 @@ function collectMessageCitations(parts: AgentMessagePart[]): ChatCitation[] {
   return citations;
 }
 
-function getSessionPreview(summary: AgentSessionSummary, copy: (typeof labels)["en-US"]) {
-  return summary.insight.lastUserMessage || summary.lastMessage || copy.noMessages;
+function getSessionPreview(
+  summary: AgentSessionSummary,
+  copy: (typeof labels)["en-US"]
+) {
+  return summary.insight.lastUserMessage || summary.insight.lastAnswerPreview || summary.lastMessage || copy.noMessages;
+}
+
+function getThinkingPart(parts: AgentMessagePart[]) {
+  return parts.find(
+    (part): part is Extract<AgentMessagePart, { type: "thinking" }> => part.type === "thinking"
+  );
 }
 
 export function ChatPage(props: { locale: Language; token: string | null }) {
@@ -268,7 +230,6 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
 
   const rootSession = rootDetail?.session ?? null;
   const rootSessionId = rootDetail?.session.id ?? null;
-  const rootInsight = rootDetail?.insight ?? null;
 
   const threadEntries = useMemo(() => {
     if (!rootDetail) {
@@ -285,12 +246,6 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
 
   function replaceRoot(detail: AgentSessionDetail | null) {
     setRootDetail(detail);
-  }
-
-  function resetTemporaryConversation() {
-    replaceRoot(null);
-    setMessage("");
-    setError(null);
   }
 
   function upsertRootSummary(summary: AgentSessionSummary) {
@@ -346,7 +301,7 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
     return () => {
       active = false;
     };
-  }, [isLoggedIn, props.locale, props.token]);
+  }, [isLoggedIn, props.token]);
 
   useEffect(() => {
     if (!rootDetail || !rootSessionId) {
@@ -392,8 +347,7 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
   }, [loading, rootDetail]);
 
   async function handleCreateSession() {
-    if (!isLoggedIn) {
-      resetTemporaryConversation();
+    if (!props.token) {
       return;
     }
 
@@ -431,13 +385,14 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
     if (rootDetail) {
       return rootDetail.session;
     }
+    if (!props.token) {
+      throw new Error("UNAUTHORIZED");
+    }
 
     const session = await createAgentSession({ language: props.locale }, props.token);
     const detail = await fetchAgentSession(session.id, props.token);
     replaceRoot(detail);
-    if (isLoggedIn) {
-      upsertRootSummary(toSummary(detail));
-    }
+    upsertRootSummary(toSummary(detail));
     return session;
   }
 
@@ -460,9 +415,7 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
         props.token
       );
       setRootDetail(detail);
-      if (isLoggedIn) {
-        upsertRootSummary(toSummary(detail));
-      }
+      upsertRootSummary(toSummary(detail));
       setMessage("");
     } catch (requestError) {
       const code = requestError instanceof Error ? requestError.message : "REQUEST_FAILED";
@@ -494,140 +447,121 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
     );
   }
 
-  function renderMessagePart(part: AgentMessagePart, key: string): ReactNode {
-    if (part.type === "text") {
-      return null;
-    }
-
-    if (part.type === "thinking") {
-      return (
-        <div className={`message-part-card part-thinking${part.status === "running" ? " is-live" : ""}`} key={key}>
-          <div className="message-part-head">
-            <strong>{copy.thinking}</strong>
-            <span className={`message-part-status is-${part.status}`}>{copy.status[part.status]}</span>
-          </div>
-          <p className="message-part-note">{part.summary}</p>
-          {part.status === "running" ? (
-            <div className="message-thinking-pulse" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </div>
-          ) : null}
-        </div>
-      );
-    }
-
+  if (!isLoggedIn) {
     return (
-      <div className={`message-part-card part-${part.type}`} key={key}>
-        <div className="message-part-head">
-          <div className="message-part-title">
-            <strong>{formatToolName(part.tool)}</strong>
-            <span className="message-part-meta">
-              {copy.duration}: {formatDuration(part.durationMs, props.locale)}
-            </span>
+      <section className="stack agent-page">
+        <section className="panel agent-login-gate">
+          <div className="agent-login-copy">
+            <span className="section-kicker">{copy.workspaceTitle}</span>
+            <h2>{copy.loginRequiredTitle}</h2>
+            <p>{copy.loginRequiredHint}</p>
+            <Link className="primary-btn" to="/login">
+              {copy.loginAction}
+            </Link>
           </div>
-          <span className={`message-part-status is-${part.status}`}>{copy.status[part.status]}</span>
-        </div>
-        {part.inputSummary ? <p className="message-part-note">{part.inputSummary}</p> : null}
-        {part.outputSummary ? <p>{part.outputSummary}</p> : null}
-        <div className="message-tool-footnote">
-          <span>
-            {part.citations.length} {copy.citations}
-          </span>
-          {part.completedAt ? <span>{formatContentDateTime(part.completedAt, props.locale)}</span> : null}
-        </div>
-        {renderCitationLinks(part.citations)}
-      </div>
+
+          <div className="agent-login-preview">
+            <span className="agent-result-label">{copy.loginPreviewTitle}</span>
+            <div className="agent-starter-list">
+              {starters.map((starter) => (
+                <div className="agent-preview-card" key={starter}>
+                  {starter}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </section>
     );
   }
 
   return (
     <section className="stack agent-page">
-      <section className={`panel agent-chat-shell${isLoggedIn ? "" : " guest"}`}>
-        {isLoggedIn ? (
-          <aside className="agent-chat-sidebar">
-            <div className="section-heading compact">
-              <h3>{copy.history}</h3>
-              <button
-                className="ghost-btn"
-                disabled={loading || rootSession?.status === "running"}
-                onClick={handleCreateSession}
-                type="button"
-              >
-                {copy.newSession}
-              </button>
-            </div>
+      <section className="panel agent-chat-shell">
+        <aside className="agent-chat-sidebar">
+          <div className="section-heading compact">
+            <h3>{copy.history}</h3>
+            <button
+              className="ghost-btn"
+              disabled={loading || rootSession?.status === "running"}
+              onClick={handleCreateSession}
+              type="button"
+            >
+              {copy.newSession}
+            </button>
+          </div>
 
-            <div className="agent-history-list">
-              {rootSessions.length > 0 ? (
-                rootSessions.map((session) => {
-                  return (
-                    <button
-                      className={`agent-thread-card${rootDetail?.session.id === session.id ? " active" : ""}`}
-                      key={session.id}
-                      onClick={() => void openRootSession(session.id)}
-                      type="button"
-                    >
-                      <div className="agent-thread-topline">
-                        <span className="agent-thread-status">{copy.status[session.status]}</span>
-                        <span className="agent-thread-time">
-                          {formatContentDateTime(session.updatedAt, props.locale)}
-                        </span>
-                      </div>
-                      <strong>{session.title}</strong>
-                      <p>{getSessionPreview(session, copy)}</p>
-                      <div className="agent-thread-metrics">
-                        <span>
-                          {session.insight.messageCount} {copy.messagesStat}
-                        </span>
-                        <span>
-                          {session.insight.toolCallCount} {copy.toolsStat}
-                        </span>
-                        <span>
-                          {session.insight.sourceCount} {copy.sourcesStat}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="agent-guest-note">
-                  <strong>{copy.noSessions}</strong>
-                  <p>{copy.historyHint}</p>
-                </div>
-              )}
-            </div>
-          </aside>
-        ) : null}
+          <p className="agent-sidebar-note">{copy.historyHint}</p>
+
+          <div className="agent-history-list">
+            {rootSessions.length > 0 ? (
+              rootSessions.map((session) => (
+                <button
+                  className={`agent-thread-card${rootDetail?.session.id === session.id ? " active" : ""}`}
+                  key={session.id}
+                  onClick={() => void openRootSession(session.id)}
+                  type="button"
+                >
+                  <div className="agent-thread-topline">
+                    <span className="agent-thread-status">{copy.status[session.status]}</span>
+                    <span className="agent-thread-time">{formatContentDateTime(session.updatedAt, props.locale)}</span>
+                  </div>
+                  <strong>{session.title}</strong>
+                  <p>{getSessionPreview(session, copy)}</p>
+                  <div className="agent-thread-metrics">
+                    <span>
+                      {session.insight.messageCount} {copy.messagesStat}
+                    </span>
+                    <span>
+                      {session.insight.sourceCount} {copy.sourcesStat}
+                    </span>
+                  </div>
+                </button>
+              ))
+            ) : (
+              <div className="agent-empty-note">
+                <strong>{copy.noSessions}</strong>
+                <p>{copy.historyHint}</p>
+              </div>
+            )}
+          </div>
+        </aside>
 
         <div className="agent-chat-main">
-          {!isLoggedIn ? (
-            <section className="agent-guest-note inline">
-              <strong>{copy.guestTitle}</strong>
-              <p>{copy.guestHint}</p>
-            </section>
-          ) : null}
+          <section className="agent-chat-hero">
+            <div className="agent-chat-hero-copy">
+              <span className="section-kicker">{copy.workspaceTitle}</span>
+              <h2>{rootSession?.title ?? copy.workspaceTitle}</h2>
+              <p>{copy.workspaceHint}</p>
+            </div>
+            <div className="agent-chat-hero-badges">
+              <span className="agent-session-badge">
+                {copy.statusLabel}: {copy.status[rootSession?.status ?? "idle"]}
+              </span>
+              {rootDetail ? (
+                <span className="agent-session-badge">
+                  {rootDetail.insight.sourceCount} {copy.sourcesStat}
+                </span>
+              ) : null}
+            </div>
+          </section>
 
           <section className="agent-chat-feed" ref={feedRef}>
             {threadEntries.length > 0 ? (
               <div className="agent-message-list">
                 {threadEntries.map((entry) => {
                   const isUser = entry.message.role === "user";
-                  const visibleParts = entry.message.parts.filter((part) => part.type !== "text");
                   const isAssistant = entry.message.role === "assistant";
-                  const hasActivity = visibleParts.length > 0;
                   const resultText = entry.message.content.trim();
-                  const showPlainContent = !isAssistant || !hasActivity;
-                  const showResultBlock = isAssistant && hasActivity && resultText.length > 0;
-                  const isThinking = visibleParts.some(
-                    (part) => part.type === "thinking" && part.status === "running"
-                  );
+                  const thinkingPart = getThinkingPart(entry.message.parts);
+                  const showThinking = isAssistant && thinkingPart && thinkingPart.status !== "completed";
                   const messageCitations = collectMessageCitations(entry.message.parts);
 
                   return (
                     <article
-                      className={`agent-chat-message${isUser ? " is-user" : ""}${isThinking ? " is-thinking" : ""}`}
+                      className={`agent-chat-message${isUser ? " is-user" : ""}${
+                        thinkingPart?.status === "running" ? " is-thinking" : ""
+                      }`}
                       key={entry.message.id}
                     >
                       <div className="agent-chat-bubble">
@@ -636,30 +570,42 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
                             {getSpeakerLabel(entry, props.locale)}
                           </span>
                           <span>{formatContentDateTime(entry.message.createdAt, props.locale)}</span>
-                          {messageCitations.length > 0 ? (
-                            <span className="agent-chat-meta-badge">
-                              {messageCitations.length} {copy.citations}
-                            </span>
-                          ) : null}
                         </div>
 
-                        {showPlainContent && resultText ? (
-                          <p className="agent-chat-content">{resultText}</p>
-                        ) : null}
-
-                        {visibleParts.length > 0 ? (
-                          <div className="message-part-list">
-                            {visibleParts.map((part, index) =>
-                              renderMessagePart(part, `${entry.message.id}-${index}`)
-                            )}
+                        {showThinking ? (
+                          <div
+                            className={`agent-thinking-inline${
+                              thinkingPart.status === "failed" ? " is-failed" : ""
+                            }`}
+                          >
+                            <div className="message-part-head">
+                              <strong>
+                                {thinkingPart.status === "failed" ? copy.thinkingFailed : copy.thinking}
+                              </strong>
+                              <span className={`message-part-status is-${thinkingPart.status}`}>
+                                {copy.status[thinkingPart.status]}
+                              </span>
+                            </div>
+                            <p className="message-part-note">{thinkingPart.summary}</p>
+                            {thinkingPart.status === "running" ? (
+                              <div className="message-thinking-pulse" aria-hidden="true">
+                                <span />
+                                <span />
+                                <span />
+                              </div>
+                            ) : null}
                           </div>
                         ) : null}
 
-                        {showResultBlock ? (
-                          <div className="agent-result-block">
-                            <span className="agent-result-label">{copy.result}</span>
+                        {resultText ? (
+                          isAssistant ? (
+                            <div className="agent-result-block">
+                              <span className="agent-result-label">{copy.result}</span>
+                              <p className="agent-chat-content">{resultText}</p>
+                            </div>
+                          ) : (
                             <p className="agent-chat-content">{resultText}</p>
-                          </div>
+                          )
                         ) : null}
 
                         {isAssistant && messageCitations.length > 0 ? (
@@ -705,9 +651,6 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
               <div className="agent-compose-actions">
                 <div className="agent-compose-hint">
                   <span className="agent-session-badge">{copy.status[rootSession?.status ?? "idle"]}</span>
-                  {rootInsight?.activeTool ? (
-                    <span className="agent-session-badge accent">{formatToolName(rootInsight.activeTool)}</span>
-                  ) : null}
                 </div>
                 <button
                   className="primary-btn chat-submit"

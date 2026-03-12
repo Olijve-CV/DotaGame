@@ -1,8 +1,9 @@
 import { Router, text } from "express";
 import { z } from "zod";
 import { logger } from "../lib/logger.js";
+import { requireAuth, type AuthenticatedRequest } from "../middleware/auth.js";
 import { answerChat } from "../services/chatService.js";
-import { addChatSession, getUserByToken } from "../repo/inMemoryStore.js";
+import { addChatSession } from "../repo/inMemoryStore.js";
 
 const chatBodySchema = z.object({
   question: z.string().min(2),
@@ -33,7 +34,7 @@ function normalizeChatBody(body: unknown): unknown {
   }
 }
 
-chatRouter.post("/", async (req, res) => {
+chatRouter.post("/", requireAuth, async (req: AuthenticatedRequest, res) => {
   const parsed = chatBodySchema.safeParse(normalizeChatBody(req.body));
   if (!parsed.success) {
     logger.warn("chat request validation failed", {
@@ -46,23 +47,19 @@ chatRouter.post("/", async (req, res) => {
 
   try {
     const response = await answerChat(parsed.data);
-
-    const header = req.header("authorization");
-    let sessionUserId: string | null = null;
-    if (header?.startsWith("Bearer ")) {
-      const token = header.slice("Bearer ".length).trim();
-      const user = await getUserByToken(token);
-      if (user) {
-        await addChatSession({
-          userId: user.id,
-          question: parsed.data.question,
-          answer: response.answer,
-          mode: parsed.data.mode,
-          language: parsed.data.language
-        });
-        sessionUserId = user.id;
-      }
+    const sessionUserId = req.user?.id;
+    if (!sessionUserId) {
+      res.status(401).json({ message: "UNAUTHORIZED" });
+      return;
     }
+
+    await addChatSession({
+      userId: sessionUserId,
+      question: parsed.data.question,
+      answer: response.answer,
+      mode: parsed.data.mode,
+      language: parsed.data.language
+    });
 
     logger.info("chat response generated", {
       event: "chat.completed",
@@ -70,7 +67,7 @@ chatRouter.post("/", async (req, res) => {
       language: parsed.data.language,
       citations: response.citations.length,
       confidence: response.confidence,
-      persistedSession: sessionUserId != null,
+      persistedSession: true,
       userId: sessionUserId
     });
 

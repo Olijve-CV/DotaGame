@@ -3071,18 +3071,18 @@ button.active {
 .agent-chat-main {
   display: grid;
   gap: 1rem;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
-.agent-overview-panel,
+.agent-chat-hero,
 .agent-chat-feed,
 .agent-compose-panel,
-.agent-guest-note {
+.agent-login-gate {
   border: 1px solid rgba(240, 233, 220, 0.08);
   border-radius: 1.45rem;
 }
 
-.agent-overview-panel {
+.agent-chat-hero {
   background:
     linear-gradient(140deg, rgba(70, 150, 224, 0.12), transparent 42%),
     linear-gradient(180deg, rgba(17, 22, 32, 0.92), rgba(11, 15, 24, 0.94));
@@ -3091,53 +3091,40 @@ button.active {
   padding: 1.15rem 1.2rem;
 }
 
-.agent-overview-heading,
+.agent-chat-hero,
+.agent-login-gate,
 .agent-compose-actions,
 .agent-compose-hint,
 .agent-thread-topline,
 .agent-thread-metrics,
 .message-part-head,
-.message-tool-footnote,
-.agent-overview-footer {
+.message-tool-footnote {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 0.7rem;
 }
 
-.agent-overview-heading {
+.agent-chat-hero,
+.agent-login-gate {
   justify-content: space-between;
 }
 
-.agent-overview-heading h2 {
+.agent-chat-hero h2,
+.agent-login-copy h2 {
   font-size: clamp(1.55rem, 3vw, 2.35rem);
 }
 
-.agent-overview-badges {
+.agent-chat-hero-badges {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
 }
 
-.agent-overview-stats,
-.agent-overview-grid {
-  display: grid;
-  gap: 0.8rem;
-}
-
-.agent-overview-stats {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.agent-overview-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.agent-overview-card,
-.agent-overview-note,
 .agent-thread-card,
 .agent-starter-list button,
-.message-part-card {
+.message-part-card,
+.agent-preview-card {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(240, 233, 220, 0.08);
   color: inherit;
@@ -3145,54 +3132,40 @@ button.active {
     transform 160ms ease,
     border-color 160ms ease,
     background 160ms ease;
-}
-
-.agent-overview-card,
-.agent-overview-note {
   border-radius: 1rem;
-  display: grid;
-  gap: 0.3rem;
-  padding: 0.95rem 1rem;
 }
 
-.agent-overview-card span,
-.agent-overview-note span,
 .message-part-meta,
 .message-tool-footnote,
 .agent-thread-metrics,
-.agent-overview-empty,
 .agent-chat-meta span:last-child,
 .agent-chat-meta-badge,
 .agent-thread-status,
-.agent-thread-time {
+.agent-thread-time,
+.agent-sidebar-note,
+.agent-empty-note p {
   color: rgba(240, 233, 220, 0.56);
   font-size: 0.76rem;
   letter-spacing: 0.03em;
 }
 
-.agent-overview-card strong {
-  font-family: "Newsreader", serif;
-  font-size: 1.8rem;
-}
-
-.agent-overview-note p {
-  color: rgba(240, 233, 220, 0.86);
-  display: -webkit-box;
+.agent-sidebar-note,
+.agent-empty-note p,
+.agent-chat-hero-copy p,
+.agent-login-copy p {
   margin: 0;
-  min-height: 2.7rem;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
 }
 
-.agent-overview-tools {
+.agent-chat-hero-copy,
+.agent-login-copy {
   display: grid;
   gap: 0.45rem;
 }
 
-.agent-overview-tools.align-end {
-  justify-items: end;
-  margin-left: auto;
+.agent-chat-hero-copy p,
+.agent-login-copy p {
+  color: rgba(240, 233, 220, 0.86);
+  line-height: 1.55;
 }
 
 .agent-thread-card,
@@ -3205,8 +3178,7 @@ button.active {
 .agent-thread-card:hover,
 .agent-starter-list button:hover,
 .message-part-card:hover,
-.agent-overview-card:hover,
-.agent-overview-note:hover {
+.agent-preview-card:hover {
   border-color: rgba(92, 170, 234, 0.42);
   transform: translateY(-1px);
 }
@@ -3263,14 +3235,12 @@ button.active {
   gap: 0.5rem;
 }
 
-.agent-thread-tool-row,
 .message-part-links {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
 }
 
-.agent-tool-chip,
 .agent-session-badge,
 .agent-speaker-pill,
 .agent-chat-meta-badge {
@@ -3281,15 +3251,10 @@ button.active {
   padding: 0.3rem 0.58rem;
 }
 
-.agent-tool-chip,
 .agent-session-badge {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(240, 233, 220, 0.08);
   color: rgba(240, 233, 220, 0.88);
-}
-
-.agent-tool-chip.subtle {
-  background: rgba(255, 255, 255, 0.04);
 }
 
 .agent-session-badge.accent {
@@ -3298,22 +3263,40 @@ button.active {
   color: rgba(186, 225, 255, 0.98);
 }
 
-.agent-guest-note {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(17, 20, 29, 0.9));
+.agent-login-gate {
+  background:
+    radial-gradient(circle at top left, rgba(225, 102, 58, 0.16), transparent 20rem),
+    linear-gradient(180deg, rgba(11, 15, 24, 0.96), rgba(8, 11, 18, 0.96));
+  gap: 1.25rem;
+  min-height: 32rem;
+  padding: 1.5rem;
+}
+
+.agent-login-preview {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(240, 233, 220, 0.08);
+  border-radius: 1.15rem;
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  width: min(100%, 30rem);
+}
+
+.agent-preview-card {
+  padding: 0.85rem 0.95rem;
+}
+
+.agent-empty-note {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(240, 233, 220, 0.08);
+  border-radius: 1rem;
+  display: grid;
+  gap: 0.4rem;
   padding: 1rem;
 }
 
-.agent-guest-note.inline {
-  margin-top: -0.25rem;
-}
-
-.agent-guest-note strong {
+.agent-empty-note strong {
   display: block;
-  margin-bottom: 0.35rem;
-}
-
-.agent-guest-note p {
-  margin: 0;
 }
 
 .agent-chat-feed {
@@ -3390,6 +3373,21 @@ button.active {
   margin: 0;
   line-height: 1.6;
   white-space: pre-wrap;
+}
+
+.agent-thinking-inline {
+  background: rgba(92, 170, 234, 0.08);
+  border: 1px solid rgba(92, 170, 234, 0.18);
+  border-radius: 0.95rem;
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 0.9rem;
+  padding: 0.85rem 0.9rem;
+}
+
+.agent-thinking-inline.is-failed {
+  background: rgba(225, 102, 58, 0.08);
+  border-color: rgba(225, 102, 58, 0.24);
 }
 
 .message-part-list {
@@ -3608,19 +3606,11 @@ button.active {
   .agent-chat-shell {
     grid-template-columns: 1fr;
   }
-
-  .agent-overview-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 720px) {
   .agent-chat-shell {
     min-height: auto;
-  }
-
-  .agent-overview-stats {
-    grid-template-columns: 1fr;
   }
 
   .agent-compose-actions {
@@ -3635,17 +3625,13 @@ button.active {
   .agent-chat-feed,
   .agent-compose-panel,
   .agent-chat-sidebar,
-  .agent-overview-panel {
+  .agent-chat-hero,
+  .agent-login-gate {
     padding: 1rem;
   }
 
   .agent-thread-card {
     padding: 0.85rem;
-  }
-
-  .agent-overview-tools.align-end {
-    justify-items: start;
-    margin-left: 0;
   }
 }
 

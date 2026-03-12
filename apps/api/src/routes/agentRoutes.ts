@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { logger } from "../lib/logger.js";
 import { getUserByToken } from "../repo/inMemoryStore.js";
@@ -36,12 +36,21 @@ async function resolveUserId(header: string | undefined): Promise<string | null>
   return resolveUserIdFromToken(header.slice("Bearer ".length).trim());
 }
 
+async function requireUserId(req: Request, res: Response): Promise<string | null> {
+  const userId = await resolveUserId(req.header("authorization"));
+  if (!userId) {
+    res.status(401).json({ message: "UNAUTHORIZED" });
+    return null;
+  }
+
+  return userId;
+}
+
 export const agentRouter = Router();
 
 agentRouter.get("/sessions", async (req, res) => {
-  const userId = await resolveUserId(req.header("authorization"));
+  const userId = await requireUserId(req, res);
   if (!userId) {
-    res.json({ items: [] });
     return;
   }
 
@@ -55,7 +64,10 @@ agentRouter.post("/sessions", async (req, res) => {
     return;
   }
 
-  const userId = await resolveUserId(req.header("authorization"));
+  const userId = await requireUserId(req, res);
+  if (!userId) {
+    return;
+  }
   const session = await createSession({
     userId,
     language: parsed.data.language,
@@ -65,14 +77,18 @@ agentRouter.post("/sessions", async (req, res) => {
 });
 
 agentRouter.get("/sessions/:sessionId", async (req, res) => {
+  const userId = await requireUserId(req, res);
+  if (!userId) {
+    return;
+  }
+
   const detail = await getSessionDetail(req.params.sessionId);
   if (!detail) {
     res.status(404).json({ message: "SESSION_NOT_FOUND" });
     return;
   }
 
-  const userId = await resolveUserId(req.header("authorization"));
-  if (detail.session.userId && detail.session.userId !== userId) {
+  if (detail.session.userId !== userId) {
     res.status(403).json({ message: "FORBIDDEN" });
     return;
   }
@@ -81,19 +97,24 @@ agentRouter.get("/sessions/:sessionId", async (req, res) => {
 });
 
 agentRouter.get("/sessions/:sessionId/events", async (req, res) => {
-  const detail = await getSessionDetail(req.params.sessionId);
-  if (!detail) {
-    res.status(404).json({ message: "SESSION_NOT_FOUND" });
-    return;
-  }
-
   const queryToken =
     typeof req.query.token === "string" && req.query.token.trim().length > 0
       ? req.query.token.trim()
       : undefined;
   const userId =
     (await resolveUserId(req.header("authorization"))) ?? (await resolveUserIdFromToken(queryToken));
-  if (detail.session.userId && detail.session.userId !== userId) {
+  if (!userId) {
+    res.status(401).json({ message: "UNAUTHORIZED" });
+    return;
+  }
+
+  const detail = await getSessionDetail(req.params.sessionId);
+  if (!detail) {
+    res.status(404).json({ message: "SESSION_NOT_FOUND" });
+    return;
+  }
+
+  if (detail.session.userId !== userId) {
     res.status(403).json({ message: "FORBIDDEN" });
     return;
   }
@@ -138,14 +159,18 @@ agentRouter.get("/sessions/:sessionId/events", async (req, res) => {
 });
 
 agentRouter.get("/sessions/:sessionId/children", async (req, res) => {
+  const userId = await requireUserId(req, res);
+  if (!userId) {
+    return;
+  }
+
   const detail = await getSessionDetail(req.params.sessionId);
   if (!detail) {
     res.status(404).json({ message: "SESSION_NOT_FOUND" });
     return;
   }
 
-  const userId = await resolveUserId(req.header("authorization"));
-  if (detail.session.userId && detail.session.userId !== userId) {
+  if (detail.session.userId !== userId) {
     res.status(403).json({ message: "FORBIDDEN" });
     return;
   }
@@ -165,7 +190,11 @@ agentRouter.post("/sessions/:sessionId/messages", async (req, res) => {
   }
 
   try {
-    const userId = await resolveUserId(req.header("authorization"));
+    const userId = await requireUserId(req, res);
+    if (!userId) {
+      return;
+    }
+
     const detail = await sendMessageToSession({
       sessionId: req.params.sessionId,
       userId,
@@ -175,12 +204,22 @@ agentRouter.post("/sessions/:sessionId/messages", async (req, res) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "AGENT_SESSION_FAILED";
     if (
+      message === "UNAUTHORIZED" ||
+      message === "FORBIDDEN" ||
       message === "SESSION_NOT_FOUND" ||
       message === "INVALID_MESSAGE" ||
       message === "SUBAGENT_SESSION_READ_ONLY" ||
       message === "SESSION_BUSY"
     ) {
-      res.status(message === "SESSION_NOT_FOUND" ? 404 : 400).json({ message });
+      const status =
+        message === "UNAUTHORIZED"
+          ? 401
+          : message === "FORBIDDEN"
+            ? 403
+            : message === "SESSION_NOT_FOUND"
+              ? 404
+              : 400;
+      res.status(status).json({ message });
       return;
     }
 
