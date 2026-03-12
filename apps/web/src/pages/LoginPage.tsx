@@ -164,6 +164,17 @@ function resolveRequestError(requestError: unknown, text: (typeof labels)["en-US
   return text.errors[code as keyof typeof text.errors] ?? text.errors.REQUEST_FAILED;
 }
 
+function pickRandomAvatarId(options: HeroAvatarOption[], currentId?: number | null): number | null {
+  if (options.length === 0) {
+    return null;
+  }
+
+  const candidatePool =
+    options.length > 1 ? options.filter((item) => item.id !== currentId) : options;
+  const pool = candidatePool.length > 0 ? candidatePool : options;
+  return pool[Math.floor(Math.random() * pool.length)]?.id ?? null;
+}
+
 export function LoginPage(props: {
   locale: Language;
   token: string | null;
@@ -177,6 +188,7 @@ export function LoginPage(props: {
   const [name, setName] = useState("");
   const [selectedAvatarId, setSelectedAvatarId] = useState<number | null>(null);
   const [avatarOptions, setAvatarOptions] = useState<HeroAvatarOption[]>([]);
+  const [avatarOptionsLocale, setAvatarOptionsLocale] = useState<Language | null>(null);
   const [isLoadingAvatars, setIsLoadingAvatars] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
@@ -192,7 +204,11 @@ export function LoginPage(props: {
   );
 
   useEffect(() => {
-    if (mode !== "register" || avatarOptions.length > 0 || isLoadingAvatars) {
+    if (mode !== "register") {
+      return;
+    }
+
+    if (avatarOptions.length > 0 && avatarOptionsLocale === props.locale) {
       return;
     }
 
@@ -202,10 +218,14 @@ export function LoginPage(props: {
       .then((items) => {
         if (active) {
           setAvatarOptions(items);
+          setAvatarOptionsLocale(props.locale);
+          setSelectedAvatarId((current) => current ?? pickRandomAvatarId(items));
         }
       })
       .catch(() => {
         if (active) {
+          setAvatarOptions([]);
+          setAvatarOptionsLocale(null);
           setError(text.errors.REQUEST_FAILED);
         }
       })
@@ -218,7 +238,15 @@ export function LoginPage(props: {
     return () => {
       active = false;
     };
-  }, [avatarOptions.length, isLoadingAvatars, mode, text.errors.REQUEST_FAILED]);
+  }, [avatarOptions.length, avatarOptionsLocale, mode, props.locale, text.errors.REQUEST_FAILED]);
+
+  useEffect(() => {
+    if (mode !== "register" || selectedAvatarId != null || avatarOptions.length === 0) {
+      return;
+    }
+
+    setSelectedAvatarId(pickRandomAvatarId(avatarOptions));
+  }, [avatarOptions, mode, selectedAvatarId]);
 
   if (props.token) {
     return <Navigate to="/profile" replace />;
