@@ -7,7 +7,11 @@ export interface AuthenticatedRequest extends Request {
   user?: UserProfile;
 }
 
-export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+export async function requireAuth(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   const header = req.header("authorization");
   if (!header?.startsWith("Bearer ")) {
     logger.warn("authentication failed: missing bearer token", {
@@ -19,7 +23,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   }
 
   const token = header.slice("Bearer ".length).trim();
-  const user = getUserByToken(token);
+  const user = await getUserByToken(token);
   if (!user) {
     logger.warn("authentication failed: invalid token", {
       event: "auth.invalid_token"

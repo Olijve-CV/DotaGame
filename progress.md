@@ -165,6 +165,32 @@
   - added a silent 10-minute polling interval so the homepage refreshes live content without interrupting the current view
 - Validation completed after item 8:
   - `npm run build --workspace @dotagame/web`
+- Started auth/account persistence migration:
+  - confirmed the current login/register flow writes to `apps/api/src/repo/inMemoryStore.ts`
+  - confirmed the browser also caches `token` and `user` in `localStorage`
+  - chose SQLite as the implementation target because Node `v22.22.0` exposes `node:sqlite` locally without adding a third-party dependency
+- Completed backend persistence migration with dual DB provider support:
+  - added `apps/api/src/lib/database.ts` with shared schema/init logic and `sqlite` / `pgsql` provider selection
+  - replaced `apps/api/src/repo/inMemoryStore.ts` with a DB-backed account repository while preserving the existing function API
+  - replaced `apps/api/src/repo/agentStore.ts` with a DB-backed session/message repository
+  - updated auth middleware, user routes, chat routes, agent routes, and agent runtime to await async DB access
+  - documented `DB_PROVIDER`, `SQLITE_DB_PATH`, and `DATABASE_URL`; added `apps/api/.env.example`; ignored `apps/api/.data/`
+- Validation completed after the persistence migration:
+  - `npm test --workspace @dotagame/api`
+  - `npm run build --workspace @dotagame/api`
+  - `npm test`
+  - `npm run build`
+- Expanded persistence to source-backed content and hero data:
+  - added DB tables for content items, hero avatars, hero details, and per-dataset sync timestamps
+  - added `apps/api/src/repo/sourceStore.ts` for DB-backed source reads/writes
+  - refactored `contentService` to sync into DB and serve articles/patch notes/tournaments from DB as the primary source
+  - refactored `heroAvatarService` to sync hero/avatar data into DB and serve hero/avatar responses from DB as the primary source
+  - added an API test proving hero detail still resolves from DB after the upstream source becomes unavailable
+- Validation completed after the content-source persistence migration:
+  - `npm run build --workspace @dotagame/api`
+  - `npm test --workspace @dotagame/api`
+  - `npm test`
+  - `npm run build`
 
 ## 2026-03-06
 - Started implementation from approved proposed plan.

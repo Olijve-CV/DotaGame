@@ -7,6 +7,14 @@ import type {
   Language
 } from "@dotagame/contracts";
 import { logger } from "../lib/logger.js";
+import {
+  getSourceSyncTime,
+  getStoredHeroDetail,
+  listStoredHeroAvatars,
+  setSourceSyncTime,
+  upsertHeroAvatars,
+  upsertHeroDetail
+} from "../repo/sourceStore.js";
 import { withCache } from "./sources/cache.js";
 
 const HERO_AVATAR_CACHE_KEY = "hero-avatar-options";
@@ -14,6 +22,8 @@ const HERO_AVATAR_TTL_MS = 12 * 60 * 60 * 1000;
 const OPEN_DOTA_HEROES_URL = "https://api.opendota.com/api/constants/heroes";
 const DOTA_HERO_LIST_URL = "https://www.dota2.com/datafeed/herolist";
 const DOTA_HERO_DATA_URL = "https://www.dota2.com/datafeed/herodata";
+const heroAvatarMemoryCache = new Map<Language, HeroAvatarOption[]>();
+const heroDetailMemoryCache = new Map<string, HeroDetail>();
 
 const FALLBACK_HERO_AVATARS: HeroAvatarOption[] = [
   {
@@ -188,76 +198,206 @@ interface DotaOfficialHeroPayload {
   };
 }
 
-export async function listHeroAvatars(language: Language = "en-US"): Promise<HeroAvatarOption[]> {
-  const officialIndex = await loadOfficialHeroList(language).catch((error) => {
-    logger.warn("failed to load official hero list metadata", {
-      event: "content.hero_avatars.official_list_failed",
-      language,
-      error
-    });
-    return new Map<number, DotaOfficialHeroListEntry>();
-  });
-
-  let baseOptions: HeroAvatarOption[];
-  try {
-    baseOptions = await withCache(HERO_AVATAR_CACHE_KEY, HERO_AVATAR_TTL_MS, fetchHeroAvatarsFromSource);
-  } catch (error) {
-    logger.warn("failed to load hero avatars from OpenDota, using fallback avatars", {
-      event: "content.hero_avatars.live_source_failed",
-      error
-    });
-    baseOptions = FALLBACK_HERO_AVATARS;
+function isSyncFresh(syncedAt: string | null, ttlMs: number): boolean {
+  if (!syncedAt) {
+    return false;
   }
 
-  return baseOptions.map((item) => enrichAvatarWithOfficialData(item, officialIndex.get(item.id), language));
+  return Date.now() - new Date(syncedAt).getTime() < ttlMs;
 }
 
-export async function getHeroDetail(heroId: number, language: Language): Promise<HeroDetail | null> {
-  const [avatars, officialHero] = await Promise.all([
-    listHeroAvatars(language),
-    fetchOfficialHero(heroId, language)
-  ]);
+function getHeroDetailMemoryCacheKey(heroId: number, language: Language): string {
+  return `${language}:${heroId}`;
+}
 
-  if (!officialHero || typeof officialHero.id !== "number" || typeof officialHero.name !== "string") {
+function cloneAvatarOption(item: HeroAvatarOption): HeroAvatarOption {
+  return {
+    ...item,
+    roles: item.roles ? [...item.roles] : item.roles
+  };
+}
+
+function cloneHeroDetail(detail: HeroDetail): HeroDetail {
+  return {
+    ...detail,
+    roles: [...detail.roles],
+    roleLevels: [...detail.roleLevels],
+    attributes: detail.attributes
+      ? {
+          str: { ...detail.attributes.str },
+          agi: { ...detail.attributes.agi },
+          int: { ...detail.attributes.int }
+        }
+      : null,
+    abilities: detail.abilities.map((ability) => ({
+      ...ability,
+      notes: [...ability.notes]
+    })),
+    facets: detail.facets.map((facet) => ({ ...facet }))
+  };
+}
+
+function setHeroAvatarMemoryCache(language: Language, items: HeroAvatarOption[]): void {
+  heroAvatarMemoryCache.set(language, items.map(cloneAvatarOption));
+}
+
+function getHeroAvatarMemoryCache(language: Language): HeroAvatarOption[] | null {
+  const cached = heroAvatarMemoryCache.get(language);
+  return cached ? cached.map(cloneAvatarOption) : null;
+}
+
+function setHeroDetailMemoryCache(language: Language, detail: HeroDetail): void {
+  heroDetailMemoryCache.set(getHeroDetailMemoryCacheKey(detail.id, language), cloneHeroDetail(detail));
+}
+
+function getHeroDetailMemoryCache(heroId: number, language: Language): HeroDetail | null {
+  const cached = heroDetailMemoryCache.get(getHeroDetailMemoryCacheKey(heroId, language));
+  return cached ? cloneHeroDetail(cached) : null;
+}
+
+async function loadHeroAvatarsFromDbToMemory(language: Language): Promise<HeroAvatarOption[]> {
+  const stored = await listStoredHeroAvatars(language);
+  setHeroAvatarMemoryCache(language, stored);
+  return stored.map(cloneAvatarOption);
+}
+
+async function loadHeroDetailFromDbToMemory(heroId: number, language: Language): Promise<HeroDetail | null> {
+  const stored = await getStoredHeroDetail(heroId, language);
+  if (!stored) {
     return null;
   }
 
-  const avatar = avatars.find((item) => item.id === heroId);
-  const name = avatar?.name ?? normalizeHeroName(officialHero.name);
-  const localizedName =
-    typeof officialHero.name_loc === "string" && officialHero.name_loc.trim().length > 0
-      ? officialHero.name_loc.trim()
-      : avatar?.localizedName;
-  const displayName = language === "zh-CN" ? localizedName ?? name : name;
-  const shortDescription = sanitizeHtmlText(officialHero.npe_desc_loc);
-  const overview = sanitizeHtmlText(officialHero.hype_loc);
-  const biography = sanitizeHtmlText(officialHero.bio_loc);
-  const abilities = (officialHero.abilities ?? [])
-    .filter((ability) => typeof ability.id === "number" && typeof ability.name === "string")
-    .filter((ability) => ability.type !== 2)
-    .map((ability) => toHeroAbilityDetail(ability, language))
-    .filter(Boolean) as HeroDetail["abilities"];
-  const facets = (officialHero.facets ?? [])
-    .map((facet) => toHeroFacetDetail(facet, language))
-    .filter(Boolean) as HeroFacetDetail[];
+  setHeroDetailMemoryCache(language, stored);
+  return cloneHeroDetail(stored);
+}
 
-  return {
-    id: heroId,
-    name,
-    localizedName,
-    displayName,
-    shortDescription,
-    overview,
-    biography,
-    primaryAttr: avatar?.primaryAttr ?? mapOfficialPrimaryAttr(officialHero.primary_attr),
-    attackType: avatar?.attackType ?? mapOfficialAttackCapability(officialHero.attack_capability),
-    complexity: clampComplexity(officialHero.complexity ?? avatar?.complexity),
-    roles: avatar?.roles ?? [],
-    roleLevels: Array.isArray(officialHero.role_levels) ? officialHero.role_levels : [],
-    attributes: buildHeroAttributes(officialHero),
-    abilities,
-    facets
-  };
+async function ensureHeroAvatarsSynced(language: Language): Promise<void> {
+  const datasetKey = `hero-avatars:${language}`;
+  const existing = await listStoredHeroAvatars(language);
+  const syncedAt = await getSourceSyncTime(datasetKey);
+  if (existing.length > 0 && isSyncFresh(syncedAt, HERO_AVATAR_TTL_MS)) {
+    return;
+  }
+
+  try {
+    const officialIndex = await loadOfficialHeroList(language).catch((error) => {
+      logger.warn("failed to load official hero list metadata", {
+        event: "content.hero_avatars.official_list_failed",
+        language,
+        error
+      });
+      return new Map<number, DotaOfficialHeroListEntry>();
+    });
+
+    let baseOptions: HeroAvatarOption[];
+    try {
+      baseOptions = await withCache(HERO_AVATAR_CACHE_KEY, HERO_AVATAR_TTL_MS, fetchHeroAvatarsFromSource);
+    } catch (error) {
+      logger.warn("failed to load hero avatars from OpenDota, using fallback avatars", {
+        event: "content.hero_avatars.live_source_failed",
+        error
+      });
+      baseOptions = FALLBACK_HERO_AVATARS;
+    }
+
+    const items = baseOptions.map((item) =>
+      enrichAvatarWithOfficialData(item, officialIndex.get(item.id), language)
+    );
+    await upsertHeroAvatars(language, items);
+    setHeroAvatarMemoryCache(language, items);
+    await setSourceSyncTime(datasetKey, new Date().toISOString());
+  } catch (error) {
+    if (existing.length > 0) {
+      logger.warn("hero avatar sync failed, returning stored DB content", {
+        event: "content.hero_avatars.sync_failed",
+        language,
+        error
+      });
+      return;
+    }
+    throw error;
+  }
+}
+
+async function ensureHeroDetailSynced(heroId: number, language: Language): Promise<void> {
+  const datasetKey = `hero-detail:${language}:${heroId}`;
+  const existing = await getStoredHeroDetail(heroId, language);
+  const syncedAt = await getSourceSyncTime(datasetKey);
+  if (existing && isSyncFresh(syncedAt, HERO_AVATAR_TTL_MS)) {
+    return;
+  }
+
+  try {
+    await ensureHeroAvatarsSynced(language);
+    const avatars = await listStoredHeroAvatars(language);
+    const officialHero = await fetchOfficialHero(heroId, language);
+
+    if (!officialHero || typeof officialHero.id !== "number" || typeof officialHero.name !== "string") {
+      return;
+    }
+
+    const avatar = avatars.find((item) => item.id === heroId);
+    const name = avatar?.name ?? normalizeHeroName(officialHero.name);
+    const localizedName =
+      typeof officialHero.name_loc === "string" && officialHero.name_loc.trim().length > 0
+        ? officialHero.name_loc.trim()
+        : avatar?.localizedName;
+    const displayName = language === "zh-CN" ? localizedName ?? name : name;
+    const shortDescription = sanitizeHtmlText(officialHero.npe_desc_loc);
+    const overview = sanitizeHtmlText(officialHero.hype_loc);
+    const biography = sanitizeHtmlText(officialHero.bio_loc);
+    const abilities = (officialHero.abilities ?? [])
+      .filter((ability) => typeof ability.id === "number" && typeof ability.name === "string")
+      .filter((ability) => ability.type !== 2)
+      .map((ability) => toHeroAbilityDetail(ability, language))
+      .filter(Boolean) as HeroDetail["abilities"];
+    const facets = (officialHero.facets ?? [])
+      .map((facet) => toHeroFacetDetail(facet, language))
+      .filter(Boolean) as HeroFacetDetail[];
+
+    const detail: HeroDetail = {
+      id: heroId,
+      name,
+      localizedName,
+      displayName,
+      shortDescription,
+      overview,
+      biography,
+      primaryAttr: avatar?.primaryAttr ?? mapOfficialPrimaryAttr(officialHero.primary_attr),
+      attackType: avatar?.attackType ?? mapOfficialAttackCapability(officialHero.attack_capability),
+      complexity: clampComplexity(officialHero.complexity ?? avatar?.complexity),
+      roles: avatar?.roles ?? [],
+      roleLevels: Array.isArray(officialHero.role_levels) ? officialHero.role_levels : [],
+      attributes: buildHeroAttributes(officialHero),
+      abilities,
+      facets
+    };
+
+    await upsertHeroDetail(language, detail);
+    setHeroDetailMemoryCache(language, detail);
+    await setSourceSyncTime(datasetKey, new Date().toISOString());
+  } catch (error) {
+    if (existing) {
+      logger.warn("hero detail sync failed, returning stored DB content", {
+        event: "content.hero_detail.sync_failed",
+        heroId,
+        language,
+        error
+      });
+      return;
+    }
+    throw error;
+  }
+}
+
+export async function listHeroAvatars(language: Language = "en-US"): Promise<HeroAvatarOption[]> {
+  await ensureHeroAvatarsSynced(language);
+  return getHeroAvatarMemoryCache(language) ?? loadHeroAvatarsFromDbToMemory(language);
+}
+
+export async function getHeroDetail(heroId: number, language: Language): Promise<HeroDetail | null> {
+  await ensureHeroDetailSynced(heroId, language);
+  return getHeroDetailMemoryCache(heroId, language) ?? loadHeroDetailFromDbToMemory(heroId, language);
 }
 
 export async function resolveHeroAvatarById(

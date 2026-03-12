@@ -1,17 +1,22 @@
 import "dotenv/config";
 import { createApp } from "./app.js";
+import { getDatabaseInfo } from "./lib/database.js";
 import { logger } from "./lib/logger.js";
 import { getRagConfig } from "./services/rag/config.js";
 
 const port = Number(process.env.PORT ?? 4000);
 const app = createApp();
 const ragConfig = getRagConfig();
+const databaseInfo = getDatabaseInfo();
 
 const server = app.listen(port, () => {
   logger.info("API server started", {
     event: "server.started",
     port,
     environment: process.env.NODE_ENV ?? "development",
+    dbProvider: databaseInfo.provider,
+    sqlitePath: databaseInfo.sqlitePath ?? undefined,
+    databaseUrlConfigured: databaseInfo.hasDatabaseUrl,
     liveSourcesEnabled: process.env.USE_LIVE_SOURCES !== "false",
     vectorStoreProvider: ragConfig.vectorStoreProvider,
     openAiConfigured: Boolean(ragConfig.openAiApiKey)

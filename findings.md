@@ -156,3 +156,30 @@
   - thinking summary
   - tool activity cards
   - final result block
+
+## 2026-03-12
+- The current auth/account implementation stores users, tokens, favorites, and chat sessions only in process memory via `apps/api/src/repo/inMemoryStore.ts`; no relational or document database is wired in.
+- The web client separately stores the current `token` and `user` snapshot in `localStorage`, but that is only client-side session persistence and not a backend source of truth.
+- The repo currently has no database dependency, but the local environment is running Node `v22.22.0`, and `node:sqlite` is available. That makes SQLite the lowest-friction persistence option for this codebase.
+- The most compatible migration path is to keep the existing store function API (`createUser`, `loginUser`, `getUserByToken`, favorites/chat helpers) and swap the storage backend under it, so routes and most tests remain unchanged.
+- After clarifying the persistence requirement, `agentStore.ts` also needed to move off memory. Persisting only the auth store would still lose agent sessions/messages on restart, which violates the stated backend durability boundary.
+- The implemented shape is a small dual-provider DB layer:
+  - local default: SQLite file under `apps/api/.data/dotagame.db`
+  - production target: PostgreSQL via `DB_PROVIDER=pgsql` + `DATABASE_URL`
+- The repository now persists these backend records in DB tables:
+  - users
+  - auth_tokens
+  - favorites
+  - chat_sessions
+  - agent_sessions
+  - agent_messages
+- Follow-up requirement expanded persistence beyond account/session data:
+  - hero/avatar source data now persists in `hero_avatars` and `hero_details`
+  - news, patch notes, and tournament source records now persist in `content_items`
+  - source freshness is tracked in `source_sync_state`
+- The content-side architecture is now:
+  - DB is the primary read path
+  - request-time lazy sync refreshes stale/missing datasets
+  - if upstream fetch fails and DB already has rows, the API serves the stored data instead of failing
+- To keep shared contracts stable, agent message parts are stored as JSON text rather than normalized child tables.
+- Current tradeoff: local SQLite uses Node's built-in `node:sqlite`, which works in Node `v22.22.0` but still emits an experimental warning during tests/dev startup.

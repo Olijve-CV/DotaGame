@@ -64,11 +64,11 @@ userRouter.patch("/me/avatar", async (req: AuthenticatedRequest, res) => {
   }
 });
 
-userRouter.get("/me/favorites", (req: AuthenticatedRequest, res) => {
-  res.json({ items: getFavorites(req.user!.id) });
+userRouter.get("/me/favorites", async (req: AuthenticatedRequest, res) => {
+  res.json({ items: await getFavorites(req.user!.id) });
 });
 
-userRouter.post("/me/favorites", (req: AuthenticatedRequest, res) => {
+userRouter.post("/me/favorites", async (req: AuthenticatedRequest, res) => {
   const parsed = favoriteSchema.safeParse(req.body);
   if (!parsed.success) {
     logger.warn("favorite update validation failed", {
@@ -79,7 +79,7 @@ userRouter.post("/me/favorites", (req: AuthenticatedRequest, res) => {
     res.status(400).json({ message: "INVALID_PAYLOAD" });
     return;
   }
-  const items = addFavorite(req.user!.id, parsed.data.contentType, parsed.data.contentId);
+  const items = await addFavorite(req.user!.id, parsed.data.contentType, parsed.data.contentId);
   logger.info("favorite added", {
     event: "user.favorites.added",
     userId: req.user!.id,
@@ -90,7 +90,7 @@ userRouter.post("/me/favorites", (req: AuthenticatedRequest, res) => {
   res.status(201).json({ items });
 });
 
-userRouter.delete("/me/favorites/:contentType/:contentId", (req: AuthenticatedRequest, res) => {
+userRouter.delete("/me/favorites/:contentType/:contentId", async (req: AuthenticatedRequest, res) => {
   const contentType = req.params.contentType;
   const contentId = req.params.contentId;
   if (contentType !== "article" && contentType !== "patch" && contentType !== "tournament") {
@@ -102,7 +102,7 @@ userRouter.delete("/me/favorites/:contentType/:contentId", (req: AuthenticatedRe
     res.status(400).json({ message: "INVALID_CONTENT_TYPE" });
     return;
   }
-  const items = removeFavorite(req.user!.id, contentType, contentId);
+  const items = await removeFavorite(req.user!.id, contentType, contentId);
   logger.info("favorite removed", {
     event: "user.favorites.removed",
     userId: req.user!.id,
@@ -113,6 +113,6 @@ userRouter.delete("/me/favorites/:contentType/:contentId", (req: AuthenticatedRe
   res.json({ items });
 });
 
-userRouter.get("/me/chat-sessions", (req: AuthenticatedRequest, res) => {
-  res.json({ items: getChatSessions(req.user!.id) });
+userRouter.get("/me/chat-sessions", async (req: AuthenticatedRequest, res) => {
+  res.json({ items: await getChatSessions(req.user!.id) });
 });

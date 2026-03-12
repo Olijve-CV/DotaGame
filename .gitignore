@@ -7,3 +7,4 @@ apps/web/.vite/
 /.idea/
 apps/api/.env
 apps/api/.env.local
+apps/api/.data/

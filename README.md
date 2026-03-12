@@ -28,6 +28,46 @@ Use `apps/api/.env.example` as the template if you need to recreate it.
 Backend logs are emitted as structured JSON lines. Set `LOG_LEVEL=debug|info|warn|error`
 if you need to raise or lower verbosity locally.
 
+## Account Persistence
+
+Auth, favorites, user chat history, and agent sessions/messages are now persisted in a database.
+
+Local development defaults to SQLite with a file under `apps/api/.data/dotagame.db`.
+
+```bash
+# PowerShell example
+$env:DB_PROVIDER="sqlite"
+$env:SQLITE_DB_PATH="E:\\WorkSpace\\Olijve-CV\\DotaGame\\apps\\api\\.data\\dotagame.db"
+npm run dev --workspace @dotagame/api
+```
+
+Production can switch to PostgreSQL with `DB_PROVIDER=pgsql` and `DATABASE_URL`:
+
+```bash
+# PowerShell example
+$env:DB_PROVIDER="pgsql"
+$env:DATABASE_URL="postgresql://user:password@host:5432/dotagame"
+npm run dev --workspace @dotagame/api
+```
+
+## Content Source Persistence
+
+Hero/avatar data and content-source records for news, patch notes, and tournaments are also persisted in DB now.
+
+The API read path is:
+
+1. Check DB-backed sync state for the requested dataset
+2. Refresh from upstream only when the dataset is missing or stale
+3. Serve the response from DB
+
+This means SQLite/PostgreSQL is now the primary source for:
+
+- hero avatars
+- hero detail payloads
+- news/article source records
+- patch note source records
+- tournament source records
+
 ## Live Data Sources
 
 API `v1` now loads live data (with 5-minute cache) from:

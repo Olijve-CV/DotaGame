@@ -51,9 +51,9 @@ chatRouter.post("/", async (req, res) => {
     let sessionUserId: string | null = null;
     if (header?.startsWith("Bearer ")) {
       const token = header.slice("Bearer ".length).trim();
-      const user = getUserByToken(token);
+      const user = await getUserByToken(token);
       if (user) {
-        addChatSession({
+        await addChatSession({
           userId: user.id,
           question: parsed.data.question,
           answer: response.answer,

@@ -32,7 +32,7 @@ authRouter.post("/register", async (req, res) => {
       displayName,
       parsed.data.avatarHeroId
     );
-    const login = loginUser(normalizedEmail, parsed.data.password);
+    const login = await loginUser(normalizedEmail, parsed.data.password);
     logger.info("user registered", {
       event: "auth.register.succeeded",
       userId: user.id,
@@ -62,7 +62,7 @@ authRouter.post("/register", async (req, res) => {
   }
 });
 
-authRouter.post("/login", (req, res) => {
+authRouter.post("/login", async (req, res) => {
   const parsed = authBodySchema.pick({ email: true, password: true }).safeParse(req.body);
   if (!parsed.success) {
     logger.warn("login request validation failed", {
@@ -74,7 +74,7 @@ authRouter.post("/login", (req, res) => {
   }
 
   try {
-    const result = loginUser(parsed.data.email, parsed.data.password);
+    const result = await loginUser(parsed.data.email, parsed.data.password);
     logger.info("user logged in", {
       event: "auth.login.succeeded",
       userId: result.user.id

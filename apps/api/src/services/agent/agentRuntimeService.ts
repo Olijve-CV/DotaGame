@@ -136,8 +136,8 @@ function getReusedToolMessage(language: Language): string {
     : "Reused the earlier result for the same tool query.";
 }
 
-function publishDetailEvent(sessionId: string): void {
-  const detail = buildAgentSessionDetail(sessionId);
+async function publishDetailEvent(sessionId: string): Promise<void> {
+  const detail = await buildAgentSessionDetail(sessionId);
   if (!detail) {
     return;
   }
@@ -151,13 +151,13 @@ function publishDetailEvent(sessionId: string): void {
   });
 }
 
-function publishRoot(sessionId: string): void {
-  const session = getAgentSession(sessionId);
+async function publishRoot(sessionId: string): Promise<void> {
+  const session = await getAgentSession(sessionId);
   if (!session) {
     return;
   }
 
-  publishDetailEvent(session.rootSessionId);
+  await publishDetailEvent(session.rootSessionId);
 }
 
 function dedupeCitations(citations: ChatCitation[]): ChatCitation[] {
@@ -227,8 +227,8 @@ function buildHistoryAssistantContent(content: string, packets: ToolExecutionPac
   return sections.join("\n\n").trim();
 }
 
-function buildConversationSeed(sessionId: string): AgentConversationMessage[] {
-  const detail = buildAgentSessionDetail(sessionId);
+async function buildConversationSeed(sessionId: string): Promise<AgentConversationMessage[]> {
+  const detail = await buildAgentSessionDetail(sessionId);
   if (!detail) {
     return [];
   }
@@ -337,8 +337,8 @@ function buildToolCacheKey(
   return `${tool}:${JSON.stringify(normalizeWebSearchInput(webSearchInput ?? { query: input }))}`;
 }
 
-function shouldSetSessionTitle(sessionId: string): boolean {
-  const detail = buildAgentSessionDetail(sessionId);
+async function shouldSetSessionTitle(sessionId: string): Promise<boolean> {
+  const detail = await buildAgentSessionDetail(sessionId);
   if (!detail) {
     return true;
   }
@@ -551,8 +551,8 @@ function buildToolConversationPayload(packet: ToolExecutionPacket): string {
   });
 }
 
-function getLatestUserQuestion(sessionId: string): string {
-  const messages = buildAgentSessionDetail(sessionId)?.messages ?? [];
+async function getLatestUserQuestion(sessionId: string): Promise<string> {
+  const messages = (await buildAgentSessionDetail(sessionId))?.messages ?? [];
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     if (messages[index].role === "user") {
       return messages[index].content;
@@ -623,8 +623,8 @@ function updateToolCallPart(
   };
 }
 
-function publishSessionCompleted(sessionId: string): void {
-  const completedDetail = buildAgentSessionDetail(sessionId);
+async function publishSessionCompleted(sessionId: string): Promise<void> {
+  const completedDetail = await buildAgentSessionDetail(sessionId);
   if (!completedDetail) {
     return;
   }
@@ -643,20 +643,20 @@ async function runSessionTurn(sessionId: string): Promise<void> {
     return;
   }
 
-  const session = getAgentSession(sessionId);
+  const session = await getAgentSession(sessionId);
   if (!session) {
     return;
   }
 
   activeTurns.add(sessionId);
   const maxSteps = Number(process.env.AGENT_MAX_STEPS ?? DEFAULT_MAX_STEPS);
-  const conversation = buildConversationSeed(sessionId);
+  const conversation = await buildConversationSeed(sessionId);
   const packets: ToolExecutionPacket[] = [];
   const toolResultCache = new Map<string, ToolExecutionPacket>();
   const copy = getCopy(session.language);
-  const latestUserQuestion = getLatestUserQuestion(sessionId);
+  const latestUserQuestion = await getLatestUserQuestion(sessionId);
 
-  let assistantMessage = addAgentMessage({
+  let assistantMessage = await addAgentMessage({
     sessionId,
     role: "assistant",
     agent: "orchestrator",
@@ -666,7 +666,7 @@ async function runSessionTurn(sessionId: string): Promise<void> {
       summary: copy.thinking
     })
   });
-  publishRoot(sessionId);
+  await publishRoot(sessionId);
 
   try {
     for (let step = 1; step <= maxSteps; step += 1) {
@@ -691,12 +691,12 @@ async function runSessionTurn(sessionId: string): Promise<void> {
             summary: copy.thinkingDone
           })
         };
-        updateAgentMessage(assistantMessage);
-        updateAgentSessionStatus(sessionId, "completed");
-        publishRoot(sessionId);
+        await updateAgentMessage(assistantMessage);
+        await updateAgentSessionStatus(sessionId, "completed");
+        await publishRoot(sessionId);
 
         if (session.userId) {
-          addChatSession({
+          await addChatSession({
             userId: session.userId,
             question: latestUserQuestion,
             answer: finalAnswer,
@@ -705,7 +705,7 @@ async function runSessionTurn(sessionId: string): Promise<void> {
           });
         }
 
-        publishSessionCompleted(sessionId);
+        await publishSessionCompleted(sessionId);
         return;
       }
 
@@ -723,8 +723,8 @@ async function runSessionTurn(sessionId: string): Promise<void> {
           }
         )
       };
-      updateAgentMessage(assistantMessage);
-      publishRoot(sessionId);
+      await updateAgentMessage(assistantMessage);
+      await publishRoot(sessionId);
 
       const openAiToolCalls: OpenAiToolCall[] = stepResult.toolCalls.map(buildOpenAiToolCall);
 
@@ -773,8 +773,8 @@ async function runSessionTurn(sessionId: string): Promise<void> {
             completedAt,
             durationMs
           });
-          updateAgentMessage(assistantMessage);
-          publishRoot(sessionId);
+          await updateAgentMessage(assistantMessage);
+          await publishRoot(sessionId);
 
           conversation.push({
             role: "tool",
@@ -796,8 +796,8 @@ async function runSessionTurn(sessionId: string): Promise<void> {
             completedAt,
             durationMs
           });
-          updateAgentMessage(assistantMessage);
-          publishRoot(sessionId);
+          await updateAgentMessage(assistantMessage);
+          await publishRoot(sessionId);
 
           conversation.push({
             role: "tool",
@@ -819,11 +819,11 @@ async function runSessionTurn(sessionId: string): Promise<void> {
         summary: copy.maxSteps
       })
     };
-    updateAgentMessage(assistantMessage);
-    updateAgentSessionStatus(sessionId, "completed");
-    publishRoot(sessionId);
+    await updateAgentMessage(assistantMessage);
+    await updateAgentSessionStatus(sessionId, "completed");
+    await publishRoot(sessionId);
 
-    publishSessionCompleted(sessionId);
+    await publishSessionCompleted(sessionId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "AGENT_SESSION_FAILED";
     assistantMessage = {
@@ -834,15 +834,15 @@ async function runSessionTurn(sessionId: string): Promise<void> {
         summary: copy.thinkingFailed
       })
     };
-    updateAgentMessage(assistantMessage);
-    updateAgentSessionStatus(sessionId, "failed");
-    publishRoot(sessionId);
+    await updateAgentMessage(assistantMessage);
+    await updateAgentSessionStatus(sessionId, "failed");
+    await publishRoot(sessionId);
 
     publishAgentSessionEvent({
       type: "session.failed",
       sessionId,
       rootSessionId: session.rootSessionId,
-      detail: buildAgentSessionDetail(sessionId) ?? undefined,
+      detail: (await buildAgentSessionDetail(sessionId)) ?? undefined,
       error: message,
       timestamp: new Date().toISOString()
     });
@@ -865,7 +865,7 @@ export function createSession(input: {
   userId: string | null;
   language: Language;
   title?: string;
-}): AgentSession {
+}): Promise<AgentSession> {
   return createAgentSession({
     userId: input.userId,
     parentSessionId: null,
@@ -877,15 +877,15 @@ export function createSession(input: {
   });
 }
 
-export function getSessionDetail(sessionId: string): AgentSessionDetail | null {
+export function getSessionDetail(sessionId: string): Promise<AgentSessionDetail | null> {
   return buildAgentSessionDetail(sessionId);
 }
 
-export function listSessions(userId: string): AgentSessionSummary[] {
+export function listSessions(userId: string): Promise<AgentSessionSummary[]> {
   return listAgentSessionSummaries(userId);
 }
 
-export function listChildren(sessionId: string): AgentSessionSummary[] {
+export function listChildren(sessionId: string): Promise<AgentSessionSummary[]> {
   return listChildSessionSummaries(sessionId);
 }
 
@@ -895,7 +895,7 @@ export async function sendMessageToSession(input: {
   message: string;
   language: Language;
 }): Promise<AgentSessionDetail> {
-  const session = getAgentSession(input.sessionId);
+  const session = await getAgentSession(input.sessionId);
   if (!session) {
     throw new Error("SESSION_NOT_FOUND");
   }
@@ -911,16 +911,16 @@ export async function sendMessageToSession(input: {
     throw new Error("INVALID_MESSAGE");
   }
 
-  updateAgentSession({
+  await updateAgentSession({
     ...session,
     language: input.language,
     status: "running"
   });
-  if (shouldSetSessionTitle(input.sessionId)) {
-    updateAgentSessionTitle(input.sessionId, buildSessionTitle(trimmedMessage, input.language));
+  if (await shouldSetSessionTitle(input.sessionId)) {
+    await updateAgentSessionTitle(input.sessionId, buildSessionTitle(trimmedMessage, input.language));
   }
 
-  addAgentMessage({
+  await addAgentMessage({
     sessionId: input.sessionId,
     role: "user",
     agent: null,
@@ -928,10 +928,10 @@ export async function sendMessageToSession(input: {
     parts: [{ type: "text", text: trimmedMessage }]
   });
 
-  publishRoot(input.sessionId);
+  await publishRoot(input.sessionId);
   startSessionTurn(input.sessionId);
 
-  const detail = buildAgentSessionDetail(input.sessionId);
+  const detail = await buildAgentSessionDetail(input.sessionId);
   if (!detail) {
     throw new Error("SESSION_NOT_FOUND");
   }

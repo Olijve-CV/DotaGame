@@ -557,4 +557,19 @@ describe("API v1", () => {
     expect(response.body.hero.abilities[0].displayName).toBe("剑刃风暴");
     expect(response.body.hero.facets[0].displayName).toBe("刀剑风暴");
   });
+
+  it("serves persisted hero source data from DB after the upstream source becomes unavailable", async () => {
+    const initialResponse = await request(app).get("/api/v1/heroes/8?language=zh-CN");
+    expect(initialResponse.status).toBe(200);
+
+    fetchMock.mockImplementation(async () => {
+      throw new Error("upstream unavailable");
+    });
+
+    const persistedResponse = await request(app).get("/api/v1/heroes/8?language=zh-CN");
+
+    expect(persistedResponse.status).toBe(200);
+    expect(persistedResponse.body.hero.id).toBe(8);
+    expect(persistedResponse.body.hero.displayName).toBeTruthy();
+  });
 });

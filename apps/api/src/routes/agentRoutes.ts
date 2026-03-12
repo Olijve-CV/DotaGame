@@ -21,14 +21,14 @@ const sendMessageSchema = z.object({
   language: z.enum(["zh-CN", "en-US"])
 });
 
-function resolveUserIdFromToken(token: string | undefined): string | null {
+async function resolveUserIdFromToken(token: string | undefined): Promise<string | null> {
   if (!token) {
     return null;
   }
-  return getUserByToken(token)?.id ?? null;
+  return (await getUserByToken(token))?.id ?? null;
 }
 
-function resolveUserId(header: string | undefined): string | null {
+async function resolveUserId(header: string | undefined): Promise<string | null> {
   if (!header?.startsWith("Bearer ")) {
     return null;
   }
@@ -38,25 +38,25 @@ function resolveUserId(header: string | undefined): string | null {
 
 export const agentRouter = Router();
 
-agentRouter.get("/sessions", (req, res) => {
-  const userId = resolveUserId(req.header("authorization"));
+agentRouter.get("/sessions", async (req, res) => {
+  const userId = await resolveUserId(req.header("authorization"));
   if (!userId) {
     res.json({ items: [] });
     return;
   }
 
-  res.json({ items: listSessions(userId) });
+  res.json({ items: await listSessions(userId) });
 });
 
-agentRouter.post("/sessions", (req, res) => {
+agentRouter.post("/sessions", async (req, res) => {
   const parsed = createSessionSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: "INVALID_PAYLOAD" });
     return;
   }
 
-  const userId = resolveUserId(req.header("authorization"));
-  const session = createSession({
+  const userId = await resolveUserId(req.header("authorization"));
+  const session = await createSession({
     userId,
     language: parsed.data.language,
     title: parsed.data.title
@@ -64,14 +64,14 @@ agentRouter.post("/sessions", (req, res) => {
   res.status(201).json({ session });
 });
 
-agentRouter.get("/sessions/:sessionId", (req, res) => {
-  const detail = getSessionDetail(req.params.sessionId);
+agentRouter.get("/sessions/:sessionId", async (req, res) => {
+  const detail = await getSessionDetail(req.params.sessionId);
   if (!detail) {
     res.status(404).json({ message: "SESSION_NOT_FOUND" });
     return;
   }
 
-  const userId = resolveUserId(req.header("authorization"));
+  const userId = await resolveUserId(req.header("authorization"));
   if (detail.session.userId && detail.session.userId !== userId) {
     res.status(403).json({ message: "FORBIDDEN" });
     return;
@@ -80,8 +80,8 @@ agentRouter.get("/sessions/:sessionId", (req, res) => {
   res.json(detail);
 });
 
-agentRouter.get("/sessions/:sessionId/events", (req, res) => {
-  const detail = getSessionDetail(req.params.sessionId);
+agentRouter.get("/sessions/:sessionId/events", async (req, res) => {
+  const detail = await getSessionDetail(req.params.sessionId);
   if (!detail) {
     res.status(404).json({ message: "SESSION_NOT_FOUND" });
     return;
@@ -91,7 +91,8 @@ agentRouter.get("/sessions/:sessionId/events", (req, res) => {
     typeof req.query.token === "string" && req.query.token.trim().length > 0
       ? req.query.token.trim()
       : undefined;
-  const userId = resolveUserId(req.header("authorization")) ?? resolveUserIdFromToken(queryToken);
+  const userId =
+    (await resolveUserId(req.header("authorization"))) ?? (await resolveUserIdFromToken(queryToken));
   if (detail.session.userId && detail.session.userId !== userId) {
     res.status(403).json({ message: "FORBIDDEN" });
     return;
@@ -136,20 +137,20 @@ agentRouter.get("/sessions/:sessionId/events", (req, res) => {
   });
 });
 
-agentRouter.get("/sessions/:sessionId/children", (req, res) => {
-  const detail = getSessionDetail(req.params.sessionId);
+agentRouter.get("/sessions/:sessionId/children", async (req, res) => {
+  const detail = await getSessionDetail(req.params.sessionId);
   if (!detail) {
     res.status(404).json({ message: "SESSION_NOT_FOUND" });
     return;
   }
 
-  const userId = resolveUserId(req.header("authorization"));
+  const userId = await resolveUserId(req.header("authorization"));
   if (detail.session.userId && detail.session.userId !== userId) {
     res.status(403).json({ message: "FORBIDDEN" });
     return;
   }
 
-  res.json({ items: listChildren(req.params.sessionId) });
+  res.json({ items: await listChildren(req.params.sessionId) });
 });
 
 agentRouter.post("/sessions/:sessionId/messages", async (req, res) => {
@@ -164,7 +165,7 @@ agentRouter.post("/sessions/:sessionId/messages", async (req, res) => {
   }
 
   try {
-    const userId = resolveUserId(req.header("authorization"));
+    const userId = await resolveUserId(req.header("authorization"));
     const detail = await sendMessageToSession({
       sessionId: req.params.sessionId,
       userId,
