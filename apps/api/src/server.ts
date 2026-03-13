@@ -2,12 +2,15 @@ import "dotenv/config";
 import { createApp } from "./app.js";
 import { getDatabaseInfo } from "./lib/database.js";
 import { logger } from "./lib/logger.js";
+import { startContentSyncScheduler, warmContentStore } from "./services/contentSyncService.js";
 import { getRagConfig } from "./services/rag/config.js";
 
 const port = Number(process.env.PORT ?? 4000);
 const app = createApp();
 const ragConfig = getRagConfig();
 const databaseInfo = getDatabaseInfo();
+await warmContentStore();
+const stopContentSyncScheduler = startContentSyncScheduler();
 
 const server = app.listen(port, () => {
   logger.info("API server started", {
@@ -29,6 +32,10 @@ server.on("error", (error) => {
     port,
     error
   });
+});
+
+server.on("close", () => {
+  stopContentSyncScheduler();
 });
 
 process.on("unhandledRejection", (reason) => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Article, Language, PatchNote, Tournament, UserProfile } from "@dotagame/contracts";
 import { addFavorite, fetchArticles, fetchPatchNotes, fetchTournaments } from "../lib/api";
@@ -101,33 +101,35 @@ export function HomePage(props: {
 }) {
   const [category, setCategory] = useState<CategoryFilter>(undefined);
   const [query, setQuery] = useState("");
-  const [articles, setArticles] = useState<Article[]>([]);
+  const [allArticles, setAllArticles] = useState<Article[]>([]);
   const [patchNotes, setPatchNotes] = useState<PatchNote[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(false);
+  const hasLoadedRef = useRef(false);
   const text = useMemo(() => labels[props.locale], [props.locale]);
 
   useEffect(() => {
     let active = true;
     const loadContent = async (options?: { silent?: boolean }) => {
-      if (!options?.silent) {
+      if (!options?.silent && !hasLoadedRef.current) {
         setLoading(true);
       }
 
       try {
         const [articleItems, patchItems, tournamentItems] = await Promise.all([
-          fetchArticles({ language: props.locale, category, query }),
+          fetchArticles({ language: props.locale }),
           fetchPatchNotes(props.locale),
           fetchTournaments(props.locale)
         ]);
         if (!active) {
           return;
         }
-        setArticles(articleItems);
+        setAllArticles(articleItems);
         setPatchNotes(patchItems);
         setTournaments(tournamentItems);
+        hasLoadedRef.current = true;
       } finally {
-        if (active && !options?.silent) {
+        if (active) {
           setLoading(false);
         }
       }
@@ -142,7 +144,7 @@ export function HomePage(props: {
       active = false;
       window.clearInterval(refreshTimer);
     };
-  }, [props.locale, category, query]);
+  }, [props.locale]);
 
   async function handleFavorite(contentType: "article" | "patch" | "tournament", contentId: string) {
     if (!props.token) {
@@ -152,6 +154,23 @@ export function HomePage(props: {
     await addFavorite(props.token, { contentType, contentId });
   }
 
+  const articles = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return allArticles.filter((item) => {
+      if (category && item.category !== category) {
+        return false;
+      }
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      return (
+        item.title.toLowerCase().includes(normalizedQuery) ||
+        item.summary.toLowerCase().includes(normalizedQuery) ||
+        item.tags.some((tag) => tag.toLowerCase().includes(normalizedQuery))
+      );
+    });
+  }, [allArticles, category, query]);
   const featuredArticle = articles[0] ?? null;
   const secondaryArticles = articles.slice(1, 5);
   const spotlightPatch = patchNotes[0] ?? null;
@@ -271,8 +290,6 @@ export function HomePage(props: {
           </button>
         </div>
       </section>
-
-      {loading && <p className="muted">{text.loading}</p>}
 
       <div className="home-feed-layout">
         <section className="panel home-feed-panel">

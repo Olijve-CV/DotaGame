@@ -3,7 +3,6 @@ import { articles, patchNotes, tournaments } from "../data/content.js";
 import { heroGuides } from "../data/guides.js";
 import { logger } from "../lib/logger.js";
 import {
-  getSourceSyncTime,
   listStoredArticles,
   listStoredPatchNotes,
   listStoredTournaments,
@@ -17,13 +16,54 @@ import { fetchOpenDotaTournaments } from "./sources/openDotaSource.js";
 import { fetchSteamArticles, fetchSteamPatchNotes } from "./sources/steamSource.js";
 import { fetchSteamPlayerActivityArticles } from "./sources/steamMetricsSource.js";
 
-const CONTENT_SYNC_TTL_MS = 5 * 60 * 1000;
+export const CONTENT_SYNC_INTERVAL_MS = 10 * 60 * 1000;
 const SUPPORTED_LANGUAGES: Language[] = ["zh-CN", "en-US"];
+const ARTICLE_CATEGORY_PRIORITY: Record<Article["category"], number> = {
+  news: 0,
+  tournament: 0,
+  guide: 1,
+  patch: 2
+};
+const ARTICLE_SOURCE_PRIORITY = new Map<string, number>([
+  ["Dota2 Official", 0],
+  ["Dota2 官方", 0],
+  ["OpenDota Meta", 1],
+  ["OpenDota 职业趋势", 1],
+  ["OpenDota Trends", 2],
+  ["OpenDota 路人趋势", 2],
+  ["Steam Activity", 3],
+  ["Steam 活跃度", 3]
+]);
 
 function sortByPublishedAtDesc<T extends { publishedAt: string }>(items: T[]): T[] {
   return [...items].sort(
     (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   );
+}
+
+function getArticleSourcePriority(source: string): number {
+  return ARTICLE_SOURCE_PRIORITY.get(source) ?? 9;
+}
+
+export function sortArticlesForDisplay(items: Article[]): Article[] {
+  return [...items].sort((left, right) => {
+    const sourceDiff = getArticleSourcePriority(left.source) - getArticleSourcePriority(right.source);
+    if (sourceDiff !== 0) {
+      return sourceDiff;
+    }
+
+    const categoryDiff = ARTICLE_CATEGORY_PRIORITY[left.category] - ARTICLE_CATEGORY_PRIORITY[right.category];
+    if (categoryDiff !== 0) {
+      return categoryDiff;
+    }
+
+    const publishedAtDiff = new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime();
+    if (publishedAtDiff !== 0) {
+      return publishedAtDiff;
+    }
+
+    return left.title.localeCompare(right.title);
+  });
 }
 
 function dedupeById<T extends { id: string }>(items: T[]): T[] {
@@ -37,14 +77,6 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
     result.push(item);
   }
   return result;
-}
-
-function isSyncFresh(syncedAt: string | null, ttlMs: number): boolean {
-  if (!syncedAt) {
-    return false;
-  }
-
-  return Date.now() - new Date(syncedAt).getTime() < ttlMs;
 }
 
 function hasAllowedSourceUrl(sourceUrl: string): boolean {
@@ -99,13 +131,9 @@ async function loadArticleLiveSources(language: Language): Promise<Article[]> {
   });
 }
 
-async function ensureArticlesSynced(language: Language): Promise<void> {
+export async function syncArticles(language: Language): Promise<void> {
   const datasetKey = `content:articles:${language}`;
   const existing = await listStoredArticles(language);
-  const syncedAt = await getSourceSyncTime(datasetKey);
-  if (existing.length > 0 && isSyncFresh(syncedAt, CONTENT_SYNC_TTL_MS)) {
-    return;
-  }
 
   try {
     const liveItems = await loadArticleLiveSources(language);
@@ -114,7 +142,7 @@ async function ensureArticlesSynced(language: Language): Promise<void> {
     await setSourceSyncTime(datasetKey, new Date().toISOString());
   } catch (error) {
     if (existing.length > 0) {
-      logger.warn("article sync failed, returning stored DB content", {
+      logger.warn("article sync failed, keeping stored DB content", {
         event: "content.articles.sync_failed",
         language,
         error
@@ -125,13 +153,9 @@ async function ensureArticlesSynced(language: Language): Promise<void> {
   }
 }
 
-async function ensurePatchNotesSynced(language: Language): Promise<void> {
+export async function syncPatchNotes(language: Language): Promise<void> {
   const datasetKey = `content:patch_notes:${language}`;
   const existing = await listStoredPatchNotes(language);
-  const syncedAt = await getSourceSyncTime(datasetKey);
-  if (existing.length > 0 && isSyncFresh(syncedAt, CONTENT_SYNC_TTL_MS)) {
-    return;
-  }
 
   try {
     const liveItems = await fetchSteamPatchNotes(language).catch((error: unknown) => {
@@ -158,13 +182,9 @@ async function ensurePatchNotesSynced(language: Language): Promise<void> {
   }
 }
 
-async function ensureTournamentsSynced(language: Language): Promise<void> {
+export async function syncTournaments(language: Language): Promise<void> {
   const datasetKey = `content:tournaments:${language}`;
   const existing = await listStoredTournaments(language);
-  const syncedAt = await getSourceSyncTime(datasetKey);
-  if (existing.length > 0 && isSyncFresh(syncedAt, CONTENT_SYNC_TTL_MS)) {
-    return;
-  }
 
   try {
     const liveItems = await fetchOpenDotaTournaments(language).catch((error: unknown) => {
@@ -191,14 +211,24 @@ async function ensureTournamentsSynced(language: Language): Promise<void> {
   }
 }
 
+export async function syncAllContent(): Promise<void> {
+  await Promise.all(
+    SUPPORTED_LANGUAGES.map(async (language) => {
+      await Promise.all([
+        syncArticles(language),
+        syncPatchNotes(language),
+        syncTournaments(language)
+      ]);
+    })
+  );
+}
+
 export async function listArticles(params: {
   language?: Language;
   category?: Article["category"];
   query?: string;
 }): Promise<Article[]> {
   const query = params.query?.trim().toLowerCase();
-  const languages = params.language ? [params.language] : SUPPORTED_LANGUAGES;
-  await Promise.all(languages.map((language) => ensureArticlesSynced(language)));
   const merged = filterValidSourceUrls(await listStoredArticles(params.language));
 
   const filtered = merged.filter((item) => {
@@ -218,16 +248,14 @@ export async function listArticles(params: {
     );
   });
 
-  return sortByPublishedAtDesc(filtered);
+  return sortArticlesForDisplay(filtered);
 }
 
 export async function listPatchNotes(language?: Language): Promise<PatchNote[]> {
-  await Promise.all((language ? [language] : SUPPORTED_LANGUAGES).map(ensurePatchNotesSynced));
   return sortByPublishedAtDesc(filterValidSourceUrls(await listStoredPatchNotes(language)));
 }
 
 export async function listTournaments(language?: Language): Promise<Tournament[]> {
-  await Promise.all((language ? [language] : SUPPORTED_LANGUAGES).map(ensureTournamentsSynced));
   return sortByPublishedAtDesc(filterValidSourceUrls(await listStoredTournaments(language)));
 }
 

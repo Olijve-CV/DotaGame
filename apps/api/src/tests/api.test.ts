@@ -1,6 +1,7 @@
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../app.js";
+import { syncAllContent } from "../services/contentService.js";
 
 describe("API v1", () => {
   const originalOpenAiApiKey = process.env.OPENAI_API_KEY;
@@ -223,6 +224,10 @@ describe("API v1", () => {
   beforeAll(() => {
     process.env.OPENAI_API_KEY = "test-openai-key";
     vi.stubGlobal("fetch", fetchMock);
+  });
+
+  beforeAll(async () => {
+    await syncAllContent();
   });
 
   beforeEach(() => {
