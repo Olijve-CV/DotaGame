@@ -1672,6 +1672,7 @@ button.active {
   display: grid;
   align-content: start;
   gap: 0.85rem;
+  animation: pageRevealUp 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .home-hero-topline {
@@ -1680,6 +1681,22 @@ button.active {
   justify-content: space-between;
   gap: 0.8rem;
   flex-wrap: wrap;
+}
+
+.home-live-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.home-pulse-dot {
+  width: 0.58rem;
+  height: 0.58rem;
+  border-radius: 999px;
+  background: #ffbc84;
+  box-shadow: 0 0 0 0 rgba(255, 188, 132, 0.48);
+  animation: deskPulse 1.8s infinite ease-out;
 }
 
 .home-live-pill {
@@ -1768,6 +1785,8 @@ button.active {
 .home-hero-stack {
   display: grid;
   gap: 1rem;
+  animation: pageRevealUp 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 60ms;
 }
 
 .home-focus-card {
@@ -1868,7 +1887,16 @@ button.active {
 .home-control-panel {
   padding: 1.1rem 1.2rem 1.2rem;
   background:
-    linear-gradient(180deg, rgba(255, 253, 247, 0.98), rgba(255, 246, 233, 0.94));
+    radial-gradient(circle at top left, rgba(210, 108, 59, 0.14), transparent 26%),
+    radial-gradient(circle at 84% 18%, rgba(63, 140, 132, 0.1), transparent 24%),
+    linear-gradient(180deg, rgba(20, 24, 31, 0.98), rgba(14, 17, 23, 0.95));
+  animation: pageRevealUp 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 120ms;
+}
+
+.home-control-panel .muted,
+.home-control-panel .meta {
+  color: rgba(243, 234, 220, 0.64);
 }
 
 .filters-head {
@@ -1902,13 +1930,13 @@ button.active {
   gap: 0.35rem;
   min-height: 100%;
   padding: 1rem;
-  border: 1px solid rgba(216, 205, 184, 0.9);
+  border: 1px solid rgba(229, 216, 196, 0.12);
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 248, 237, 0.96));
+  background: linear-gradient(180deg, rgba(31, 37, 47, 0.92), rgba(18, 22, 30, 0.88));
 }
 
 .home-summary-card p {
-  color: var(--muted);
+  color: rgba(243, 234, 220, 0.68);
 }
 
 .home-board-layout {
@@ -1927,8 +1955,16 @@ button.active {
 
 .home-story-panel {
   background:
-    radial-gradient(circle at top left, rgba(210, 108, 59, 0.08), transparent 30%),
-    linear-gradient(180deg, rgba(255, 253, 247, 0.98), rgba(255, 246, 235, 0.96));
+    radial-gradient(circle at top left, rgba(210, 108, 59, 0.14), transparent 24%),
+    radial-gradient(circle at 86% 18%, rgba(63, 140, 132, 0.1), transparent 20%),
+    linear-gradient(180deg, rgba(20, 24, 31, 0.98), rgba(15, 18, 25, 0.95));
+  animation: pageRevealUp 780ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 160ms;
+}
+
+.home-story-panel .muted,
+.home-story-panel .meta {
+  color: rgba(243, 234, 220, 0.64);
 }
 
 .home-story-list {
@@ -1941,10 +1977,43 @@ button.active {
   display: grid;
   gap: 0.75rem;
   padding: 1rem;
-  border: 1px solid rgba(216, 205, 184, 0.92);
+  border: 1px solid rgba(229, 216, 196, 0.12);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 247, 235, 0.96));
-  box-shadow: 0 16px 28px rgba(89, 57, 26, 0.07);
+  background: linear-gradient(180deg, rgba(31, 37, 47, 0.96), rgba(18, 22, 30, 0.92));
+  box-shadow: 0 16px 28px rgba(7, 10, 14, 0.22);
+  animation: pageRevealUp 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--home-card-delay, 0ms);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.home-story-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(240, 176, 123, 0.24);
+  box-shadow: 0 20px 34px rgba(7, 10, 14, 0.28);
+}
+
+.home-story-card:nth-child(1) {
+  --home-card-delay: 180ms;
+}
+
+.home-story-card:nth-child(2) {
+  --home-card-delay: 230ms;
+}
+
+.home-story-card:nth-child(3) {
+  --home-card-delay: 280ms;
+}
+
+.home-story-card:nth-child(4) {
+  --home-card-delay: 330ms;
+}
+
+.home-story-card:nth-child(5) {
+  --home-card-delay: 380ms;
+}
+
+.home-story-card:nth-child(6) {
+  --home-card-delay: 430ms;
 }
 
 .home-story-card-topline {
@@ -1973,12 +2042,14 @@ button.active {
 }
 
 .home-story-card p {
-  color: var(--muted);
+  color: rgba(243, 234, 220, 0.72);
 }
 
 .home-side-rail {
   display: grid;
   gap: 1rem;
+  animation: pageRevealUp 820ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 220ms;
 }
 
 .intel-panel,
@@ -2034,18 +2105,18 @@ button.active {
   display: grid;
   gap: 0.45rem;
   padding: 1rem;
-  border: 1px dashed rgba(205, 183, 143, 0.65);
+  border: 1px dashed rgba(229, 216, 196, 0.2);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .home-empty-card.compact {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .home-empty-card p {
   margin: 0;
-  color: var(--muted);
+  color: rgba(243, 234, 220, 0.7);
   line-height: 1.65;
 }
 
@@ -2128,6 +2199,7 @@ button.active {
     radial-gradient(circle at 12% 16%, rgba(210, 108, 59, 0.22), transparent 28%),
     radial-gradient(circle at 84% 14%, rgba(63, 140, 132, 0.14), transparent 22%),
     linear-gradient(180deg, rgba(22, 27, 35, 0.99), rgba(14, 17, 23, 0.96));
+  animation: pageRevealUp 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .intro-command-main,
@@ -2140,8 +2212,52 @@ button.active {
   gap: 0.95rem;
 }
 
+.intro-command-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.intro-route-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.42rem 0.72rem;
+  border: 1px solid rgba(240, 176, 123, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #f0d5b4;
+  font-size: 0.8rem;
+}
+
 .intro-command-copy {
   align-content: start;
+}
+
+.intro-route-strip {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.intro-route-card {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(240, 176, 123, 0.12);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(34, 40, 50, 0.9), rgba(18, 21, 29, 0.82));
+}
+
+.intro-route-card span {
+  color: rgba(240, 200, 158, 0.7);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.intro-route-card strong {
+  line-height: 1.5;
 }
 
 .intro-page-card-grid {
@@ -2262,6 +2378,8 @@ button.active {
     radial-gradient(circle at top right, rgba(210, 108, 59, 0.14), transparent 22%),
     radial-gradient(circle at bottom left, rgba(63, 140, 132, 0.1), transparent 24%),
     linear-gradient(180deg, rgba(20, 24, 31, 0.98), rgba(15, 18, 25, 0.95));
+  animation: pageRevealUp 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 120ms;
 }
 
 .intro-track-grid {
@@ -2282,6 +2400,8 @@ button.active {
   grid-template-columns: minmax(0, 1.22fr) minmax(280px, 0.78fr);
   gap: 1rem;
   align-items: start;
+  animation: pageRevealUp 780ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 180ms;
 }
 
 .intro-side-rail {
@@ -2319,6 +2439,8 @@ button.active {
   background:
     radial-gradient(circle at 8% 24%, rgba(210, 108, 59, 0.14), transparent 18%),
     linear-gradient(180deg, rgba(21, 25, 33, 0.98), rgba(14, 17, 23, 0.94));
+  animation: pageRevealUp 860ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 220ms;
 }
 
 .intro-atlas-actions {
@@ -2722,6 +2844,23 @@ button.active {
     width: 100%;
   }
 
+  .home-hero-shell,
+  .home-control-panel,
+  .home-story-panel,
+  .intel-panel,
+  .home-learning-panel,
+  .intro-command-deck,
+  .intro-track-band,
+  .intro-atlas-head {
+    padding: 1rem;
+  }
+
+  .home-hero-grid,
+  .home-control-grid,
+  .home-board-layout {
+    gap: 0.85rem;
+  }
+
   .language-switch select {
     width: 100%;
   }
@@ -2738,6 +2877,7 @@ button.active {
   .research-prompt-grid,
   .home-story-list,
   .home-summary-strip,
+  .intro-route-strip,
   .dota-role-list,
   .dota-skill-list,
   .dota-skill-detail-list,
@@ -2750,13 +2890,32 @@ button.active {
     grid-template-columns: 1fr;
   }
 
-  .home-focus-card h3 {
-    font-size: 1.6rem;
+  .home-story-card-topline,
+  .home-live-strip,
+  .intro-command-topline,
+  .intro-atlas-actions,
+  .home-learning-actions {
+    align-items: start;
+    flex-direction: column;
   }
 
-  .intro-page-actions {
+  .home-command-actions,
+  .intro-page-actions,
+  .intro-atlas-actions,
+  .home-learning-actions {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .home-story-card,
+  .home-summary-card,
+  .home-mini-card,
+  .agent-summary-card {
+    padding: 0.9rem;
+  }
+
+  .home-focus-card h3 {
+    font-size: 1.6rem;
   }
 
   .intro-side-rail {
@@ -3406,6 +3565,7 @@ button.active {
   grid-template-columns: minmax(250px, 310px) minmax(0, 1fr);
   min-height: 48rem;
   overflow: hidden;
+  animation: pageRevealUp 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .agent-chat-shell.guest {
@@ -3431,6 +3591,33 @@ button.active {
   display: grid;
   gap: 1rem;
   grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.agent-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.agent-summary-card {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(240, 233, 220, 0.08);
+  border-radius: 1.15rem;
+  background: linear-gradient(180deg, rgba(17, 22, 32, 0.84), rgba(10, 14, 22, 0.9));
+}
+
+.agent-summary-card span {
+  color: rgba(240, 233, 220, 0.58);
+  font-size: 0.73rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.agent-summary-card strong {
+  color: #f4ecde;
+  line-height: 1.4;
 }
 
 .agent-chat-hero,
@@ -3961,6 +4148,70 @@ button.active {
   }
 }
 
+@media (max-width: 520px) {
+  .home-hero-shell {
+    padding: 0.95rem;
+  }
+
+  .home-hero-copy {
+    gap: 0.72rem;
+  }
+
+  .home-live-pill,
+  .intro-route-pill,
+  .agent-session-badge {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .home-story-index {
+    width: 1.8rem;
+    height: 1.8rem;
+  }
+
+  .home-stat-card,
+  .home-summary-card,
+  .home-mini-card,
+  .home-story-card,
+  .intro-mission-card,
+  .intro-support-card,
+  .intro-track-card,
+  .intro-side-card,
+  .agent-summary-card {
+    border-radius: 16px;
+  }
+
+  .agent-chat-feed {
+    padding: 0.85rem;
+  }
+}
+
+@keyframes pageRevealUp {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes deskPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 188, 132, 0.44);
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 188, 132, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 188, 132, 0);
+  }
+}
+
 @media (max-width: 1180px) {
   .agent-chat-shell {
     grid-template-columns: 1fr;
@@ -3970,6 +4221,10 @@ button.active {
 @media (max-width: 720px) {
   .agent-chat-shell {
     min-height: auto;
+  }
+
+  .agent-summary-strip {
+    grid-template-columns: 1fr;
   }
 
   .agent-compose-actions {
@@ -5181,6 +5436,30 @@ button.active {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .home-hero-copy,
+  .home-hero-stack,
+  .home-control-panel,
+  .home-story-panel,
+  .home-side-rail,
+  .home-story-card,
+  .intro-command-deck,
+  .intro-track-band,
+  .intro-guide-layout,
+  .intro-atlas-head,
+  .agent-chat-shell,
+  .home-pulse-dot {
+    animation: none;
+  }
+
+  .home-story-card,
+  .intro-anchor-card,
+  .agent-thread-card,
+  .agent-starter-list button,
+  .message-part-card,
+  .agent-preview-card {
+    transition: none;
+  }
+
   .hero-browser-stage-backdrop::after,
   .hero-browser-stage-placeholder,
   .hero-browser-card {

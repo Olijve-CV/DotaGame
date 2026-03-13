@@ -213,108 +213,108 @@ export function App() {
   return (
     <div className="app-shell">
       <div className="app-chrome">
-      <header className="topbar app-header-shell">
-        <div className="app-brand-shell">
-          <div className="app-brand-mark" aria-hidden="true">
-            <span>DP</span>
-          </div>
-          <div className="app-brand-copy">
-            <p className="brand-kicker">DotaPulse</p>
-            <h1>{copy.title}</h1>
-            <p className="subtitle">{copy.subtitle}</p>
-          </div>
-        </div>
-
-        <div className="app-header-side">
-          <div className="app-status-grid">
-            <article className="app-status-card">
-              <span>{copy.currentView}</span>
-              <strong>{activeNavItem.label}</strong>
-            </article>
-            <article className="app-status-card">
-              <span>{copy.accountState}</span>
-              <strong>{token ? copy.memberMode : copy.guestMode}</strong>
-            </article>
+        <header className="topbar app-header-shell">
+          <div className="app-brand-shell">
+            <div className="app-brand-mark" aria-hidden="true">
+              <span>DP</span>
+            </div>
+            <div className="app-brand-copy">
+              <p className="brand-kicker">DotaPulse</p>
+              <h1>{copy.title}</h1>
+              <p className="subtitle">{copy.subtitle}</p>
+            </div>
           </div>
 
-          <div className="topbar-controls app-header-controls">
-            <label className="language-switch" htmlFor="app-language-select">
-              <select
-                aria-label="Language"
-                id="app-language-select"
-                onChange={(event) => handleLocaleChange(event.target.value as Language)}
-                value={locale}
-              >
-                <option value="zh-CN">简体中文</option>
-                <option value="en-US">English</option>
-              </select>
-            </label>
+          <div className="app-header-side">
+            <div className="app-status-grid">
+              <article className="app-status-card">
+                <span>{copy.currentView}</span>
+                <strong>{activeNavItem.label}</strong>
+              </article>
+              <article className="app-status-card">
+                <span>{copy.accountState}</span>
+                <strong>{token ? copy.memberMode : copy.guestMode}</strong>
+              </article>
+            </div>
 
-            {token ? (
-              <div className="account-menu" ref={accountMenuRef}>
-                <button
-                  aria-expanded={isAccountMenuOpen}
-                  className="account-trigger"
-                  onClick={() => setIsAccountMenuOpen((current) => !current)}
-                  type="button"
+            <div className="topbar-controls app-header-controls">
+              <label className="language-switch" htmlFor="app-language-select">
+                <select
+                  aria-label="Language"
+                  id="app-language-select"
+                  onChange={(event) => handleLocaleChange(event.target.value as Language)}
+                  value={locale}
                 >
-                  {user?.avatar ? (
-                    <img
-                      alt={user.avatar.name}
-                      className="account-avatar account-avatar-image"
-                      src={user.avatar.image}
-                    />
-                  ) : (
-                    <span className="account-avatar">{accountInitial}</span>
-                  )}
-                  <span className="account-meta">
-                    <strong>{accountName}</strong>
-                  </span>
-                  <span className={`account-caret${isAccountMenuOpen ? " open" : ""}`}>v</span>
-                </button>
+                  <option value="zh-CN">简体中文</option>
+                  <option value="en-US">English</option>
+                </select>
+              </label>
 
-                {isAccountMenuOpen && (
-                  <div className="account-dropdown">
-                    {user?.avatar && (
-                      <div className="account-dropdown-hero">
-                        <img alt={user.avatar.name} src={user.avatar.image} />
-                        <strong>{user.avatar.name}</strong>
-                      </div>
+              {token ? (
+                <div className="account-menu" ref={accountMenuRef}>
+                  <button
+                    aria-expanded={isAccountMenuOpen}
+                    className="account-trigger"
+                    onClick={() => setIsAccountMenuOpen((current) => !current)}
+                    type="button"
+                  >
+                    {user?.avatar ? (
+                      <img
+                        alt={user.avatar.name}
+                        className="account-avatar account-avatar-image"
+                        src={user.avatar.image}
+                      />
+                    ) : (
+                      <span className="account-avatar">{accountInitial}</span>
                     )}
-                    <div className="account-dropdown-summary">
-                      <strong className="account-dropdown-name">{accountName}</strong>
-                      {accountEmail ? <p className="account-email">{accountEmail}</p> : null}
-                    </div>
-                    <Link
-                      className="account-dropdown-link"
-                      onClick={() => setIsAccountMenuOpen(false)}
-                      to="/profile"
-                    >
-                      {copy.profile}
-                    </Link>
-                    <button className="account-dropdown-link" onClick={handleLogout} type="button">
-                      {copy.logout}
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Link className="ghost-btn" to="/login">
-                {copy.login}
-              </Link>
-            )}
-          </div>
-        </div>
-      </header>
+                    <span className="account-meta">
+                      <strong>{accountName}</strong>
+                    </span>
+                    <span className={`account-caret${isAccountMenuOpen ? " open" : ""}`}>v</span>
+                  </button>
 
-      <nav className="nav app-nav">
-        {navItems.map((item) => (
-          <NavLink className={({ isActive }) => `nav-link${isActive ? " active" : ""}`} key={item.to} to={item.to}>
-            <span className="nav-link-kicker">{item.kicker}</span>
-            <strong>{item.label}</strong>
-          </NavLink>
-        ))}
-      </nav>
+                  {isAccountMenuOpen && (
+                    <div className="account-dropdown">
+                      {user?.avatar && (
+                        <div className="account-dropdown-hero">
+                          <img alt={user.avatar.name} src={user.avatar.image} />
+                          <strong>{user.avatar.name}</strong>
+                        </div>
+                      )}
+                      <div className="account-dropdown-summary">
+                        <strong className="account-dropdown-name">{accountName}</strong>
+                        {accountEmail ? <p className="account-email">{accountEmail}</p> : null}
+                      </div>
+                      <Link
+                        className="account-dropdown-link"
+                        onClick={() => setIsAccountMenuOpen(false)}
+                        to="/profile"
+                      >
+                        {copy.profile}
+                      </Link>
+                      <button className="account-dropdown-link" onClick={handleLogout} type="button">
+                        {copy.logout}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link className="ghost-btn" to="/login">
+                  {copy.login}
+                </Link>
+              )}
+            </div>
+          </div>
+        </header>
+
+        <nav className="nav app-nav">
+          {navItems.map((item) => (
+            <NavLink className={({ isActive }) => `nav-link${isActive ? " active" : ""}`} key={item.to} to={item.to}>
+              <span className="nav-link-kicker">{item.kicker}</span>
+              <strong>{item.label}</strong>
+            </NavLink>
+          ))}
+        </nav>
       </div>
 
       <main className="app-main">

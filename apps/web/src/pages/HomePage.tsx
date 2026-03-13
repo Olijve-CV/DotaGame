@@ -47,6 +47,7 @@ const labels = {
     tournamentCount: "赛事数",
     status: "状态",
     autoRefresh: "每 10 分钟自动刷新",
+    pulseTag: "实时侦测中",
     prioritySignal: "重点信号",
     visibleItems: "当前可见",
     latestUpdate: "最近更新",
@@ -93,6 +94,7 @@ const labels = {
     tournamentCount: "Tournament Items",
     status: "Status",
     autoRefresh: "Auto refresh every 10 min",
+    pulseTag: "Live monitoring",
     prioritySignal: "Priority Signal",
     visibleItems: "Visible Now",
     latestUpdate: "Latest Update",
@@ -235,7 +237,11 @@ export function HomePage(props: {
           <div className="home-hero-copy">
             <div className="home-hero-topline">
               <p className="section-kicker">{text.kicker}</p>
-              <span className="home-live-pill">{text.autoRefresh}</span>
+              <div className="home-live-strip">
+                <span className="home-pulse-dot" aria-hidden="true" />
+                <span className="home-live-pill">{text.pulseTag}</span>
+                <span className="home-live-pill">{text.autoRefresh}</span>
+              </div>
             </div>
             <h2>{text.title}</h2>
             <p className="home-command-summary">{text.summary}</p>

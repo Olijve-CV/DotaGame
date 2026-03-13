@@ -21,6 +21,9 @@ type IntroPageCopy = {
   kicker: string;
   title: string;
   summary: string;
+  pulseTag: string;
+  routeStatus: string;
+  manualMode: string;
   cards: Array<{ label: string; value: string }>;
   anchorsKicker: string;
   anchorsTitle: string;
@@ -52,6 +55,9 @@ const copyMap: Record<Language, IntroPageCopy> = {
     title: "先把比赛结构搭起来，再往里填英雄、路线和对局判断。",
     summary:
       "这一页不再把新手知识拆成几块孤立模块，而是按照真实学习顺序重排：先理解地图与目标，再抓前几局最该练的习惯，最后再去查英雄图谱和对局问答。",
+    pulseTag: "学习路径已重排",
+    routeStatus: "推荐阅读顺序",
+    manualMode: "系统认知 -> 实战习惯 -> 英雄细节",
     cards: [
       { label: "研究快照", value: "2026-03-07" },
       { label: "英雄总量", value: "127 位英雄" },
@@ -131,6 +137,9 @@ const copyMap: Record<Language, IntroPageCopy> = {
     title: "Build the match model first, then layer heroes, lanes, and game decisions on top.",
     summary:
       "This page no longer reads like disconnected modules. It now follows a practical learning order: understand map and objectives first, lock in the habits that matter across your first games, and only then move into hero atlas browsing or match-specific questions.",
+    pulseTag: "Guide route restructured",
+    routeStatus: "Recommended order",
+    manualMode: "Systems -> habits -> hero detail",
     cards: [
       { label: "Research Snapshot", value: "2026-03-07" },
       { label: "Hero Pool", value: "127 heroes" },
@@ -256,7 +265,10 @@ export function DotaIntroPage(props: { locale: Language }) {
       <section className="panel intro-command-deck">
         <div className="intro-command-main">
           <div className="intro-command-copy">
-            <p className="section-kicker">{copy.kicker}</p>
+            <div className="intro-command-topline">
+              <p className="section-kicker">{copy.kicker}</p>
+              <span className="intro-route-pill">{copy.pulseTag}</span>
+            </div>
             <h2>{copy.title}</h2>
             <p className="dota-intro-summary">{copy.summary}</p>
           </div>
@@ -271,6 +283,13 @@ export function DotaIntroPage(props: { locale: Language }) {
             <Link className="ghost-btn" to="/chat">
               {copy.actions.tertiary}
             </Link>
+          </div>
+
+          <div className="intro-route-strip">
+            <article className="intro-route-card">
+              <span>{copy.routeStatus}</span>
+              <strong>{copy.manualMode}</strong>
+            </article>
           </div>
 
           <div className="intro-page-card-grid">

@@ -52,6 +52,8 @@ const labels = {
     thinking: "正在整理证据和结论",
     thinkingFailed: "本轮执行失败",
     statusLabel: "会话状态",
+    sessionsStat: "会话",
+    liveDesk: "实时工作台",
     status: {
       idle: "空闲",
       running: "执行中",
@@ -89,6 +91,8 @@ const labels = {
     thinking: "Working through the question",
     thinkingFailed: "This run failed",
     statusLabel: "Session status",
+    sessionsStat: "Sessions",
+    liveDesk: "Live workspace",
     status: {
       idle: "Idle",
       running: "Running",
@@ -128,6 +132,8 @@ const labels = {
     thinking: string;
     thinkingFailed: string;
     statusLabel: string;
+    sessionsStat: string;
+    liveDesk: string;
     status: Record<AgentSession["status"], string>;
     agents: Record<AgentKind, string>;
   }
@@ -243,6 +249,9 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
       }))
       .sort(sortThreadEntries);
   }, [rootDetail]);
+  const totalMessageCount = rootDetail?.insight.messageCount ?? 0;
+  const totalSourceCount = rootDetail?.insight.sourceCount ?? 0;
+  const totalSessionCount = rootSessions.length;
 
   function replaceRoot(detail: AgentSessionDetail | null) {
     setRootDetail(detail);
@@ -535,6 +544,7 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
               <p>{copy.workspaceHint}</p>
             </div>
             <div className="agent-chat-hero-badges">
+              <span className="agent-session-badge accent">{copy.liveDesk}</span>
               <span className="agent-session-badge">
                 {copy.statusLabel}: {copy.status[rootSession?.status ?? "idle"]}
               </span>
@@ -544,6 +554,21 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
                 </span>
               ) : null}
             </div>
+          </section>
+
+          <section className="agent-summary-strip">
+            <article className="agent-summary-card">
+              <span>{copy.sessionsStat}</span>
+              <strong>{totalSessionCount}</strong>
+            </article>
+            <article className="agent-summary-card">
+              <span>{copy.messagesStat}</span>
+              <strong>{totalMessageCount}</strong>
+            </article>
+            <article className="agent-summary-card">
+              <span>{copy.sourcesStat}</span>
+              <strong>{totalSourceCount}</strong>
+            </article>
           </section>
 
           <section className="agent-chat-feed" ref={feedRef}>
