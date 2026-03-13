@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Article } from "@dotagame/contracts";
+import { sortArticlesForDisplay } from "../services/contentService.js";
 import { fetchOpenDotaMetaArticles } from "../services/sources/openDotaMetaSource.js";
 import { fetchSteamPlayerActivityArticles } from "../services/sources/steamMetricsSource.js";
+import { fetchSteamArticles, fetchSteamPatchNotes } from "../services/sources/steamSource.js";
 
 describe("live content sources", () => {
   const originalNodeEnv = process.env.NODE_ENV;
@@ -108,5 +111,181 @@ describe("live content sources", () => {
     expect(items[0].source).toBe("Steam Activity");
     expect(items[0].sourceUrl).toContain("GetNumberOfCurrentPlayers");
     expect(items[0].summary).toContain("608,754");
+  });
+
+  it("keeps article ordering stable with official news ahead of generated snapshots", () => {
+    const items: Article[] = [
+      {
+        id: "steam-activity",
+        category: "news",
+        language: "en-US",
+        source: "Steam Activity",
+        sourceUrl: "https://api.steampowered.com/example",
+        title: "Steam Live Player Snapshot",
+        summary: "Player count snapshot.",
+        tags: ["steam"],
+        publishedAt: "2026-03-13T08:10:00.000Z"
+      },
+      {
+        id: "official-news",
+        category: "news",
+        language: "en-US",
+        source: "Dota2 Official",
+        sourceUrl: "https://www.dota2.com/newsentry/1",
+        title: "Official Update",
+        summary: "Official update.",
+        tags: ["official"],
+        publishedAt: "2026-03-13T08:00:00.000Z"
+      },
+      {
+        id: "meta-news",
+        category: "news",
+        language: "en-US",
+        source: "OpenDota Meta",
+        sourceUrl: "https://www.opendota.com/heroes/1",
+        title: "OpenDota Pro Meta Watch",
+        summary: "Meta update.",
+        tags: ["meta"],
+        publishedAt: "2026-03-13T08:05:00.000Z"
+      }
+    ];
+
+    expect(sortArticlesForDisplay(items).map((item) => item.id)).toEqual([
+      "official-news",
+      "meta-news",
+      "steam-activity"
+    ]);
+  });
+
+  it("builds official news articles from the dota2.com news page partner-events feed", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.USE_LIVE_SOURCES = "true";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            events: [
+              {
+                gid: "4238531900078333321",
+                event_type: 13,
+                event_name: "The International returns",
+                rtime32_start_time: 1718064000,
+                announcement_body: {
+                  headline: "The International returns",
+                  body: "<p>The road to TI begins with regional qualifiers and updated schedules.</p>",
+                  tags: ["esports", "tournament"]
+                }
+              },
+              {
+                gid: "4312345678901234567",
+                event_type: 12,
+                event_name: "Gameplay Update 7.39c",
+                rtime32_start_time: 1718150400,
+                announcement_body: {
+                  headline: "Gameplay Update 7.39c",
+                  body: "<p>Balance changes across heroes and systems.</p>",
+                  tags: ["patchnotes"]
+                }
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          }
+        )
+      )
+    );
+
+    const items = await fetchSteamArticles("en-US");
+
+    expect(items).toHaveLength(1);
+    expect(items[0].source).toBe("Dota2 Official");
+    expect(items[0].sourceUrl).toBe("https://www.dota2.com/newsentry/4238531900078333321");
+    expect(items[0].category).toBe("tournament");
+  });
+
+  it("requests schinese for zh-CN news and returns Chinese content", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.USE_LIVE_SOURCES = "true";
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      expect(url).toContain("l=schinese");
+
+      return new Response(
+        JSON.stringify({
+          events: [
+            {
+              gid: "4238531900078333321",
+              event_type: 13,
+              event_name: "国际邀请赛回归",
+              rtime32_start_time: 1718064000,
+              announcement_body: {
+                headline: "国际邀请赛回归",
+                body: "<p>通往 TI 的道路将从地区预选赛重新开启。</p>",
+                tags: ["赛事", "官方"]
+              }
+            }
+          ]
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const items = await fetchSteamArticles("zh-CN");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(items).toHaveLength(1);
+    expect(items[0].source).toBe("Dota2 官方");
+    expect(items[0].title).toBe("国际邀请赛回归");
+    expect(items[0].summary).toContain("通往 TI 的道路");
+    expect(items[0].language).toBe("zh-CN");
+  });
+
+  it("builds patch notes from the dota2.com news page updates feed", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.USE_LIVE_SOURCES = "true";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            events: [
+              {
+                gid: "4312345678901234567",
+                event_type: 12,
+                event_name: "Gameplay Update 7.39c",
+                rtime32_start_time: 1718150400,
+                announcement_body: {
+                  headline: "Gameplay Update 7.39c",
+                  body: "<p>Balance changes across heroes and systems.</p>",
+                  tags: ["patchnotes"]
+                }
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          }
+        )
+      )
+    );
+
+    const items = await fetchSteamPatchNotes("en-US");
+
+    expect(items).toHaveLength(1);
+    expect(items[0].source).toBe("Dota2 Official");
+    expect(items[0].sourceUrl).toBe("https://www.dota2.com/newsentry/4312345678901234567");
+    expect(items[0].version).toBe("7.39c");
   });
 });

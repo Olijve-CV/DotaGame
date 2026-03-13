@@ -44,7 +44,7 @@ export async function fetchSteamPlayerActivityArticles(language: Language): Prom
       id: `steam-player-activity-${language}`,
       category: "news",
       language,
-      source: "Steam Activity",
+      source: language === "zh-CN" ? "Steam 活跃度" : "Steam Activity",
       sourceUrl: STEAM_CURRENT_PLAYERS_URL,
       title: language === "zh-CN" ? "Steam 在线人数快照" : "Steam Live Player Snapshot",
       summary:

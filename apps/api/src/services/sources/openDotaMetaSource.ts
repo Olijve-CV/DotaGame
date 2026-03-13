@@ -46,7 +46,7 @@ function toProMetaArticle(hero: OpenDotaHeroStat, language: Language, publishedA
     id: `od-meta-pro-${hero.id}-${language}`,
     category: "news",
     language,
-    source: "OpenDota Meta",
+    source: language === "zh-CN" ? "OpenDota 职业趋势" : "OpenDota Meta",
     sourceUrl: `https://www.opendota.com/heroes/${hero.id}`,
     title:
       language === "zh-CN"
@@ -72,7 +72,7 @@ function toPubTrendArticle(hero: OpenDotaHeroStat, language: Language, published
     id: `od-meta-pub-${hero.id}-${language}`,
     category: "guide",
     language,
-    source: "OpenDota Trends",
+    source: language === "zh-CN" ? "OpenDota 路人趋势" : "OpenDota Trends",
     sourceUrl: `https://www.opendota.com/heroes/${hero.id}`,
     title:
       language === "zh-CN"
