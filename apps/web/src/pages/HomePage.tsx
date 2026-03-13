@@ -45,7 +45,19 @@ const labels = {
     articleCount: "资讯数",
     patchCount: "版本项",
     tournamentCount: "赛事数",
-    status: "状态"
+    status: "状态",
+    autoRefresh: "每 10 分钟自动刷新",
+    prioritySignal: "重点信号",
+    visibleItems: "当前可见",
+    latestUpdate: "最近更新",
+    coverage: "覆盖面",
+    storyGridTitle: "实时情报流",
+    storyGridSubtitle: "按优先级继续浏览新闻、攻略和赛事线索，快速判断今天先看什么。",
+    learningPath: "学习路径",
+    learningSummary: "先补基础，再切进英雄图谱和对局问答，能更快建立完整认知。",
+    openHeroes: "打开英雄图谱",
+    emptyEventsTitle: "赛事日历暂时空缺",
+    emptyEventsSummary: "当前没有拉到可展示赛事，系统会继续自动刷新。"
   },
   "en-US": {
     kicker: "Intel Desk",
@@ -79,7 +91,19 @@ const labels = {
     articleCount: "Stories",
     patchCount: "Patch Items",
     tournamentCount: "Tournament Items",
-    status: "Status"
+    status: "Status",
+    autoRefresh: "Auto refresh every 10 min",
+    prioritySignal: "Priority Signal",
+    visibleItems: "Visible Now",
+    latestUpdate: "Latest Update",
+    coverage: "Coverage",
+    storyGridTitle: "Signal Grid",
+    storyGridSubtitle: "Keep scanning stories, guides, and event lines to decide what deserves attention next.",
+    learningPath: "Learning Path",
+    learningSummary: "Cover the fundamentals first, then jump into the hero atlas and match Q&A for faster context building.",
+    openHeroes: "Open Hero Atlas",
+    emptyEventsTitle: "Tournament board is quiet",
+    emptyEventsSummary: "No event data is available right now. The desk will keep refreshing automatically."
   }
 };
 
@@ -91,6 +115,17 @@ function statusTone(status: Tournament["status"]) {
       return "upcoming";
     default:
       return "completed";
+  }
+}
+
+function articleTone(category?: Article["category"]) {
+  switch (category) {
+    case "guide":
+      return "guide";
+    case "tournament":
+      return "tournament";
+    default:
+      return "news";
   }
 }
 
@@ -172,9 +207,18 @@ export function HomePage(props: {
     });
   }, [allArticles, category, query]);
   const featuredArticle = articles[0] ?? null;
-  const secondaryArticles = articles.slice(1, 5);
+  const storyDeck = featuredArticle ? articles.slice(1, 7) : articles.slice(0, 6);
   const spotlightPatch = patchNotes[0] ?? null;
   const spotlightTournament = tournaments[0] ?? null;
+  const guideSpotlight = allArticles.find((item) => item.category === "guide") ?? null;
+  const latestUpdatedItem = [...articles, ...patchNotes, ...tournaments].sort(
+    (left, right) => new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime()
+  )[0] ?? null;
+  const coverageLabel = [
+    `${text.news} ${articles.filter((item) => item.category === "news").length}`,
+    `${text.guide} ${articles.filter((item) => item.category === "guide").length}`,
+    `${text.tournament} ${tournaments.length}`
+  ].join(" / ");
   const activeFilterLabel =
     category === "news"
       ? text.news
@@ -186,77 +230,114 @@ export function HomePage(props: {
 
   return (
     <section className="stack home-page">
-      <section className="panel home-command">
-        <div className="home-command-copy">
-          <p className="section-kicker">{text.kicker}</p>
-          <h2>{text.title}</h2>
-          <p className="home-command-summary">{text.summary}</p>
+      <section className="panel home-hero-shell">
+        <div className="home-hero-grid">
+          <div className="home-hero-copy">
+            <div className="home-hero-topline">
+              <p className="section-kicker">{text.kicker}</p>
+              <span className="home-live-pill">{text.autoRefresh}</span>
+            </div>
+            <h2>{text.title}</h2>
+            <p className="home-command-summary">{text.summary}</p>
 
-          <div className="home-stat-grid">
-            <article className="home-stat-card">
-              <span>{text.articleCount}</span>
-              <strong>{articles.length}</strong>
-            </article>
-            <article className="home-stat-card">
-              <span>{text.patchCount}</span>
-              <strong>{patchNotes.length}</strong>
-            </article>
-            <article className="home-stat-card">
-              <span>{text.tournamentCount}</span>
-              <strong>{tournaments.length}</strong>
-            </article>
+            <div className="home-stat-grid">
+              <article className="home-stat-card">
+                <span>{text.articleCount}</span>
+                <strong>{articles.length}</strong>
+              </article>
+              <article className="home-stat-card">
+                <span>{text.patchCount}</span>
+                <strong>{patchNotes.length}</strong>
+              </article>
+              <article className="home-stat-card">
+                <span>{text.tournamentCount}</span>
+                <strong>{tournaments.length}</strong>
+              </article>
+            </div>
+
+            <div className="home-command-actions">
+              <Link className="primary-btn" to="/intro">
+                {text.exploreIntro}
+              </Link>
+              <Link className="ghost-btn" to="/chat">
+                {text.askAgent}
+              </Link>
+            </div>
           </div>
 
-          <div className="home-command-actions">
-            <Link className="primary-btn" to="/intro">
-              {text.exploreIntro}
-            </Link>
-            <Link className="ghost-btn" to="/chat">
-              {text.askAgent}
-            </Link>
+          <div className="home-hero-stack">
+            <article className={`home-focus-card tone-${articleTone(featuredArticle?.category)}`}>
+              <div className="home-focus-head">
+                <span>{text.prioritySignal}</span>
+                {featuredArticle ? (
+                  <p className="meta">
+                    {getCategoryLabel(featuredArticle.category, props.locale)} / {featuredArticle.source} /{" "}
+                    {formatContentDate(featuredArticle.publishedAt, props.locale)}
+                  </p>
+                ) : null}
+              </div>
+
+              {featuredArticle ? (
+                <>
+                  <h3>{featuredArticle.title}</h3>
+                  <p>{featuredArticle.summary}</p>
+
+                  <div className="tag-list">
+                    {featuredArticle.tags.slice(0, 4).map((tag) => (
+                      <span className="tag-chip" key={tag}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="card-footer">
+                    <a className="ghost-btn" href={featuredArticle.sourceUrl} rel="noreferrer" target="_blank">
+                      {text.readSource}
+                    </a>
+                    <button onClick={() => handleFavorite("article", featuredArticle.id)} type="button">
+                      {text.favorite}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="muted">{loading ? text.loading : text.emptyFeed}</p>
+              )}
+            </article>
+
+            <div className="home-mini-grid">
+              <article className="home-mini-card">
+                <span>{text.latestPatch}</span>
+                {spotlightPatch ? (
+                  <>
+                    <strong>{spotlightPatch.version}</strong>
+                    <p>{spotlightPatch.title}</p>
+                    <small>{spotlightPatch.summary}</small>
+                  </>
+                ) : (
+                  <p className="muted">{text.emptyFeed}</p>
+                )}
+              </article>
+
+              <article className="home-mini-card">
+                <span>{spotlightTournament ? text.nextTournament : text.emptyEventsTitle}</span>
+                {spotlightTournament ? (
+                  <>
+                    <strong>{spotlightTournament.title}</strong>
+                    <p>{formatDateRange(spotlightTournament.startDate, spotlightTournament.endDate, props.locale)}</p>
+                    <span className={`status-pill ${statusTone(spotlightTournament.status)}`}>
+                      {getTournamentStatusLabel(spotlightTournament.status, props.locale)}
+                    </span>
+                  </>
+                ) : (
+                  <p className="muted">{text.emptyEventsSummary}</p>
+                )}
+              </article>
+            </div>
           </div>
-        </div>
-
-        <div className="home-command-rail">
-          <article className="home-brief-card">
-            <span>{text.latestPatch}</span>
-            {spotlightPatch ? (
-              <>
-                <strong>{spotlightPatch.version}</strong>
-                <p>{spotlightPatch.summary}</p>
-                <a href={spotlightPatch.sourceUrl} rel="noreferrer" target="_blank">
-                  {text.readSource}
-                </a>
-              </>
-            ) : (
-              <p className="muted">{text.emptyFeed}</p>
-            )}
-          </article>
-
-          <article className="home-brief-card">
-            <span>{text.nextTournament}</span>
-            {spotlightTournament ? (
-              <>
-                <strong>{spotlightTournament.title}</strong>
-                <p>{formatDateRange(spotlightTournament.startDate, spotlightTournament.endDate, props.locale)}</p>
-                <span className={`status-pill ${statusTone(spotlightTournament.status)}`}>
-                  {getTournamentStatusLabel(spotlightTournament.status, props.locale)}
-                </span>
-              </>
-            ) : (
-              <p className="muted">{text.emptyFeed}</p>
-            )}
-          </article>
-
-          <article className="home-brief-card">
-            <span>{text.activeFilter}</span>
-            <strong>{activeFilterLabel}</strong>
-            <p>{query ? `${text.keywordPrefix}: ${query}` : text.keywordIdle}</p>
-          </article>
         </div>
       </section>
 
-      <section className="panel filters-panel">
+      <section className="panel home-control-panel">
         <div className="filters-head">
           <div>
             <p className="section-kicker">Filters</p>
@@ -265,81 +346,99 @@ export function HomePage(props: {
           <p className="muted">{text.filtersHint}</p>
         </div>
 
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={text.search}
-        />
+        <div className="home-control-grid">
+          <div className="home-search-stack">
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={text.search}
+            />
 
-        <div className="chip-row">
-          <button className={!category ? "active" : ""} onClick={() => setCategory(undefined)} type="button">
-            {text.all}
-          </button>
-          <button className={category === "news" ? "active" : ""} onClick={() => setCategory("news")} type="button">
-            {text.news}
-          </button>
-          <button className={category === "guide" ? "active" : ""} onClick={() => setCategory("guide")} type="button">
-            {text.guide}
-          </button>
-          <button
-            className={category === "tournament" ? "active" : ""}
-            onClick={() => setCategory("tournament")}
-            type="button"
-          >
-            {text.tournament}
-          </button>
+            <div className="chip-row">
+              <button className={!category ? "active" : ""} onClick={() => setCategory(undefined)} type="button">
+                {text.all}
+              </button>
+              <button
+                className={category === "news" ? "active" : ""}
+                onClick={() => setCategory("news")}
+                type="button"
+              >
+                {text.news}
+              </button>
+              <button
+                className={category === "guide" ? "active" : ""}
+                onClick={() => setCategory("guide")}
+                type="button"
+              >
+                {text.guide}
+              </button>
+              <button
+                className={category === "tournament" ? "active" : ""}
+                onClick={() => setCategory("tournament")}
+                type="button"
+              >
+                {text.tournament}
+              </button>
+            </div>
+          </div>
+
+          <div className="home-summary-strip">
+            <article className="home-summary-card">
+              <span>{text.visibleItems}</span>
+              <strong>{articles.length}</strong>
+              <p>{query ? `${text.keywordPrefix}: ${query}` : text.keywordIdle}</p>
+            </article>
+
+            <article className="home-summary-card">
+              <span>{text.coverage}</span>
+              <strong>{activeFilterLabel}</strong>
+              <p>{coverageLabel}</p>
+            </article>
+
+            <article className="home-summary-card">
+              <span>{text.latestUpdate}</span>
+              <strong>
+                {latestUpdatedItem ? formatContentDate(latestUpdatedItem.publishedAt, props.locale) : "--"}
+              </strong>
+              <p>{latestUpdatedItem ? latestUpdatedItem.source : text.emptyFeed}</p>
+            </article>
+          </div>
         </div>
       </section>
 
-      <div className="home-feed-layout">
-        <section className="panel home-feed-panel">
+      <div className="home-board-layout">
+        <section className="panel home-story-panel">
           <div className="section-heading">
             <div>
-              <p className="section-kicker">Signal</p>
-              <h3>{text.feedTitle}</h3>
+              <p className="section-kicker">Signal Grid</p>
+              <h3>{text.storyGridTitle}</h3>
             </div>
-            <p className="muted">{text.feedSubtitle}</p>
+            <p className="muted">{text.storyGridSubtitle}</p>
           </div>
 
-          {featuredArticle ? (
-            <article className="featured-story">
-              <p className="meta">
-                {getCategoryLabel(featuredArticle.category, props.locale)} / {featuredArticle.source} /{" "}
-                {formatContentDate(featuredArticle.publishedAt, props.locale)}
-              </p>
-              <h3>{featuredArticle.title}</h3>
-              <p>{featuredArticle.summary}</p>
+          {storyDeck.length > 0 ? (
+            <div className="home-story-list">
+              {storyDeck.map((item, index) => (
+                <article className="home-story-card" key={item.id}>
+                  <div className="home-story-card-topline">
+                    <span className="home-story-index">{String(index + 1).padStart(2, "0")}</span>
+                    <p className="meta">
+                      {getCategoryLabel(item.category, props.locale)} / {item.source} /{" "}
+                      {formatContentDate(item.publishedAt, props.locale)}
+                    </p>
+                  </div>
 
-              <div className="tag-list">
-                {featuredArticle.tags.slice(0, 4).map((tag) => (
-                  <span className="tag-chip" key={tag}>
-                    {tag}
-                  </span>
-                ))}
-              </div>
-
-              <div className="card-footer">
-                <a className="ghost-btn" href={featuredArticle.sourceUrl} rel="noreferrer" target="_blank">
-                  {text.readSource}
-                </a>
-                <button onClick={() => handleFavorite("article", featuredArticle.id)} type="button">
-                  {text.favorite}
-                </button>
-              </div>
-            </article>
-          ) : (
-            !loading && <p className="muted">{text.emptyFeed}</p>
-          )}
-
-          {secondaryArticles.length > 0 && (
-            <div className="home-story-grid">
-              {secondaryArticles.map((item) => (
-                <article className="story-card" key={item.id}>
-                  <p className="meta">
-                    {item.source} / {formatContentDate(item.publishedAt, props.locale)}
-                  </p>
                   <h4>{item.title}</h4>
                   <p>{item.summary}</p>
+
+                  <div className="tag-list">
+                    {item.tags.slice(0, 3).map((tag) => (
+                      <span className="tag-chip" key={tag}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+
                   <div className="card-footer">
                     <a className="text-btn" href={item.sourceUrl} rel="noreferrer" target="_blank">
                       {text.readSource}
@@ -351,6 +450,13 @@ export function HomePage(props: {
                 </article>
               ))}
             </div>
+          ) : (
+            !loading && (
+              <article className="home-empty-card">
+                <strong>{text.emptyFeed}</strong>
+                <p>{text.filtersHint}</p>
+              </article>
+            )
           )}
         </section>
 
@@ -363,23 +469,30 @@ export function HomePage(props: {
               </div>
             </div>
 
-            {patchNotes.slice(0, 3).map((note) => (
-              <article className="intel-line" key={note.id}>
-                <div>
-                  <strong>{note.version}</strong>
-                  <p>{note.title}</p>
-                  <span className="muted">{note.summary}</span>
-                </div>
-                <div className="intel-line-actions">
-                  <a href={note.sourceUrl} rel="noreferrer" target="_blank">
-                    {text.readSource}
-                  </a>
-                  <button onClick={() => handleFavorite("patch", note.id)} type="button">
-                    {text.favorite}
-                  </button>
-                </div>
+            {patchNotes.length > 0 ? (
+              patchNotes.slice(0, 3).map((note) => (
+                <article className="intel-line" key={note.id}>
+                  <div>
+                    <strong>{note.version}</strong>
+                    <p>{note.title}</p>
+                    <span className="muted">{note.summary}</span>
+                  </div>
+                  <div className="intel-line-actions">
+                    <a href={note.sourceUrl} rel="noreferrer" target="_blank">
+                      {text.readSource}
+                    </a>
+                    <button onClick={() => handleFavorite("patch", note.id)} type="button">
+                      {text.favorite}
+                    </button>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <article className="home-empty-card compact">
+                <strong>{text.emptyFeed}</strong>
+                <p>{text.filtersHint}</p>
               </article>
-            ))}
+            )}
           </section>
 
           <section className="panel intel-panel">
@@ -390,25 +503,66 @@ export function HomePage(props: {
               </div>
             </div>
 
-            {tournaments.slice(0, 3).map((tour) => (
-              <article className="intel-line" key={tour.id}>
-                <div>
-                  <strong>{tour.title}</strong>
-                  <p>{formatDateRange(tour.startDate, tour.endDate, props.locale)}</p>
-                  <span className={`status-pill ${statusTone(tour.status)}`}>
-                    {text.status}: {getTournamentStatusLabel(tour.status, props.locale)}
-                  </span>
-                </div>
-                <div className="intel-line-actions">
-                  <a href={tour.sourceUrl} rel="noreferrer" target="_blank">
-                    {text.readSource}
-                  </a>
-                  <button onClick={() => handleFavorite("tournament", tour.id)} type="button">
-                    {text.favorite}
-                  </button>
-                </div>
+            {tournaments.length > 0 ? (
+              tournaments.slice(0, 3).map((tour) => (
+                <article className="intel-line" key={tour.id}>
+                  <div>
+                    <strong>{tour.title}</strong>
+                    <p>{formatDateRange(tour.startDate, tour.endDate, props.locale)}</p>
+                    <span className={`status-pill ${statusTone(tour.status)}`}>
+                      {text.status}: {getTournamentStatusLabel(tour.status, props.locale)}
+                    </span>
+                  </div>
+                  <div className="intel-line-actions">
+                    <a href={tour.sourceUrl} rel="noreferrer" target="_blank">
+                      {text.readSource}
+                    </a>
+                    <button onClick={() => handleFavorite("tournament", tour.id)} type="button">
+                      {text.favorite}
+                    </button>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <article className="home-empty-card compact">
+                <strong>{text.emptyEventsTitle}</strong>
+                <p>{text.emptyEventsSummary}</p>
               </article>
-            ))}
+            )}
+          </section>
+
+          <section className="panel home-learning-panel">
+            <div className="section-heading compact">
+              <div>
+                <p className="section-kicker">Route</p>
+                <h3>{text.learningPath}</h3>
+              </div>
+            </div>
+
+            <article className="home-learning-card">
+              {guideSpotlight ? (
+                <>
+                  <span>{guideSpotlight.source}</span>
+                  <strong>{guideSpotlight.title}</strong>
+                  <p>{guideSpotlight.summary}</p>
+                </>
+              ) : (
+                <>
+                  <span>{text.learningPath}</span>
+                  <strong>{text.exploreIntro}</strong>
+                  <p>{text.learningSummary}</p>
+                </>
+              )}
+
+              <div className="home-learning-actions">
+                <Link className="primary-btn" to="/intro">
+                  {text.exploreIntro}
+                </Link>
+                <Link className="ghost-btn" to="/heroes">
+                  {text.openHeroes}
+                </Link>
+              </div>
+            </article>
           </section>
         </div>
       </div>
