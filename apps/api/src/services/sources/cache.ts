@@ -28,3 +28,7 @@ export async function withCache<T>(
     throw error;
   }
 }
+
+export function resetCacheForTests(): void {
+  cache.clear();
+}

@@ -1,7 +1,9 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Language } from "@dotagame/contracts";
 import { DotaIntroManual } from "../components/DotaIntroManual";
 import { DotaIntroSection } from "../components/DotaIntroSection";
+import { fetchHeroAvatars } from "../lib/api";
 
 type IntroAnchor = {
   href: string;
@@ -207,6 +209,47 @@ const copyMap: Record<Language, IntroPageCopy> = {
 
 export function DotaIntroPage(props: { locale: Language }) {
   const copy = copyMap[props.locale];
+  const [heroCount, setHeroCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    fetchHeroAvatars(props.locale)
+      .then((items) => {
+        if (active) {
+          setHeroCount(items.length);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setHeroCount(null);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [props.locale]);
+
+  const cards = useMemo(() => {
+    return copy.cards.map((card) => {
+      if (card.label === "英雄总量") {
+        return {
+          ...card,
+          value: heroCount == null ? card.value : `${heroCount} 位英雄`
+        };
+      }
+
+      if (card.label === "Hero Pool") {
+        return {
+          ...card,
+          value: heroCount == null ? card.value : `${heroCount} heroes`
+        };
+      }
+
+      return card;
+    });
+  }, [copy.cards, heroCount]);
 
   return (
     <section className="stack intro-guide-page">
@@ -231,7 +274,7 @@ export function DotaIntroPage(props: { locale: Language }) {
           </div>
 
           <div className="intro-page-card-grid">
-            {copy.cards.map((card) => (
+            {cards.map((card) => (
               <article className="intro-page-card" key={card.label}>
                 <span>{card.label}</span>
                 <strong>{card.value}</strong>

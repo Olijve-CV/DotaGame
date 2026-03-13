@@ -124,6 +124,8 @@ const FALLBACK_HERO_AVATARS: HeroAvatarOption[] = [
   }
 ];
 
+const FALLBACK_HERO_ID_SET = new Set(FALLBACK_HERO_AVATARS.map((hero) => hero.id));
+
 interface OpenDotaHeroRecord {
   id?: number;
   localized_name?: string;
@@ -237,6 +239,14 @@ function cloneHeroDetail(detail: HeroDetail): HeroDetail {
   };
 }
 
+function isLikelyFallbackAvatarSet(items: HeroAvatarOption[]): boolean {
+  if (items.length !== FALLBACK_HERO_AVATARS.length) {
+    return false;
+  }
+
+  return items.every((item) => FALLBACK_HERO_ID_SET.has(item.id));
+}
+
 function setHeroAvatarMemoryCache(language: Language, items: HeroAvatarOption[]): void {
   heroAvatarMemoryCache.set(language, items.map(cloneAvatarOption));
 }
@@ -275,7 +285,7 @@ async function ensureHeroAvatarsSynced(language: Language): Promise<void> {
   const datasetKey = `hero-avatars:${language}`;
   const existing = await listStoredHeroAvatars(language);
   const syncedAt = await getSourceSyncTime(datasetKey);
-  if (existing.length > 0 && isSyncFresh(syncedAt, HERO_AVATAR_TTL_MS)) {
+  if (existing.length > 0 && isSyncFresh(syncedAt, HERO_AVATAR_TTL_MS) && !isLikelyFallbackAvatarSet(existing)) {
     return;
   }
 
@@ -290,6 +300,7 @@ async function ensureHeroAvatarsSynced(language: Language): Promise<void> {
     });
 
     let baseOptions: HeroAvatarOption[];
+    let usedFallbackSource = false;
     try {
       baseOptions = await withCache(HERO_AVATAR_CACHE_KEY, HERO_AVATAR_TTL_MS, fetchHeroAvatarsFromSource);
     } catch (error) {
@@ -297,6 +308,7 @@ async function ensureHeroAvatarsSynced(language: Language): Promise<void> {
         event: "content.hero_avatars.live_source_failed",
         error
       });
+      usedFallbackSource = true;
       baseOptions = FALLBACK_HERO_AVATARS;
     }
 
@@ -305,7 +317,9 @@ async function ensureHeroAvatarsSynced(language: Language): Promise<void> {
     );
     await upsertHeroAvatars(language, items);
     setHeroAvatarMemoryCache(language, items);
-    await setSourceSyncTime(datasetKey, new Date().toISOString());
+    if (!usedFallbackSource) {
+      await setSourceSyncTime(datasetKey, new Date().toISOString());
+    }
   } catch (error) {
     if (existing.length > 0) {
       logger.warn("hero avatar sync failed, returning stored DB content", {
@@ -414,6 +428,11 @@ export async function resolveHeroAvatarById(
 export async function pickRandomHeroAvatar(): Promise<HeroAvatarOption> {
   const options = await listHeroAvatars();
   return options[Math.floor(Math.random() * options.length)] ?? FALLBACK_HERO_AVATARS[0];
+}
+
+export function resetHeroAvatarServiceCacheForTests(): void {
+  heroAvatarMemoryCache.clear();
+  heroDetailMemoryCache.clear();
 }
 
 async function fetchHeroAvatarsFromSource(): Promise<HeroAvatarOption[]> {

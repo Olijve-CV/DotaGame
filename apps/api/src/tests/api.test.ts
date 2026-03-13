@@ -1,7 +1,10 @@
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../app.js";
+import { getDatabaseClient } from "../lib/database.js";
 import { syncAllContent } from "../services/contentService.js";
+import { resetHeroAvatarServiceCacheForTests } from "../services/heroAvatarService.js";
+import { resetCacheForTests } from "../services/sources/cache.js";
 
 describe("API v1", () => {
   const originalOpenAiApiKey = process.env.OPENAI_API_KEY;
@@ -13,6 +16,115 @@ describe("API v1", () => {
     return new Response(JSON.stringify(payload), {
       status,
       headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  function mockOpenDotaHeroResponse() {
+    return jsonResponse({
+      npc_dota_hero_abaddon: {
+        id: 102,
+        localized_name: "Abaddon",
+        img: "/apps/dota2/images/dota_react/heroes/abaddon.png",
+        primary_attr: "all",
+        attack_type: "Melee",
+        roles: ["Support", "Carry", "Durable"]
+      },
+      npc_dota_hero_alchemist: {
+        id: 73,
+        localized_name: "Alchemist",
+        img: "/apps/dota2/images/dota_react/heroes/alchemist.png",
+        primary_attr: "str",
+        attack_type: "Melee",
+        roles: ["Carry", "Support", "Durable"]
+      },
+      npc_dota_hero_ancient_apparition: {
+        id: 68,
+        localized_name: "Ancient Apparition",
+        img: "/apps/dota2/images/dota_react/heroes/ancient_apparition.png",
+        primary_attr: "int",
+        attack_type: "Ranged",
+        roles: ["Support", "Disabler", "Nuker"]
+      },
+      npc_dota_hero_antimage: {
+        id: 1,
+        localized_name: "Anti-Mage",
+        img: "/apps/dota2/images/dota_react/heroes/antimage.png",
+        primary_attr: "agi",
+        attack_type: "Melee",
+        roles: ["Carry", "Escape", "Nuker"]
+      },
+      npc_dota_hero_arc_warden: {
+        id: 113,
+        localized_name: "Arc Warden",
+        img: "/apps/dota2/images/dota_react/heroes/arc_warden.png",
+        primary_attr: "all",
+        attack_type: "Ranged",
+        roles: ["Carry", "Escape", "Nuker"]
+      },
+      npc_dota_hero_axe: {
+        id: 2,
+        localized_name: "Axe",
+        img: "/apps/dota2/images/dota_react/heroes/axe.png",
+        primary_attr: "str",
+        attack_type: "Melee",
+        roles: ["Initiator", "Durable", "Disabler", "Carry"]
+      },
+      npc_dota_hero_bane: {
+        id: 3,
+        localized_name: "Bane",
+        img: "/apps/dota2/images/dota_react/heroes/bane.png",
+        primary_attr: "all",
+        attack_type: "Ranged",
+        roles: ["Support", "Disabler", "Nuker", "Durable"]
+      },
+      npc_dota_hero_batrider: {
+        id: 65,
+        localized_name: "Batrider",
+        img: "/apps/dota2/images/dota_react/heroes/batrider.png",
+        primary_attr: "all",
+        attack_type: "Ranged",
+        roles: ["Initiator", "Disabler", "Escape"]
+      },
+      npc_dota_hero_beastmaster: {
+        id: 38,
+        localized_name: "Beastmaster",
+        img: "/apps/dota2/images/dota_react/heroes/beastmaster.png",
+        primary_attr: "all",
+        attack_type: "Melee",
+        roles: ["Initiator", "Disabler", "Durable", "Nuker"]
+      },
+      npc_dota_hero_bloodseeker: {
+        id: 4,
+        localized_name: "Bloodseeker",
+        img: "/apps/dota2/images/dota_react/heroes/bloodseeker.png",
+        primary_attr: "agi",
+        attack_type: "Melee",
+        roles: ["Carry", "Disabler", "Nuker", "Initiator"]
+      },
+      npc_dota_hero_bounty_hunter: {
+        id: 62,
+        localized_name: "Bounty Hunter",
+        img: "/apps/dota2/images/dota_react/heroes/bounty_hunter.png",
+        primary_attr: "agi",
+        attack_type: "Melee",
+        roles: ["Escape", "Nuker"]
+      },
+      npc_dota_hero_brewmaster: {
+        id: 78,
+        localized_name: "Brewmaster",
+        img: "/apps/dota2/images/dota_react/heroes/brewmaster.png",
+        primary_attr: "all",
+        attack_type: "Melee",
+        roles: ["Carry", "Initiator", "Durable"]
+      },
+      npc_dota_hero_bristleback: {
+        id: 99,
+        localized_name: "Bristleback",
+        img: "/apps/dota2/images/dota_react/heroes/bristleback.png",
+        primary_attr: "str",
+        attack_type: "Melee",
+        roles: ["Carry", "Durable", "Initiator", "Nuker"]
+      }
     });
   }
 
@@ -636,6 +748,65 @@ describe("API v1", () => {
     expect(updateResponse.status).toBe(200);
     expect(updateResponse.body.user.avatar.id).toBe(nextAvatarId);
   }, 15000);
+
+  it("refreshes zh-CN hero avatars when a fallback-sized cache was marked fresh", async () => {
+    const db = await getDatabaseClient();
+    const datasetKey = "hero-avatars:zh-CN";
+
+    await db.execute("DELETE FROM hero_avatars WHERE language = :language", {
+      language: "zh-CN"
+    });
+    await db.execute("DELETE FROM source_sync_state WHERE dataset_key = :datasetKey", {
+      datasetKey
+    });
+    resetHeroAvatarServiceCacheForTests();
+    resetCacheForTests();
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.includes("api.opendota.com/api/constants/heroes")) {
+        throw new Error("OpenDota temporarily unavailable");
+      }
+      return mockOpenAiFetch(input, init);
+    });
+
+    const fallbackResponse = await request(app).get("/api/v1/hero-avatars?language=zh-CN");
+
+    expect(fallbackResponse.status).toBe(200);
+    expect(fallbackResponse.body.items).toHaveLength(12);
+
+    await db.execute(
+      `
+        INSERT INTO source_sync_state (dataset_key, synced_at)
+        VALUES (:datasetKey, :syncedAt)
+        ON CONFLICT (dataset_key) DO UPDATE SET synced_at = excluded.synced_at
+      `,
+      {
+        datasetKey,
+        syncedAt: new Date().toISOString()
+      }
+    );
+    resetHeroAvatarServiceCacheForTests();
+    resetCacheForTests();
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.includes("api.opendota.com/api/constants/heroes")) {
+        return mockOpenDotaHeroResponse();
+      }
+      return mockOpenAiFetch(input, init);
+    });
+
+    const recoveredResponse = await request(app).get("/api/v1/hero-avatars?language=zh-CN");
+
+    expect(recoveredResponse.status).toBe(200);
+    expect(recoveredResponse.body.items.length).toBeGreaterThan(12);
+    expect(
+      recoveredResponse.body.items.some((hero: { name: string }) => hero.name === "Abaddon")
+    ).toBe(true);
+  });
 
   it("returns localized hero detail data", async () => {
     const response = await request(app).get("/api/v1/heroes/8?language=zh-CN");

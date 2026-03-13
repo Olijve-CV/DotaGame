@@ -139,7 +139,7 @@ export const copyMap: Record<Language, IntroCopy> = {
       }
     ],
     atlasTitle: "英雄图鉴",
-    atlasSubtitle: "扩展为 12 位精选英雄，并加入分页浏览。每位英雄都补齐 4 个核心技能说明，方便快速建立英雄池认知。",
+    atlasSubtitle: "英雄图谱现已拆分为独立页面，可按主属性浏览完整英雄池，并查看每位英雄的核心技能与定位信息。",
     atlasLoading: "正在载入英雄头像...",
     atlasHeroesLabel: "当前英雄数",
     atlasPageLabel: "页码",
@@ -448,7 +448,7 @@ export const copyMap: Record<Language, IntroCopy> = {
       }
     ],
     atlasTitle: "Hero Atlas",
-    atlasSubtitle: "The roster now expands to 12 curated heroes with pagination, and every spotlight includes four core skills instead of a partial spell list.",
+    atlasSubtitle: "The hero atlas now lives on its own page, where you can browse the full roster by primary attribute and inspect each hero's core skills and role identity.",
     atlasLoading: "Loading hero portraits...",
     atlasHeroesLabel: "Heroes",
     atlasPageLabel: "Page",
