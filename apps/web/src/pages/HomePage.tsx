@@ -29,9 +29,13 @@ type PageContentCopy = {
   secondaryAction: string;
   secondaryTo: string;
   summaryLabel: string;
+  pageLabel: string;
+  prevPage: string;
+  nextPage: string;
 };
 
 const HOME_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+const ITEMS_PER_PAGE = 7;
 
 const labels = {
   "zh-CN": {
@@ -61,7 +65,10 @@ const labels = {
         primaryTo: "/chat",
         secondaryAction: "查看新手入门",
         secondaryTo: "/intro",
-        summaryLabel: "新闻状态"
+        summaryLabel: "新闻状态",
+        pageLabel: "页码",
+        prevPage: "上一页",
+        nextPage: "下一页"
       },
       guide: {
         title: "攻略页只看攻略，把学习内容和资讯流彻底拆开。",
@@ -78,7 +85,10 @@ const labels = {
         primaryTo: "/intro",
         secondaryAction: "打开英雄图谱",
         secondaryTo: "/heroes",
-        summaryLabel: "学习进度"
+        summaryLabel: "学习进度",
+        pageLabel: "页码",
+        prevPage: "上一页",
+        nextPage: "下一页"
       },
       tournament: {
         title: "赛事页只看赛事，把赛场信息单独放到一页里。",
@@ -95,7 +105,10 @@ const labels = {
         primaryTo: "/chat",
         secondaryAction: "查看新手入门",
         secondaryTo: "/intro",
-        summaryLabel: "赛场状态"
+        summaryLabel: "赛场状态",
+        pageLabel: "页码",
+        prevPage: "上一页",
+        nextPage: "下一页"
       }
     } satisfies Record<IntelPageKind, PageContentCopy>
   },
@@ -126,7 +139,10 @@ const labels = {
         primaryTo: "/chat",
         secondaryAction: "Open Starter Guide",
         secondaryTo: "/intro",
-        summaryLabel: "News Status"
+        summaryLabel: "News Status",
+        pageLabel: "Page",
+        prevPage: "Prev",
+        nextPage: "Next"
       },
       guide: {
         title: "The guide page now stays guide-only.",
@@ -143,7 +159,10 @@ const labels = {
         primaryTo: "/intro",
         secondaryAction: "Open Hero Atlas",
         secondaryTo: "/heroes",
-        summaryLabel: "Learning Status"
+        summaryLabel: "Learning Status",
+        pageLabel: "Page",
+        prevPage: "Prev",
+        nextPage: "Next"
       },
       tournament: {
         title: "The tournament page now stays tournament-only.",
@@ -160,7 +179,10 @@ const labels = {
         primaryTo: "/chat",
         secondaryAction: "Open Starter Guide",
         secondaryTo: "/intro",
-        summaryLabel: "Event Status"
+        summaryLabel: "Event Status",
+        pageLabel: "Page",
+        prevPage: "Prev",
+        nextPage: "Next"
       }
     } satisfies Record<IntelPageKind, PageContentCopy>
   }
@@ -196,6 +218,7 @@ export function HomePage(props: {
   onUserLoaded: (user: UserProfile | null, source?: "fetch" | "mutation") => void;
 }) {
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [articles, setArticles] = useState<Article[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(false);
@@ -257,7 +280,7 @@ export function HomePage(props: {
   const normalizedQuery = query.trim().toLowerCase();
   const items = useMemo<DisplayItem[]>(() => {
     const sourceItems = props.kind === "tournament" ? tournaments : articles;
-    return sourceItems.filter((item) => {
+    const filtered = sourceItems.filter((item) => {
       if (!normalizedQuery) {
         return true;
       }
@@ -273,10 +296,24 @@ export function HomePage(props: {
 
       return isTournamentItem(item) ? item.region.toLowerCase().includes(normalizedQuery) : false;
     });
+    return [...filtered].sort(
+      (left, right) => new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime()
+    );
   }, [articles, normalizedQuery, props.kind, tournaments]);
 
-  const featuredItem = items[0] ?? null;
-  const storyDeck = featuredItem ? items.slice(1, 7) : items.slice(0, 6);
+  useEffect(() => {
+    setPage(1);
+  }, [normalizedQuery, props.kind, props.locale]);
+
+  const totalPages = Math.max(1, Math.ceil(items.length / ITEMS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedItems = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return items.slice(start, start + ITEMS_PER_PAGE);
+  }, [currentPage, items]);
+
+  const featuredItem = pagedItems[0] ?? null;
+  const storyDeck = featuredItem ? pagedItems.slice(1) : [];
   const latestUpdatedItem =
     [...items].sort((left, right) => new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime())[0] ??
     null;
@@ -379,7 +416,7 @@ export function HomePage(props: {
               <article className="home-mini-card">
                 <span>{baseText.visibleItems}</span>
                 <strong>{items.length}</strong>
-                <p>{query ? `${pageText.search}: ${query}` : pageText.filtersHint}</p>
+                <p>{query ? `${pageText.search}: ${query}` : `${pageText.pageLabel} ${currentPage}/${totalPages}`}</p>
               </article>
 
               <article className="home-mini-card">
@@ -444,46 +481,68 @@ export function HomePage(props: {
             <p className="muted">{pageText.feedSubtitle}</p>
           </div>
 
-          {storyDeck.length > 0 ? (
-            <div className="home-story-list">
-              {storyDeck.map((item, index) => (
-                <article className="home-story-card" key={item.id}>
-                  <div className="home-story-card-topline">
-                    <span className="home-story-index">{String(index + 1).padStart(2, "0")}</span>
-                    <p className="meta">{itemMeta(item, props.locale)}</p>
-                  </div>
-
-                  <h4>{item.title}</h4>
-                  <p>{item.summary}</p>
-
-                  {isTournamentItem(item) ? (
-                    <span className={`status-pill ${statusTone(item.status)}`}>
-                      {getTournamentStatusLabel(item.status, props.locale)}
-                    </span>
-                  ) : (
-                    <div className="tag-list">
-                      {item.tags.slice(0, 3).map((tag) => (
-                        <span className="tag-chip" key={tag}>
-                          {tag}
+          {featuredItem ? (
+            <>
+              {storyDeck.length > 0 ? (
+                <div className="home-story-list">
+                  {storyDeck.map((item, index) => (
+                    <article className="home-story-card" key={item.id}>
+                      <div className="home-story-card-topline">
+                        <span className="home-story-index">
+                          {String((currentPage - 1) * ITEMS_PER_PAGE + index + 2).padStart(2, "0")}
                         </span>
-                      ))}
-                    </div>
-                  )}
+                        <p className="meta">{itemMeta(item, props.locale)}</p>
+                      </div>
 
-                  <div className="card-footer">
-                    <a className="text-btn" href={item.sourceUrl} rel="noreferrer" target="_blank">
-                      {baseText.readSource}
-                    </a>
-                    <button
-                      onClick={() => handleFavorite(isTournamentItem(item) ? "tournament" : "article", item.id)}
-                      type="button"
-                    >
-                      {baseText.favorite}
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
+                      <h4>{item.title}</h4>
+                      <p>{item.summary}</p>
+
+                      {isTournamentItem(item) ? (
+                        <span className={`status-pill ${statusTone(item.status)}`}>
+                          {getTournamentStatusLabel(item.status, props.locale)}
+                        </span>
+                      ) : (
+                        <div className="tag-list">
+                          {item.tags.slice(0, 3).map((tag) => (
+                            <span className="tag-chip" key={tag}>
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="card-footer">
+                        <a className="text-btn" href={item.sourceUrl} rel="noreferrer" target="_blank">
+                          {baseText.readSource}
+                        </a>
+                        <button
+                          onClick={() => handleFavorite(isTournamentItem(item) ? "tournament" : "article", item.id)}
+                          type="button"
+                        >
+                          {baseText.favorite}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="home-pagination">
+                <button disabled={currentPage <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} type="button">
+                  {pageText.prevPage}
+                </button>
+                <span>
+                  {pageText.pageLabel} {currentPage} / {totalPages}
+                </span>
+                <button
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
+                  type="button"
+                >
+                  {pageText.nextPage}
+                </button>
+              </div>
+            </>
           ) : (
             !loading && (
               <article className="home-empty-card">

@@ -18,22 +18,6 @@ import { fetchSteamPlayerActivityArticles } from "./sources/steamMetricsSource.j
 
 export const CONTENT_SYNC_INTERVAL_MS = 10 * 60 * 1000;
 const SUPPORTED_LANGUAGES: Language[] = ["zh-CN", "en-US"];
-const ARTICLE_CATEGORY_PRIORITY: Record<Article["category"], number> = {
-  news: 0,
-  tournament: 0,
-  guide: 1,
-  patch: 2
-};
-const ARTICLE_SOURCE_PRIORITY = new Map<string, number>([
-  ["Dota2 Official", 0],
-  ["Dota2 官方", 0],
-  ["OpenDota Meta", 1],
-  ["OpenDota 职业趋势", 1],
-  ["OpenDota Trends", 2],
-  ["OpenDota 路人趋势", 2],
-  ["Steam Activity", 3],
-  ["Steam 活跃度", 3]
-]);
 
 function sortByPublishedAtDesc<T extends { publishedAt: string }>(items: T[]): T[] {
   return [...items].sort(
@@ -41,29 +25,8 @@ function sortByPublishedAtDesc<T extends { publishedAt: string }>(items: T[]): T
   );
 }
 
-function getArticleSourcePriority(source: string): number {
-  return ARTICLE_SOURCE_PRIORITY.get(source) ?? 9;
-}
-
 export function sortArticlesForDisplay(items: Article[]): Article[] {
-  return [...items].sort((left, right) => {
-    const sourceDiff = getArticleSourcePriority(left.source) - getArticleSourcePriority(right.source);
-    if (sourceDiff !== 0) {
-      return sourceDiff;
-    }
-
-    const categoryDiff = ARTICLE_CATEGORY_PRIORITY[left.category] - ARTICLE_CATEGORY_PRIORITY[right.category];
-    if (categoryDiff !== 0) {
-      return categoryDiff;
-    }
-
-    const publishedAtDiff = new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime();
-    if (publishedAtDiff !== 0) {
-      return publishedAtDiff;
-    }
-
-    return left.title.localeCompare(right.title);
-  });
+  return sortByPublishedAtDesc(items);
 }
 
 function dedupeById<T extends { id: string }>(items: T[]): T[] {

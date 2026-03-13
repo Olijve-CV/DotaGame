@@ -113,7 +113,7 @@ describe("live content sources", () => {
     expect(items[0].summary).toContain("608,754");
   });
 
-  it("keeps article ordering stable with official news ahead of generated snapshots", () => {
+  it("orders articles by published time descending", () => {
     const items: Article[] = [
       {
         id: "steam-activity",
@@ -151,9 +151,9 @@ describe("live content sources", () => {
     ];
 
     expect(sortArticlesForDisplay(items).map((item) => item.id)).toEqual([
-      "official-news",
+      "steam-activity",
       "meta-news",
-      "steam-activity"
+      "official-news"
     ]);
   });
 

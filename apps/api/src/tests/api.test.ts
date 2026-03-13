@@ -419,6 +419,16 @@ describe("API v1", () => {
     }
   });
 
+  it("returns articles in descending published order", async () => {
+    const response = await request(app).get("/api/v1/articles?language=en-US&category=news");
+
+    expect(response.status).toBe(200);
+    const publishedTimes = response.body.items.map((item: { publishedAt: string }) =>
+      new Date(item.publishedAt).getTime()
+    );
+    expect(publishedTimes).toEqual([...publishedTimes].sort((left, right) => right - left));
+  });
+
   it("never returns placeholder source URLs in article content", async () => {
     const response = await request(app).get("/api/v1/articles?language=en-US");
 
