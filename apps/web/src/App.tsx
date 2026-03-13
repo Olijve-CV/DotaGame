@@ -20,7 +20,9 @@ import { LoginPage } from "./pages/LoginPage";
 import { ProfilePage } from "./pages/ProfilePage";
 
 interface Copy {
-  home: string;
+  news: string;
+  guides: string;
+  tournaments: string;
   intro: string;
   heroes: string;
   chat: string;
@@ -33,7 +35,9 @@ interface Copy {
   accountState: string;
   guestMode: string;
   memberMode: string;
-  homeKicker: string;
+  newsKicker: string;
+  guidesKicker: string;
+  tournamentsKicker: string;
   introKicker: string;
   heroesKicker: string;
   chatKicker: string;
@@ -41,7 +45,9 @@ interface Copy {
 
 const copyMap: Record<Language, Copy> = {
   "zh-CN": {
-    home: "情报首页",
+    news: "新闻",
+    guides: "攻略",
+    tournaments: "赛事",
     intro: "新手指南",
     heroes: "英雄图谱",
     chat: "智能问答",
@@ -54,13 +60,17 @@ const copyMap: Record<Language, Copy> = {
     accountState: "会话状态",
     guestMode: "访客模式",
     memberMode: "已登录",
-    homeKicker: "前台",
+    newsKicker: "资讯",
+    guidesKicker: "学习",
+    tournamentsKicker: "赛场",
     introKicker: "学习",
     heroesKicker: "图谱",
     chatKicker: "问答"
   },
   "en-US": {
-    home: "Intel Desk",
+    news: "News",
+    guides: "Guides",
+    tournaments: "Tournaments",
     intro: "Starter Guide",
     heroes: "Hero Atlas",
     chat: "Agent Chat",
@@ -73,7 +83,9 @@ const copyMap: Record<Language, Copy> = {
     accountState: "Session",
     guestMode: "Guest Mode",
     memberMode: "Signed In",
-    homeKicker: "Desk",
+    newsKicker: "News",
+    guidesKicker: "Guides",
+    tournamentsKicker: "Events",
     introKicker: "Learn",
     heroesKicker: "Atlas",
     chatKicker: "Ask"
@@ -96,7 +108,19 @@ export function App() {
   const accountEmail = user?.email && user.email !== accountName ? user.email : null;
   const accountInitial = accountName.charAt(0).toUpperCase();
   const navItems = [
-    { to: "/", label: copy.home, kicker: copy.homeKicker, match: (pathname: string) => pathname === "/" },
+    { to: "/news", label: copy.news, kicker: copy.newsKicker, match: (pathname: string) => pathname.startsWith("/news") },
+    {
+      to: "/guides",
+      label: copy.guides,
+      kicker: copy.guidesKicker,
+      match: (pathname: string) => pathname.startsWith("/guides")
+    },
+    {
+      to: "/tournaments",
+      label: copy.tournaments,
+      kicker: copy.tournamentsKicker,
+      match: (pathname: string) => pathname.startsWith("/tournaments")
+    },
     {
       to: "/intro",
       label: copy.intro,
@@ -319,9 +343,18 @@ export function App() {
 
       <main className="app-main">
         <Routes>
+          <Route path="/" element={<Navigate replace to="/news" />} />
           <Route
-            path="/"
-            element={<HomePage locale={locale} token={token} onUserLoaded={handleUserLoaded} />}
+            path="/news"
+            element={<HomePage kind="news" locale={locale} token={token} onUserLoaded={handleUserLoaded} />}
+          />
+          <Route
+            path="/guides"
+            element={<HomePage kind="guide" locale={locale} token={token} onUserLoaded={handleUserLoaded} />}
+          />
+          <Route
+            path="/tournaments"
+            element={<HomePage kind="tournament" locale={locale} token={token} onUserLoaded={handleUserLoaded} />}
           />
           <Route path="/intro" element={<DotaIntroPage locale={locale} />} />
           <Route path="/heroes" element={<HeroAtlasPage locale={locale} />} />
@@ -341,7 +374,7 @@ export function App() {
             path="/login"
             element={<LoginPage locale={locale} onAuth={handleAuth} token={token} />}
           />
-          <Route path="*" element={<Navigate to="/" />} />
+          <Route path="*" element={<Navigate replace to="/news" />} />
         </Routes>
       </main>
     </div>
