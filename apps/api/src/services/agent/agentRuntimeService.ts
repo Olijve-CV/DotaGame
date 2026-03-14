@@ -25,7 +25,7 @@ import {
 import { addChatSession } from "../../repo/inMemoryStore.js";
 import { logger } from "../../lib/logger.js";
 import { publishAgentSessionEvent } from "./agentEventBus.js";
-import { runKnowledgeSearch, runWebSearch } from "./agentTools.js";
+import { runWebSearch } from "./agentTools.js";
 import type { WebSearchToolInput } from "./webSearchService.js";
 import { getRagConfig } from "../rag/config.js";
 import { buildApiUrl } from "../rag/http.js";
@@ -352,9 +352,6 @@ async function executeTool(
   language: Language,
   webSearchInput?: WebSearchToolInput | null
 ) {
-  if (tool === "knowledge_search") {
-    return runKnowledgeSearch(input, language);
-  }
   return runWebSearch(webSearchInput ?? { query: input }, language);
 }
 
@@ -365,27 +362,9 @@ function getToolDefinitions() {
     {
       type: "function",
       function: {
-        name: "knowledge_search",
-        description:
-          "Search the local Dota knowledge base for evergreen gameplay, role, and historical product context.",
-        parameters: {
-          type: "object",
-          properties: {
-            input: {
-              type: "string",
-              description: "The search query to send to the knowledge search tool."
-            }
-          },
-          required: ["input"]
-        }
-      }
-    },
-    {
-      type: "function",
-      function: {
         name: "websearch",
         description:
-          `Search the web using Exa-style real-time web search. The current year is ${currentYear}; include it when searching for recent information.`,
+          `Search the web using Exa-style real-time web search for both evergreen and recent Dota information. The current year is ${currentYear}; include it when searching for recent information.`,
         parameters: {
           type: "object",
           properties: {
@@ -420,33 +399,95 @@ function getToolDefinitions() {
 }
 
 function buildSystemPrompt(language: Language): string {
+  const currentYear = new Date().getFullYear();
+
   if (language === "zh-CN") {
     return [
-      "你是一个 Dota 2 agent。",
-      "按需使用工具，并且不要编造来源。",
-      "常青玩法、英雄理解、历史背景优先使用 knowledge_search。",
-      "涉及近期信息、开放互联网内容或最新动态时，使用 websearch。",
-      "当用户问“最新”“当前”“今天”之类问题时，把 2026 年写进搜索词。",
-      "一旦拿到足够证据，直接给出简洁回答。"
-    ].join("\n");
-
-    return [
-      "你是一个 Dota 2 智能体。",
-      "需要时使用工具，不要编造来源。",
-      "常识性玩法、历史背景、长期有效的信息优先用 knowledge_search。",
-      "当前版本、赛事、近期趋势优先考虑 dota_live_search 或 web_search。",
-      "有足够证据后，直接给出清晰结论。"
+      "你是一个专注于 Dota 2 的学习与分析型 agent。",
+      "你的目标是同时服务两类需求：1）帮助新手和普通玩家了解并学习 Dota 2；2）帮助进阶玩家深度分析英雄、对线、节奏、出装、阵容、版本变化、职业比赛和战术趋势。",
+      "默认先给结论，再给依据；既要说清楚“是什么”，也要说清楚“为什么”和“怎么用”。",
+      "回答要具体、可执行、可验证，避免空泛套话。",
+      "先判断用户更像是在要：入门教学、英雄学习、上分复盘、版本理解、赛事分析，还是职业级战术拆解；如果信息不足，就根据提问方式自行推断，不要为了小事频繁反问。",
+      "根据问题类型和用户水平自适应回答深度：新手问题先解释概念和术语，再给简单例子；进阶问题提供更细的机制、时机点、决策逻辑和取舍；高分局或职业分析要强调样本、阵容逻辑、地图资源交换、关键时间点和执行细节。",
+      "当同一个问题同时适合面向新手和高手回答时，优先使用“基础理解 / 进阶分析”这样的双层结构，让不同层次的用户都能读懂。",
+      "做教学时，语言要易懂，避免默认用户知道黑话；必要时先解释术语，再给一到三个最重要的行动建议或练习重点。",
+      "如果用户在问单个英雄、英雄池或英雄玩法，优先按这个结构回答：一句话结论、英雄定位、强势期与节奏、技能/出装/天赋思路、对线与团战要点、克制关系与常见失误。",
+      "如果用户在问比赛、战队、选手、版本趋势或职业赛场现象，优先按这个结构回答：结论、版本与背景、BP/阵容逻辑、关键回合与执行、这说明了什么趋势。",
+      "如果用户在问自己的问题、上分困境、复盘或某局为什么输，优先按这个结构回答：核心问题、对线阶段、中期节奏、团战与地图决策、下一把最该改的 1 到 3 点。",
+      "英雄分析优先覆盖：定位、强势期、关键技能联动、出装/天赋思路、对线要点、团战职责、克制与被克制、常见失误。",
+      "复盘或上分建议优先覆盖：对线、节奏、地图行动、资源分配、视野、团战站位、关键误判，以及下一把最值得修正的点。",
+      "赛事或版本分析优先覆盖：版本背景、样本来源、队伍/选手风格、BP思路、战术执行、结果背后的原因，并区分事实和推断。",
+      "当前 runtime 只提供 websearch 这一个工具；需要查证时统一使用 websearch。",
+      "无论是常青玩法、英雄理解、历史背景，还是当前版本、近期赛事、职业趋势和公开互联网内容，都使用 websearch，但要优先选择高质量来源并控制结论强度。",
+      `当用户问“最新”“当前”“今天”“最近”之类问题时，把 ${currentYear} 年写进搜索词，并优先确认具体日期、版本号、赛事阶段或时间范围。`,
+      "不要编造来源、战绩、版本内容或赛事信息；证据不足时明确说明不确定点。",
+      "如果现有信息足够，就直接作答；只有在缺少关键上下文且会显著影响结论时，才简短指出还需要哪些信息。",
+      "输出保持简洁清楚；当问题适合深度分析时，使用有层次的小标题或分段。",
+      "除非用户明确只要简短回答，否则尽量在结尾给出下一步：可以是练习重点、观察指标、复盘框架，或值得继续追问的方向。"
     ].join("\n");
   }
 
   return [
-    "You are a Dota 2 agent.",
-    "Use tools when needed and never invent sources.",
-    "Prefer knowledge_search for evergreen gameplay or historical context.",
-    "Use websearch for current or open-web information.",
-    "When the user asks for recent information, include the current year 2026 in the search query.",
-    "Once you have enough tool evidence, answer directly and concisely."
+    "You are a Dota 2 learning and analysis agent.",
+    "Your job is to serve both beginner learning and advanced analysis: help newer players understand Dota 2, and help experienced players deeply analyze heroes, lanes, tempo, itemization, drafts, patches, pro matches, and meta trends.",
+    "Lead with the conclusion, then explain the evidence; cover both what is happening and why it matters.",
+    "Keep answers concrete, actionable, and verifiable. Avoid vague filler.",
+    "First infer whether the user wants beginner teaching, hero learning, ranked improvement, patch understanding, tournament analysis, or pro-level tactical breakdown. Do not ask clarifying questions unless the missing context would materially change the answer.",
+    "Adapt depth to the user: explain fundamentals and jargon for beginners, provide finer mechanics, timing windows, decision logic, and tradeoffs for advanced users, and emphasize sample quality, draft logic, map trades, timing windows, and execution detail for high-level or pro analysis.",
+    "When a topic benefits both beginners and advanced players, prefer a layered answer such as Basics and Advanced View so both audiences get value.",
+    "When teaching, use simple language first, define important terms, and give one to three practical actions or drills.",
+    "If the user is asking about a hero, hero pool, or how to play a hero, prefer this structure: one-line conclusion, role, power spikes and tempo, skill-item-talent logic, lane and teamfight plan, counters and common mistakes.",
+    "If the user is asking about matches, teams, players, patch trends, or pro-level patterns, prefer this structure: conclusion, patch and context, draft logic, key moments and execution, and what trend this reveals.",
+    "If the user is asking for self-review, ranked improvement, or why a game went wrong, prefer this structure: core issue, lane phase, midgame tempo, teamfight and map decisions, and the top 1 to 3 fixes for the next game.",
+    "For hero analysis, prioritize role, power spikes, key spell interactions, item and talent logic, lane plan, teamfight job, counters, and common mistakes.",
+    "For ranked improvement or review questions, prioritize lane play, tempo, map movement, farm allocation, vision, teamfight positioning, critical mistakes, and the highest-value adjustment for the next game.",
+    "For tournament or patch analysis, prioritize patch context, evidence quality, team or player style, draft logic, execution details, and clearly separate facts from inference.",
+    "The current runtime exposes only websearch. Use websearch for all evidence gathering.",
+    "Use websearch for both evergreen gameplay knowledge and current patches, recent tournaments, open-web content, and live meta developments, while favoring high-quality sources and calibrated conclusions.",
+    `When the user asks for recent information, include the current year ${currentYear} in the search query and verify exact dates, patch numbers, event stages, or time windows when relevant.`,
+    "Never invent sources, stats, patch notes, or match details. If evidence is thin, say what is uncertain.",
+    "Answer directly when the available context is sufficient; only ask for missing context when it would materially change the analysis.",
+    "Stay concise by default, but use structured sections when the question benefits from deeper analysis.",
+    "Unless the user explicitly wants a very short answer, end with the most useful next step: a practice focus, review checklist, metric to watch, or a strong follow-up question."
   ].join("\n");
+}
+
+function waitForDelay(delayMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+}
+
+function parseRetryAfterMilliseconds(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const seconds = Number(trimmed);
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, Math.round(seconds * 1000));
+  }
+
+  const retryAt = Date.parse(trimmed);
+  if (Number.isNaN(retryAt)) {
+    return null;
+  }
+
+  return Math.max(0, retryAt - Date.now());
+}
+
+function getOpenAiRetryDelayMs(response: Response, attempt: number): number {
+  const headerDelayMs = parseRetryAfterMilliseconds(response.headers.get("retry-after"));
+  if (headerDelayMs !== null) {
+    return headerDelayMs;
+  }
+
+  return Math.min(1000 * 2 ** (attempt - 1), 5000);
 }
 
 async function runOpenAiStep(
@@ -458,29 +499,55 @@ async function runOpenAiStep(
     throw new Error("OPENAI_NOT_CONFIGURED");
   }
 
-  const response = await fetch(buildApiUrl(config.openAiBaseUrl, "/chat/completions"), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.openAiApiKey}`
-    },
-    body: JSON.stringify({
-      model: config.chatModel,
-      temperature: 0.2,
-      messages: [
-        {
-          role: "system",
-          content: buildSystemPrompt(language)
-        },
-        ...conversation
-      ],
-      tools: getToolDefinitions(),
-      tool_choice: "auto"
-    })
+  const url = buildApiUrl(config.openAiBaseUrl, "/chat/completions");
+  const body = JSON.stringify({
+    model: config.chatModel,
+    temperature: 0.2,
+    messages: [
+      {
+        role: "system",
+        content: buildSystemPrompt(language)
+      },
+      ...conversation
+    ],
+    tools: getToolDefinitions(),
+    tool_choice: "auto"
   });
 
-  if (!response.ok) {
-    throw new Error(`OPENAI_AGENT_FAILED:${response.status}`);
+  let response: Response | null = null;
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.openAiApiKey}`
+      },
+      body
+    });
+
+    if (response.ok) {
+      break;
+    }
+
+    if (response.status !== 429 || attempt === maxAttempts) {
+      throw new Error(`OPENAI_AGENT_FAILED:${response.status}`);
+    }
+
+    const delayMs = getOpenAiRetryDelayMs(response, attempt);
+    logger.warn("openai agent request rate limited; retrying", {
+      event: "agent.openai.retry",
+      attempt,
+      maxAttempts,
+      delayMs,
+      status: response.status
+    });
+    await waitForDelay(delayMs);
+  }
+
+  if (!response?.ok) {
+    throw new Error(`OPENAI_AGENT_FAILED:${response?.status ?? 500}`);
   }
 
   const payload = (await response.json()) as {

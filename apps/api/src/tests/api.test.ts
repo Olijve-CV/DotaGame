@@ -274,14 +274,6 @@ describe("API v1", () => {
                 content: "",
                 tool_calls: [
                   {
-                    id: "call-knowledge",
-                    type: "function",
-                    function: {
-                      name: "knowledge_search",
-                      arguments: JSON.stringify({ input: userMessage })
-                    }
-                  },
-                  {
                     id: "call-web",
                     type: "function",
                     function: {
@@ -303,11 +295,11 @@ describe("API v1", () => {
               content: "",
               tool_calls: [
                 {
-                  id: "call-knowledge",
+                  id: "call-web",
                   type: "function",
                   function: {
-                    name: "knowledge_search",
-                    arguments: JSON.stringify({ input: userMessage })
+                    name: "websearch",
+                    arguments: JSON.stringify({ query: userMessage, type: "auto" })
                   }
                 }
               ]
@@ -543,11 +535,22 @@ describe("API v1", () => {
   });
 
   it("fails the agent session when the model step fails instead of using fallback tools", async () => {
-    fetchMock.mockImplementationOnce(async (input: RequestInfo | URL, init?: RequestInit) => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url =
         typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const payload = JSON.parse(String(init?.body ?? "{}")) as {
+        messages?: Array<{
+          role?: string;
+          content?: string;
+        }>;
+      };
+
       if (url.endsWith("/chat/completions")) {
-        return jsonResponse({ error: "model unavailable" }, 500);
+        const userMessage =
+          [...(payload.messages ?? [])].reverse().find((message) => message.role === "user")?.content ?? "";
+        if (/latest patch trend for carry timings/i.test(userMessage)) {
+          return jsonResponse({ error: "model unavailable" }, 500);
+        }
       }
       return mockOpenAiFetch(input, init);
     });
@@ -591,6 +594,70 @@ describe("API v1", () => {
     ).toBe(true);
   });
 
+  it("retries the agent model step when OpenAI returns 429", async () => {
+    let rateLimitResponses = 0;
+    let matchingModelCalls = 0;
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const payload = JSON.parse(String(init?.body ?? "{}")) as {
+        messages?: Array<{
+          role?: string;
+          content?: string;
+        }>;
+      };
+
+      if (url.endsWith("/chat/completions")) {
+        const userMessage =
+          [...(payload.messages ?? [])].reverse().find((message) => message.role === "user")?.content ?? "";
+        if (/why is dragon knight prioritized in pro drafts lately/i.test(userMessage)) {
+          matchingModelCalls += 1;
+          if (matchingModelCalls === 1) {
+            rateLimitResponses += 1;
+            return new Response(JSON.stringify({ error: "rate_limited" }), {
+              status: 429,
+              headers: {
+                "Content-Type": "application/json",
+                "Retry-After": "0"
+              }
+            });
+          }
+        }
+      }
+
+      return mockOpenAiFetch(input, init);
+    });
+
+    const token = await createAuthToken("agent-retry");
+    const sessionResponse = await request(app)
+      .post("/api/v1/agent/sessions")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        language: "en-US"
+      });
+
+    const turnResponse = await request(app)
+      .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        message: "Why is Dragon Knight prioritized in pro drafts lately?",
+        language: "en-US"
+      });
+
+    expect(turnResponse.status).toBe(202);
+    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id, token);
+
+    expect(rateLimitResponses).toBe(1);
+    expect(matchingModelCalls).toBeGreaterThan(1);
+    expect(completedResponse.body.session.status).toBe("completed");
+    expect(
+      completedResponse.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
+        (message.parts ?? []).some((part) => part.tool === "websearch")
+      )
+    ).toBe(true);
+  });
+
   it("runs websearch in the main session for time-sensitive questions", async () => {
     const token = await createAuthToken("agent-web");
     const sessionResponse = await request(app)
@@ -618,7 +685,7 @@ describe("API v1", () => {
     ).toBe(true);
   });
 
-  it("skips live web tools for evergreen coaching questions", async () => {
+  it("uses websearch for evergreen coaching questions when it is the only enabled tool", async () => {
     const token = await createAuthToken("agent-evergreen");
     const sessionResponse = await request(app)
       .post("/api/v1/agent/sessions")
@@ -640,14 +707,9 @@ describe("API v1", () => {
 
     expect(
       completedResponse.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
-        (message.parts ?? []).some((part) => part.tool === "knowledge_search")
-      )
-    ).toBe(true);
-    expect(
-      completedResponse.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
         (message.parts ?? []).some((part) => part.tool === "websearch")
       )
-    ).toBe(false);
+    ).toBe(true);
     expect(completedResponse.body.children).toEqual([]);
   });
 

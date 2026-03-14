@@ -20,6 +20,7 @@ import {
   sendAgentMessage
 } from "../lib/api";
 import { formatContentDateTime } from "../lib/contentFormatting";
+import { ChatMarkdown } from "../components/ChatMarkdown";
 
 interface ThreadEntry {
   message: AgentMessage;
@@ -626,10 +627,10 @@ export function ChatPage(props: { locale: Language; token: string | null }) {
                           isAssistant ? (
                             <div className="agent-result-block">
                               <span className="agent-result-label">{copy.result}</span>
-                              <p className="agent-chat-content">{resultText}</p>
+                              <ChatMarkdown className="agent-chat-content" content={resultText} />
                             </div>
                           ) : (
-                            <p className="agent-chat-content">{resultText}</p>
+                            <ChatMarkdown className="agent-chat-content" content={resultText} />
                           )
                         ) : null}
 
