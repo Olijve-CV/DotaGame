@@ -146,7 +146,7 @@ export interface ChatSessionRecord {
 
 export type AgentKind = "orchestrator" | "researcher" | "coach";
 
-export type AgentToolName = "knowledge_search" | "websearch";
+export type AgentToolName = "knowledge_search" | "websearch" | "live_tournaments";
 
 export type AgentSessionStatus = "idle" | "running" | "completed" | "failed";
 

@@ -25,7 +25,11 @@ import {
 import { addChatSession } from "../../repo/inMemoryStore.js";
 import { logger } from "../../lib/logger.js";
 import { publishAgentSessionEvent } from "./agentEventBus.js";
-import { runWebSearch } from "./agentTools.js";
+import {
+  runLiveTournaments,
+  runWebSearch,
+  type LiveTournamentsToolInput
+} from "./agentTools.js";
 import type { WebSearchToolInput } from "./webSearchService.js";
 import { getRagConfig } from "../rag/config.js";
 import { buildApiUrl } from "../rag/http.js";
@@ -57,6 +61,7 @@ interface AgentToolCallRequest {
   input: string;
   rawArguments: string;
   webSearchInput: WebSearchToolInput | null;
+  liveTournamentsInput: LiveTournamentsToolInput | null;
 }
 
 interface AgentStepResult {
@@ -76,6 +81,10 @@ function isWebSearchType(value: unknown): value is WebSearchToolInput["type"] {
 
 function isWebSearchLivecrawl(value: unknown): value is WebSearchToolInput["livecrawl"] {
   return value === "fallback" || value === "preferred";
+}
+
+function isLiveTournamentScope(value: unknown): value is LiveTournamentsToolInput["scope"] {
+  return value === "ongoing" || value === "upcoming" || value === "recent";
 }
 
 const activeTurns = new Set<string>();
@@ -325,11 +334,44 @@ function parseWebSearchInput(rawArguments: string, fallbackInput: string): WebSe
   }
 }
 
+function normalizeLiveTournamentsInput(
+  input: LiveTournamentsToolInput
+): LiveTournamentsToolInput {
+  return {
+    scope: isLiveTournamentScope(input.scope) ? input.scope : undefined,
+    limit:
+      typeof input.limit === "number" && Number.isFinite(input.limit)
+        ? Math.max(1, Math.min(8, Math.round(input.limit)))
+        : undefined
+  };
+}
+
+function parseLiveTournamentsInput(rawArguments: string): LiveTournamentsToolInput {
+  try {
+    const parsed = JSON.parse(rawArguments) as {
+      scope?: string;
+      limit?: number;
+    };
+
+    return {
+      scope: isLiveTournamentScope(parsed.scope) ? parsed.scope : undefined,
+      limit: parsed.limit
+    };
+  } catch {
+    return {};
+  }
+}
+
 function buildToolCacheKey(
   tool: AgentToolName,
   input: string,
-  webSearchInput?: WebSearchToolInput | null
+  webSearchInput?: WebSearchToolInput | null,
+  liveTournamentsInput?: LiveTournamentsToolInput | null
 ): string {
+  if (tool === "live_tournaments") {
+    return `${tool}:${JSON.stringify(normalizeLiveTournamentsInput(liveTournamentsInput ?? {}))}`;
+  }
+
   if (tool !== "websearch") {
     return `${tool}:${normalizeToolInput(input)}`;
   }
@@ -350,15 +392,44 @@ async function executeTool(
   tool: AgentToolName,
   input: string,
   language: Language,
-  webSearchInput?: WebSearchToolInput | null
+  webSearchInput?: WebSearchToolInput | null,
+  liveTournamentsInput?: LiveTournamentsToolInput | null
 ) {
+  if (tool === "live_tournaments") {
+    return runLiveTournaments(liveTournamentsInput ?? {}, language);
+  }
+
   return runWebSearch(webSearchInput ?? { query: input }, language);
 }
 
 function getToolDefinitions() {
   const currentYear = new Date().getFullYear();
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   return [
+    {
+      type: "function",
+      function: {
+        name: "live_tournaments",
+        description:
+          `Return structured Dota 2 tournament tracking from the app's synced content store. Today is ${todayIso}. Use this first when the user asks which tournaments are ongoing, live, current, today, or upcoming.`,
+        parameters: {
+          type: "object",
+          properties: {
+            scope: {
+              type: "string",
+              enum: ["ongoing", "upcoming", "recent"],
+              description:
+                "Use 'ongoing' for currently running events, 'upcoming' for next scheduled events, and 'recent' for a mixed recent board."
+            },
+            limit: {
+              type: "number",
+              description: "Maximum number of tournaments to return. Default is 5."
+            }
+          }
+        }
+      }
+    },
     {
       type: "function",
       function: {
@@ -452,6 +523,40 @@ function buildSystemPrompt(language: Language): string {
   ].join("\n");
 }
 
+function buildAgentSystemPrompt(language: Language): string {
+  const currentYear = new Date().getFullYear();
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  if (language === "zh-CN") {
+    return [
+      "你是一个专注于 Dota 2 的学习与分析型 agent。",
+      "默认先给结论，再给依据；回答要具体、可执行、可验证。",
+      `今天的日期是 ${todayIso}。`,
+      "当用户问当前、今天、现在、正在举办、ongoing、live、upcoming 一类赛事问题时，优先使用 live_tournaments 工具。",
+      "只有在 live_tournaments 不能覆盖用户问题时，才补充使用 websearch。",
+      "不要把已经结束的赛事说成正在进行。只有当今天日期落在 startDate 到 endDate 之间，或工具明确返回 ongoing，才可以说赛事正在进行。",
+      `当用户问最近信息时，把 ${currentYear} 写入搜索词，并核对具体日期、版本号、赛事阶段或时间范围。`,
+      "不要编造来源、战绩、版本内容或赛事信息；证据不足时明确说明不确定点。",
+      "如果用户在问比赛、队伍、选手、版本趋势或职业现象，优先给：结论、背景、BP/阵容逻辑、关键执行、趋势含义。",
+      "保持回答简洁清楚；必要时使用小标题。"
+    ].join("\n");
+  }
+
+  return [
+    "You are a Dota 2 learning and analysis agent.",
+    "Lead with the conclusion, then explain the evidence.",
+    "Keep answers concrete, actionable, and verifiable. Avoid vague filler.",
+    `Today is ${todayIso}.`,
+    "Use live_tournaments first when the user asks which tournaments are ongoing, live, current, today, or upcoming.",
+    "Only use websearch to supplement tournament answers when live_tournaments is insufficient.",
+    "Do not call an event ongoing unless today's date falls inside its date window or the tool output clearly marks it ongoing.",
+    `When the user asks for recent information, include the current year ${currentYear} in the search query and verify exact dates, patch numbers, event stages, or time windows.`,
+    "Never invent sources, stats, patch notes, or match details. If evidence is thin, say what is uncertain.",
+    "For tournament or patch analysis, prioritize patch context, evidence quality, team or player style, draft logic, execution details, and clearly separate facts from inference.",
+    "Stay concise by default, but use structured sections when the question benefits from deeper analysis."
+  ].join("\n");
+}
+
 function waitForDelay(delayMs: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, delayMs);
@@ -506,7 +611,7 @@ async function runOpenAiStep(
     messages: [
       {
         role: "system",
-        content: buildSystemPrompt(language)
+        content: buildAgentSystemPrompt(language)
       },
       ...conversation
     ],
@@ -573,6 +678,10 @@ async function runOpenAiStep(
           call.function.name === "websearch"
             ? parseWebSearchInput(call.function.arguments, "")
             : null;
+        const liveTournamentsInput =
+          call.function.name === "live_tournaments"
+            ? parseLiveTournamentsInput(call.function.arguments)
+            : null;
 
         return {
           callId: call.id,
@@ -580,11 +689,75 @@ async function runOpenAiStep(
           input:
             call.function.name === "websearch"
               ? webSearchInput?.query ?? ""
-              : parseToolInput(call.function.arguments, ""),
+              : call.function.name === "live_tournaments"
+                ? ""
+                : parseToolInput(call.function.arguments, ""),
           rawArguments: call.function.arguments,
-          webSearchInput
+          webSearchInput,
+          liveTournamentsInput
         };
       })
+  };
+}
+
+function hasToolConversationMessage(
+  conversation: AgentConversationMessage[],
+  tool: AgentToolName
+): boolean {
+  return conversation.some((message) => {
+    if (message.role !== "tool") {
+      return false;
+    }
+
+    return message.content.includes(`"tool":"${tool}"`);
+  });
+}
+
+function shouldForceLiveTournamentLookup(
+  question: string,
+  conversation: AgentConversationMessage[]
+): boolean {
+  if (hasToolConversationMessage(conversation, "live_tournaments")) {
+    return false;
+  }
+
+  const normalized = question.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  const asksAboutTournaments =
+    /tournament|event|schedule|bracket|赛事|比赛|赛程|对阵/.test(normalized);
+  const asksAboutCurrentStatus =
+    /ongoing|live|current|today|right now|now|happening|running|正在|当前|现在|今天|举办中|进行中/.test(
+      normalized
+    );
+  const asksForAnalysisInstead =
+    /meta|draft|support|carry|hero|ban|pick|bp|trend|打法|体系|阵容|英雄|版本/.test(normalized);
+
+  return asksAboutTournaments && asksAboutCurrentStatus && !asksForAnalysisInstead;
+}
+
+function buildForcedLiveTournamentStep(question: string): AgentStepResult {
+  const scope: LiveTournamentsToolInput["scope"] = /upcoming|即将|接下来/.test(question.toLowerCase())
+    ? "upcoming"
+    : "ongoing";
+
+  return {
+    content: "",
+    toolCalls: [
+      {
+        callId: `forced-live-tournaments-${Date.now()}`,
+        tool: "live_tournaments",
+        input: "",
+        rawArguments: JSON.stringify({ scope, limit: 5 }),
+        webSearchInput: null,
+        liveTournamentsInput: {
+          scope,
+          limit: 5
+        }
+      }
+    ]
   };
 }
 
@@ -593,6 +766,10 @@ async function decideAgentStep(input: {
   question: string;
   language: Language;
 }): Promise<AgentStepResult> {
+  if (shouldForceLiveTournamentLookup(input.question, input.conversation)) {
+    return buildForcedLiveTournamentStep(input.question);
+  }
+
   try {
     return await runOpenAiStep(input.conversation, input.language);
   } catch (error) {
@@ -803,7 +980,12 @@ async function runSessionTurn(sessionId: string): Promise<void> {
 
       for (const toolCall of stepResult.toolCalls) {
         const toolInput = toolCall.input || latestUserQuestion;
-        const cacheKey = buildToolCacheKey(toolCall.tool, toolInput, toolCall.webSearchInput);
+        const cacheKey = buildToolCacheKey(
+          toolCall.tool,
+          toolInput,
+          toolCall.webSearchInput,
+          toolCall.liveTournamentsInput
+        );
         const toolStartedAt = getToolStartedAt(assistantMessage.parts, toolCall.callId);
 
         try {
@@ -817,7 +999,8 @@ async function runSessionTurn(sessionId: string): Promise<void> {
                 toolCall.tool,
                 toolInput,
                 session.language,
-                toolCall.webSearchInput
+                toolCall.webSearchInput,
+                toolCall.liveTournamentsInput
               );
 
           if (!cachedPacket) {

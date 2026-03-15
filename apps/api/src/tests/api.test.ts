@@ -1,5 +1,6 @@
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { upsertTournaments } from "../repo/sourceStore.js";
 import { createApp } from "../app.js";
 import { getDatabaseClient } from "../lib/database.js";
 import { syncAllContent } from "../services/contentService.js";
@@ -128,6 +129,33 @@ describe("API v1", () => {
     });
   }
 
+  function mockOpenDotaTournamentResponse() {
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    return jsonResponse([
+      {
+        leagueid: 19435,
+        league_name: "PGL Wallachia 2026 Season 7",
+        start_time: nowSec - 4 * 60 * 60
+      },
+      {
+        leagueid: 19435,
+        league_name: "PGL Wallachia 2026 Season 7",
+        start_time: nowSec - 90 * 60
+      },
+      {
+        leagueid: 18867,
+        league_name: "Ultras Dota Pro League 2025-26",
+        start_time: nowSec - 2 * 24 * 60 * 60
+      },
+      {
+        leagueid: 18867,
+        league_name: "Ultras Dota Pro League 2025-26",
+        start_time: nowSec - 26 * 60 * 60
+      }
+    ]);
+  }
+
   async function mockOpenAiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const payload = JSON.parse(String(init?.body ?? "{}")) as {
@@ -159,6 +187,10 @@ describe("API v1", () => {
           }
         }
       });
+    }
+
+    if (url === "https://api.opendota.com/api/proMatches") {
+      return mockOpenDotaTournamentResponse();
     }
 
     if (url.includes("dota2.com/datafeed/herodata")) {
@@ -683,6 +715,71 @@ describe("API v1", () => {
         (message.parts ?? []).some((part) => part.tool === "websearch")
       )
     ).toBe(true);
+  });
+
+  it("uses live_tournaments for questions about tournaments happening right now", async () => {
+    const todayIso = new Date().toISOString().slice(0, 10);
+    await upsertTournaments([
+      {
+        id: "test-live-tournament-en",
+        language: "en-US",
+        source: "OpenDota",
+        sourceUrl: "https://www.opendota.com/leagues/19435",
+        title: "PGL Wallachia 2026 Season 7",
+        summary: "Tracked live event for agent tests.",
+        tags: ["pro", "league", "live-source"],
+        publishedAt: new Date().toISOString(),
+        region: "EU",
+        startDate: todayIso,
+        endDate: todayIso,
+        status: "ongoing"
+      }
+    ]);
+
+    const token = await createAuthToken("agent-live-tournaments");
+    const sessionResponse = await request(app)
+      .post("/api/v1/agent/sessions")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        language: "en-US"
+      });
+
+    const turnResponse = await request(app)
+      .post(`/api/v1/agent/sessions/${sessionResponse.body.session.id}/messages`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        message: "Which Dota 2 tournaments are ongoing today?",
+        language: "en-US"
+      });
+
+    expect(turnResponse.status).toBe(202);
+    const completedResponse = await waitForSessionCompletion(sessionResponse.body.session.id, token);
+    const assistantMessage = findLastAssistantMessage(completedResponse.body.messages);
+    const completedToolPart = (assistantMessage?.parts ?? []).find(
+      (part: { type?: string; status?: string; tool?: string }) =>
+        part.type === "tool_call" &&
+        part.status === "completed" &&
+        part.tool === "live_tournaments"
+    ) as
+      | {
+          outputSummary?: string;
+          citations?: Array<{ title?: string }>;
+        }
+      | undefined;
+
+    expect(completedResponse.body.session.status).toBe("completed");
+    expect(
+      completedResponse.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
+        (message.parts ?? []).some((part) => part.tool === "live_tournaments")
+      )
+    ).toBe(true);
+    expect(
+      completedResponse.body.messages.some((message: { parts?: Array<{ tool?: string }> }) =>
+        (message.parts ?? []).some((part) => part.tool === "websearch")
+      )
+    ).toBe(false);
+    expect(completedToolPart?.outputSummary).toContain("PGL Wallachia 2026 Season 7");
+    expect(completedToolPart?.citations?.length).toBeGreaterThan(0);
   });
 
   it("uses websearch for evergreen coaching questions when it is the only enabled tool", async () => {
